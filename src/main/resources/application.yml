@@ -1,0 +1,20 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name : testHtmx
+  datasource:
+    url: jdbc:postgresql://localhost:5430/htmxserver
+    username: htmxserver
+    password: 123
+    driver-class-name:  org.postgresql.Driver
+  jpa:
+    database: POSTGRESQL
+    show-sql: true
+    hibernate:
+        ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
