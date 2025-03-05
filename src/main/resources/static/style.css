@@ -1,0 +1,188 @@
+/* ===== ОБЩИЕ СТИЛИ =====
+body {
+    font-family: Impact, fantasy, 'Times New Roman', serif;
+    margin: 0;
+    padding: 0;
+    font-size: 2rem;
+    background: url('/static/images/water-bg2.webp') no-repeat center center/cover;
+}
+
+/* ===== ШАПКА =====
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2% 5%;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+header .logo img {
+    border-radius: 50%;
+    width: 10vw;
+    height: auto;
+    box-shadow: 3px 3px 10px #007bff;
+}
+
+header nav a {
+    border-radius: 10px;
+    transition: 0.2s linear;
+    color: rgb(21, 53, 67);
+    text-decoration: none;
+    margin: 0 10px;
+    font-size: 2rem;
+}
+
+header nav a:hover {
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #ffd901;
+}
+
+/* ===== ГЛАВНЫЙ БЛОК =====
+#hero {
+    text-shadow: 3px 1px 3px rgb(12, 12, 12);
+    background-color: rgba(0, 0, 0, 0);
+    -webkit-text-stroke: 1px #030303;
+    padding: 22vh 5%;
+    color: rgb(241, 239, 235);
+    padding: 30px 90px 30px 30px;
+    width: 530px;
+}
+
+#hero h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1.7rem;
+}
+
+#hero p {
+    font-size: 1.8rem;
+    -webkit-text-stroke: 1px #030303;
+}
+
+/* ===== РАЗДЕЛ "БЫСТРАЯ ПОКУПКА БИЛЕТОВ" =====
+#cart {
+    background-color: rgba(0, 0, 0, 0);
+    font-family: Impact, fantasy, 'Times New Roman', serif;
+    font-size: 1rem;
+    color: rgb(241, 239, 235);
+    -webkit-text-stroke: 1px #030303;
+}
+
+#cart_box {
+    font-size: 2rem;
+}
+
+#cart_summary {
+    margin-top: 1.25rem;
+    font-size: 1rem;
+    color: rgb(241, 239, 235);
+    text-shadow: 1px 1px 2px black;
+}
+
+#cart_button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: background-color 0.3s ease;
+}
+
+#cart_button:hover {
+    background-color: #0056b3;
+}
+
+/* ===== РАЗДЕЛ "О КОМПАНИИ" =====
+#about {
+    padding: 5%;
+    background-color: rgba(0, 0, 0, 0.1);
+    width: 80%;
+    margin: auto;
+    text-align: center;
+}
+
+#about h2 {
+    font-size: 2rem;
+    margin-bottom: 0.625;
+}
+
+#about p {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* ===== ПОДВАЛ =====
+footer {
+    font-size: 1.2rem;
+    text-align: center;
+    padding: 2%;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+}
+
+/* ===== ДОПОЛНИТЕЛЬНЫЕ СТИЛИ =====
+.gradient-text {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 1.8rem;
+    background: radial-gradient(black 1px, rgb(0, 0, 0) 30%, rgb(50, 218, 230));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: table;
+}
+
+/* ===== МЕДИАЗАПРОСЫ =====
+@media (max-width: 768px) {
+    header nav a {
+        font-size: 0.8rem;
+        margin: 0 0.3rem;
+    }
+
+    #hero h1 {
+        font-size: 1.8rem;
+    }
+
+    #hero p {
+        font-size: 1rem;
+    }
+
+    #about {
+        width: 95%;
+    }
+
+    #cart_button {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+    }
+}
+*/
+.modal-window{
+
+
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+.modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 50%;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+}
+.close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+}
+
+
