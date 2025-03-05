@@ -1,20 +1,38 @@
-<!--<meta charset="UTF-8">-->
 <div th:fragment="basketFragment">
     <h2>Корзина</h2>
-    <div class="basket-items">
-        <div id="basket">
-           <div><p> Детские билеты : <span th:text="${CHILDCount}">0</span> Сумма <span th:text="${CHILDAmount}"></span></p></div>
-           <div><p> Взрослые билеты билеты : <span th:text="${SENIORCount}">0</span> Сумма <span th:text="${SENIORAmount}"></span></p></div>
-           <div><p> Льготные билеты билеты : <span th:text="${DISCOUNTCount}">0</span> Сумма <span th:text="${DISCOUNTDAmount}"></span></p></div>
+    <div class="basket-items" id="basket">
+        <div th:if="${order == null or order.ticketList == null or order.ticketList.isEmpty}">
+            <p>Ваша корзина пуста.</p>
         </div>
-    </div>
-    <div class="basket-summary1">
-        <div id="basket-summary">
-        <h3>Итоговая сумма <span th:text="${totalAmount}">0</span> рублей</h3>
+        <div th:if="${order.ticketList != null and not order.ticketList.isEmpty()}">
+            <ul>
+
+                    <div th:if="${order.getTicketByType('CHILD') != null}">
+                    <span>Детских билетов</span>
+                    <span th:text="${childCount} + ' на сумму ' "  >0</span>
+                    <span th:text="${childAmount} + ' рублей.' ">0</span>
+                    </div>
+                    <div th:if="${order.getTicketByType('SENIOR') != null}">
+                        <span>Детских билетов</span>
+                        <span th:text="${seniorCount} + ' на сумму ' "  >0</span>
+                        <span th:text="${seniorAmount} + ' рублей.' ">0</span>
+                    </div>
+                    <div th:if="${order.getTicketByType('DISCOUNT') != null}">
+                        <span>Детских билетов</span>
+                        <span th:text="${discountCount} + ' на сумму ' "  >0</span>
+                        <span th:text="${discountAmount} + ' рублей.' ">0</span>
+                    </div>
+                    <h3> Общая сумма к заказу : <span th:text="${totalAmount}"> 0</span></h3>
+            </ul>
         </div>
+        <button hx-post="/proceedToUserData"
+                hx-target="#modalBody"
+                hx-swap="innerHTML">
+            Перейти к оформлению.
+        </button>
+        <button hx-get="/getModal"
+                hx-target="#modalBody"
+                hx-swap="innerHTML"> Венуться к покупке билетов.
+        </button>
     </div>
-    <button hx-get="/proceedToUserData" hx-target="#modalBody" hx-swap="innerHTML">
-        Перейти к оформлению.
-    </button>
-    <button hx-get="/getModal" hx-target="#modalBody" hx-swap="innerHTML"> Венуться к покупке билетов.</button>
 </div>

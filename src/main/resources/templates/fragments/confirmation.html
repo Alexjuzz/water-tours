@@ -1,0 +1,7 @@
+<div th:fragment="confirmationFragment">
+    <h2>Подтверждение заказа</h2>
+    <p th:text="${confirmation}">Ваш заказ успешно оформлен!</p>
+    <button onclick="document.getElementById('modalWindow').style.display='none': location.reload();">
+        Закрыть окно.
+    </button>
+</div>

@@ -1,15 +1,26 @@
-
 <div th:fragment="proceedToUserDataFragment">
-     <h2>Введите свои данные для оформления заказа.</h2>
-    <form action="/purchase" method="post" hx-target="modalWindow" hx-swap="innerHTML" hx-post="/purchase">
-        <label for="buyerName">Имя: </label>
-        <input type="text" id="buyerName" name="buyerName" placeholder="Ваше имя" required>
+    <h2>Введите свои данные для оформления заказа</h2>
+    <form th:object="${userDto}" hx-post="/purchase" hx-target="#modalBody" hx-swap="innerHTML">
+        <div th:if="${error != null}">
+            <p class="error" th:text="${error}" style="color: red;"></p>
+        </div>
+        <div>
+            <label for="buyerName">Имя:</label>
+            <input type="text" id="buyerName" th:field="*{buyerName}" placeholder="Ваше имя" required>
+            <span th:if="${#fields.hasErrors('buyerName')}" th:errors="*{buyerName}" style="color: red;"></span>
+        </div>
         <br>
-        <label for="phone">Ваш телефон </label>
-        <input type="tel" id="phone" name="phone" placeholder="Ваш телефон" required>
+        <div>
+            <label for="phone">Ваш телефон:</label>
+            <input type="tel" id="phone" th:field="*{phone}" placeholder="Ваш телефон" required>
+            <span th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}" style="color: red;"></span>
+        </div>
         <br>
-        <label for="email">Электронная почта: </label>
-        <input type="email" id="email" name="email" placeholder="Ваш e-mail" required>
+        <div>
+            <label for="email">Электронная почта:</label>
+            <input type="email" id="email" th:field="*{email}" placeholder="Ваш e-mail" required>
+            <span th:if="${#fields.hasErrors('email')}" th:errors="*{email}" style="color: red;"></span>
+        </div>
         <br>
         <button type="submit">Оплатить</button>
     </form>

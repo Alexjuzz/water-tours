@@ -2,6 +2,7 @@ package com.watertours.project.service;
 
 import com.watertours.project.component.TicketProperties;
 import com.watertours.project.enums.TicketType;
+import com.watertours.project.model.dto.BasketUpdateDto;
 import com.watertours.project.model.dto.QuickTicketModalDto;
 import com.watertours.project.model.dto.TicketUpdateDto;
 import com.watertours.project.model.entity.ticket.QuickTicket;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
 
+import java.lang.reflect.Type;
 import java.util.List;
 
 
@@ -55,27 +57,9 @@ public class QuickTicketService {
         this.properties = properties;
     }
 
-    public String getModal(HttpSession httpSession, Model model) {
-        Order order = orderService.getOrder(httpSession);
-        httpSession.setAttribute("order", order);
-        model = addAtributesToModel(model);
-        model.addAttribute("CHILDCount", getTicketCount(order.getTicketList(), TicketType.CHILD));
-        model.addAttribute("SENIORCount", getTicketCount(order.getTicketList(), TicketType.SENIOR));
-        model.addAttribute("DISCOUNTCount", getTicketCount(order.getTicketList(), TicketType.DISCOUNT));
-        model.addAttribute("CHILDAmount", getTicketsPrice(getTicketCount(order.getTicketList(), TicketType.CHILD), properties.getChild()));
 
-        return "fragments/QuickBuyTicket :: QuickBuyTicketFragment";
-    }
 
-    public String postModal(Model model, HttpSession httpSession) {
-        Order getOrder = (Order) httpSession.getAttribute("order");
-        System.out.println(getOrder);
-        return "fragments/QuickBuyTicket :: QuickBuyTicketFragment";
-    }
 
-    public String proceedToUserData() {
-        return "fragments/proceedToUserData :: proceedToUserDataFragment";
-    }
 
     public TicketUpdateDto incrementTicket(TicketType type, Order order) {
         QuickTicket ticket = ticketService.createQuickTicket(type);
@@ -88,12 +72,19 @@ public class QuickTicketService {
         return createTicketUpdateDto(type, order);
     }
 
-    public String getBasket(Model model, HttpSession httpSession) {
-        Order order = orderService.getOrder(httpSession);
-        httpSession.setAttribute("order", order);
-        int totalAmount = getTotalAmount(order.getTicketList());
-        model.addAttribute("totalAmount", totalAmount);
-        return "fragments/basket :: basketFragment";
+    public BasketUpdateDto getBasket(Order order) {
+        BasketUpdateDto dto = new BasketUpdateDto();
+        dto.setChildCount(getTicketCount(order.getTicketList(), TicketType.CHILD));
+        dto.setSeniorCount(getTicketCount(order.getTicketList(), TicketType.SENIOR));
+        dto.setDiscountCount(getTicketCount(order.getTicketList(), TicketType.DISCOUNT));
+        dto.setChildAmount(getTicketsPrice(dto.getChildCount(), properties.getChild()));
+        dto.setSeniorAmount(getTicketsPrice(dto.getSeniorCount(), properties.getSenior()));
+        dto.setDiscountAmount(getTicketsPrice(dto.getDiscountCount(), properties.getDiscount()));
+        dto.setTotalAmount(getTotalAmount(order.getTicketList()));
+        dto.setChildPrice(properties.getChild());
+        dto.setSeniorPrice(properties.getSenior());
+        dto.setDiscountPrice(properties.getDiscount());
+        return dto;
     }
 
     public QuickTicketModalDto prepareModalDto(Order order) {

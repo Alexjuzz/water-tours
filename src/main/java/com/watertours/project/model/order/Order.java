@@ -42,4 +42,9 @@ public class Order implements Serializable {
        ticketToDelete.ifPresent(ticketList::remove);
         return ticketList;
     }
+    public QuickTicket getTicketByType(TicketType type){
+            Optional<QuickTicket> ticket = ticketList.stream().filter(t -> t.getType().equals(type)).findFirst();
+        return ticket.orElse(null);
+
+    }
 }
