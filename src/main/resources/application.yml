@@ -18,3 +18,13 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  redis:
+    host: host.docker.internal
+    port: 6379
+
+values:
+  ticket:
+      price:
+          child: 599
+          senior: 1099
+          discount: 799

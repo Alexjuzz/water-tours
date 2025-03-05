@@ -156,33 +156,106 @@ footer {
     }
 }
 */
-.modal-window{
+.modal-window {
+     display: none;
+     position: fixed;
+     border-radius: 10px;
+     z-index: 1000;
+     left: 50%;
+     top: 50%;
+     transform: translate(-50%, -50%);
+     width: 90%;
+     max-width: 600px;
+     height: auto;
+     padding: 40px 20px;
+     background-color: rgba(255, 255, 255, 0.9);
+     box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.3);
+ }
+
+ .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+  }
+
+  .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    background-color: rgb(114, 78, 78);
+  }
 
 
-            display: none;
-            position: fixed;
-            z-index: 1;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.4);
-        }
-.modal-content {
-            background-color: #fff;
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 50%;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
+ .close:hover,
+ .close:focus {
+   color: black;
+   text-decoration: none;
+   cursor: pointer;
+ }
+.success-window {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 500px;
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
 }
-.close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
+
+.success-content {
+    font-size: 1.5rem;
+    color: #333;
 }
 
+.success-content button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: #fff;
+    cursor: pointer;
+}
 
+.success-content button:hover {
+    background-color: #0056b3;
+}
+.success-message, .error-message {
+    text-align: center;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    background-color: #fff;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.success-message h2 {
+    color: green;
+}
+
+.error-message h2 {
+    color: red;
+}
+
+.success-message button, .error-message button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+.success-message button:hover, .error-message button:hover {
+    background-color: #0056b3;
+}

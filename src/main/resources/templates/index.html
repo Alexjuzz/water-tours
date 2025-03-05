@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title> Water Tours</title>
+    <link rel="stylesheet" href="style-test.css">
+    <script src="https://unpkg.com/htmx.org"></script>
+</head>
+<body>
+
+
+<div th:replace="~{fragments/modal :: modalFragment}"></div>
+
+<button onclick="document.getElementById('modalWindow').style.display='block'; this.style.display='none'"
+        hx-get="/getModal"
+        hx-target="#modalBody"
+        hx-swap="innerHTML"
+    >
+        Купить билеты.
+</button>
+
+</body>
+</html>

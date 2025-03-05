@@ -1,0 +1,36 @@
+<div th:fragment="QuickBuyTicketFragment" >
+    <h2> Выберите нужный билет</h2>
+    <div class="ticket-type">
+        <h3>Детский билет</h3>
+        <div id="childTicket" th:fragment="CHILDTicketFragment" >
+            <button hx-post="/cart/inc?type=CHILD" hx-target="#childTicket" hx-trigger="click" hx-swap="innerHTML" > +</button>
+            <button hx-post="/cart/dec?type=CHILD" hx-target="#childTicket" hx-trigger="click" hx-swap="innerHTML"> -</button>
+            <span th:text="${CHILDCount}">0</span>
+            <div><p>Цена за билет: <span th:text="${CHILDPrice}">500</span> руб</p></div>
+            <div><p>Общая стоимость: <span th:text="${CHILDAmount}">500</span> руб</p></div>
+        </div>
+    </div>
+    <div class="ticket-type">
+        <h3>Взрослый билет</h3>
+        <div id="seniorTicket" th:fragment="SENIORTicketFragment">
+            <button hx-post="/cart/inc?type=SENIOR" hx-target="#seniorTicket" hx-trigger="click" hx-swap="innerHTML"> +</button>
+            <button hx-post="/cart/dec?type=SENIOR" hx-target="#seniorTicket" hx-trigger="click" hx-swap="innerHTML"> -</button>
+            <span th:text="${SENIORCount}">0</span>
+            <div><p>Цена за билет: <span th:text="${SENIORPrice}">1200</span> руб</p></div>
+            <div><p>Общая стоимость: <span th:text="${SENIORAmount}">500</span> руб</p></div>
+        </div>
+    </div>
+    <div class="ticket-type">
+        <h3>Льготный билет</h3>
+        <div id="discountTicket" th:fragment="DISCOUNTTicketFragment">
+            <button hx-post="/cart/inc?type=DISCOUNT" hx-target="#discountTicket" hx-trigger="click" hx-swap="innerHTML"> +</button>
+            <button hx-post="/cart/dec?type=DISCOUNT" hx-target="#discountTicket" hx-trigger="click" hx-swap="innerHTML"> -</button>
+            <span th:text="${DISCOUNTCount}">0</span>
+            <div><p>Цена за билет: <span th:text="${DISCOUNTPrice}">700</span> руб</p></div>
+            <div><p>Общая стоимость: <span th:text="${DISCOUNTAmount}">500</span> руб</p></div>
+        </div>
+    </div>
+    <button hx-post="/basket"
+    hx-target="#modalBody"
+    hx-swap="innerHTML">Перейти в корзину.</button>
+</div>

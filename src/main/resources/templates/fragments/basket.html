@@ -1,0 +1,20 @@
+<!--<meta charset="UTF-8">-->
+<div th:fragment="basketFragment">
+    <h2>Корзина</h2>
+    <div class="basket-items">
+        <div id="basket">
+           <div><p> Детские билеты : <span th:text="${CHILDCount}">0</span> Сумма <span th:text="${CHILDAmount}"></span></p></div>
+           <div><p> Взрослые билеты билеты : <span th:text="${SENIORCount}">0</span> Сумма <span th:text="${SENIORAmount}"></span></p></div>
+           <div><p> Льготные билеты билеты : <span th:text="${DISCOUNTCount}">0</span> Сумма <span th:text="${DISCOUNTDAmount}"></span></p></div>
+        </div>
+    </div>
+    <div class="basket-summary1">
+        <div id="basket-summary">
+        <h3>Итоговая сумма <span th:text="${totalAmount}">0</span> рублей</h3>
+        </div>
+    </div>
+    <button hx-get="/proceedToUserData" hx-target="#modalBody" hx-swap="innerHTML">
+        Перейти к оформлению.
+    </button>
+    <button hx-get="/getModal" hx-target="#modalBody" hx-swap="innerHTML"> Венуться к покупке билетов.</button>
+</div>
