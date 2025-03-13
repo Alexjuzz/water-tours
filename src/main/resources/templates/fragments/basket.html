@@ -1,6 +1,8 @@
+<html xmlns:th="http://www.thymeleaf.org">
 <div th:fragment="basketFragment">
     <h2>Корзина</h2>
     <div class="basket-items" id="basket">
+        <input type="hidden" id="cartId" th:value="${cartId}">
         <div th:if="${order == null or order.ticketList == null or order.ticketList.isEmpty}">
             <p>Ваша корзина пуста.</p>
         </div>

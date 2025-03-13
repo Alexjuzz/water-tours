@@ -1,4 +1,4 @@
-package com.watertours.project.model.entity.ticket;
+package com.watertours.project.model.entity.telephone;
 
 import lombok.Data;
 

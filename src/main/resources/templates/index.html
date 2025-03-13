@@ -2,22 +2,27 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title> Water Tours</title>
+    <title>Water Tours</title>
     <link rel="stylesheet" href="style-test.css">
     <script src="https://unpkg.com/htmx.org"></script>
 </head>
 <body>
-
-
-<div th:replace="~{fragments/modal :: modalFragment}"></div>
-
-<button onclick="document.getElementById('modalWindow').style.display='block'; this.style.display='none'"
+<div id="modalWindow" class="modal" style="display: none">
+    <div class="modal-content">
+            <span class="close" hx-target="body" hx-swap="none" hx-get="/closeModal" onclick="document.getElementById('modalWindow').style.display='none'; document.getElementById('buyTicketsButton').style.display='block'">
+                ×
+            </span>
+        <div id="modalBody">
+            ИНФО
+        </div>
+    </div>
+</div>
+<button id="buyTicketsButton"
+        onclick="document.getElementById('modalWindow').style.display='block'; this.style.display='none'"
         hx-get="/getModal"
         hx-target="#modalBody"
-        hx-swap="innerHTML"
-    >
-        Купить билеты.
+        hx-swap="innerHTML">
+    Купить билеты
 </button>
-
 </body>
 </html>

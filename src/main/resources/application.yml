@@ -28,3 +28,23 @@ values:
           child: 599
           senior: 1099
           discount: 799
+logging:
+  level:
+    com:
+      watertours:
+          project:
+            controller: debug
+            service: debug
+            repository: debug
+    level:
+      org:
+        springframework:
+          boot:
+            web:
+              embedded: WARN
+
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"
+    file: "%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/waterTours.log

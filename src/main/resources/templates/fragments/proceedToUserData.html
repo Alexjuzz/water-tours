@@ -1,4 +1,6 @@
+<html xmlns:th="http://www.thymeleaf.org">
 <div th:fragment="proceedToUserDataFragment">
+    <input type="hidden" id="cartId" th:value="${cartId}">
     <h2>Введите свои данные для оформления заказа</h2>
     <form th:object="${userDto}" hx-post="/purchase" hx-target="#modalBody" hx-swap="innerHTML">
         <div th:if="${error != null}">

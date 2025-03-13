@@ -1,10 +1,12 @@
 package com.watertours.project.component;
 
 import com.watertours.project.enums.TicketType;
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
+@Data
 @ConfigurationProperties(prefix = "values.ticket.price")
 public class TicketProperties {
     private int child;
@@ -20,29 +22,4 @@ public class TicketProperties {
             default -> throw new IllegalArgumentException("Неизвестнная цена");
         };
     }
-
-    public int getChild() {
-        return child;
-    }
-
-    public void setChild(int child) {
-        this.child = child;
-    }
-
-    public int getSenior() {
-        return senior;
-    }
-
-    public void setSenior(int senior) {
-        this.senior = senior;
-    }
-
-    public int getDiscount() {
-        return discount;
-    }
-
-    public void setDiscount(int discount) {
-        this.discount = discount;
-    }
-
 }

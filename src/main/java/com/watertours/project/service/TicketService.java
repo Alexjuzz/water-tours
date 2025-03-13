@@ -9,11 +9,12 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 
-
 @Service
 public class TicketService {
-    private List<QuickTicket> listTicket;
     private final TicketProperties ticketProperties;
+
+    private List<QuickTicket> listTicket;
+
 
     @Autowired
     public TicketService(TicketProperties ticketProperties) {
@@ -21,7 +22,7 @@ public class TicketService {
     }
 
 
-    public QuickTicket createQuickTicket(TicketType type){
+    public QuickTicket createQuickTicket(TicketType type) {
         QuickTicket quickTicket = new QuickTicket(type);
 
         switch (type) {
@@ -35,12 +36,10 @@ public class TicketService {
                 quickTicket.setPrice(ticketProperties.getDiscount());
                 break;
             default:
-                throw  new IllegalArgumentException("Не правильный тип билета");
+                throw new IllegalArgumentException("Не правильный тип билета");
         }
         return quickTicket;
     }
 
-    public List<QuickTicket> getListTicket() {
-        return listTicket;
-    }
+
 }
