@@ -27,12 +27,12 @@
                     <h3> Общая сумма к заказу : <span th:text="${totalAmount}"> 0</span></h3>
             </ul>
         </div>
-        <button hx-post="/proceedToUserData"
+        <button th:hx-post="'/proceedToUserData?cartId=' + ${cartId}"
                 hx-target="#modalBody"
                 hx-swap="innerHTML">
             Перейти к оформлению.
         </button>
-        <button hx-get="/getModal"
+        <button th:hx-get="'/getModal?cartId=' + ${cartId}"
                 hx-target="#modalBody"
                 hx-swap="innerHTML"> Венуться к покупке билетов.
         </button>

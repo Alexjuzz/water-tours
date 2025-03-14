@@ -14,6 +14,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "quick_ticket")
 public class QuickTicket implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -29,9 +30,6 @@ public class QuickTicket implements Serializable {
     public QuickTicket() {
     }
 
-
-
-
     @ManyToOne
     @JoinColumn(name = "TicketOrder_id")
     @JsonBackReference
@@ -41,14 +39,12 @@ public class QuickTicket implements Serializable {
         this.type = type;
     }
 
-
     @PrePersist
     private void prePersist() {
         if(this.uuid == null){
             this.uuid = UUID.randomUUID();
         }
     }
-
 
 
 

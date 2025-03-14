@@ -26,6 +26,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.UUID;
 
+
+// todo Доделать totalAmount - Не считается общая сумма заказа
+// todo Доделать корзину - Не отображается общая сумма заказа
+//todo Сделать обратный переход в корзину, заказ не сохраняется
+//todo доделать возрат коризны при отмене платежа.
+
+
 @Controller
 public class QuickTicketController {
 

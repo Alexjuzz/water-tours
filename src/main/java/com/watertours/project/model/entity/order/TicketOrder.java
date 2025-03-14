@@ -6,6 +6,7 @@ import com.watertours.project.enums.TicketType;
 import com.watertours.project.model.entity.ticket.QuickTicket;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -18,6 +19,7 @@ import java.util.Optional;
 @Data
 @Entity
 @Table(name = "ticker_order")
+@ToString(exclude = "ticketList")
 public class TicketOrder implements Serializable {
 
     @Id
@@ -73,19 +75,26 @@ public class TicketOrder implements Serializable {
     public int getTicketPriceByType(TicketType type) {
         return ticketList.stream().
                 filter(t -> t.getType().equals(type)).
-                findFirst().map(QuickTicket::getPrice).
+                findFirst().
+                map(QuickTicket::getPrice).
                 orElse(new QuickTicket(type).getPrice());
     }
 
     public List<QuickTicket> deleteTicketByType(TicketType type) {
-        Optional<QuickTicket> ticketToDelete = ticketList.stream().filter(t -> t.getType().equals(type)).findFirst();
+        Optional<QuickTicket> ticketToDelete = ticketList.stream()
+                .filter(t -> t.getType().equals(type))
+                .findFirst();
         ticketToDelete.ifPresent(ticketList::remove);
         return ticketList;
     }
 
     public QuickTicket getTicketByType(TicketType type) {
-        Optional<QuickTicket> ticket = ticketList.stream().filter(t -> t.getType().equals(type)).findFirst();
+        Optional<QuickTicket> ticket = ticketList.stream()
+                .filter(t -> t.getType().equals(type))
+                .findFirst();
         return ticket.orElse(null);
 
     }
+
+
 }
