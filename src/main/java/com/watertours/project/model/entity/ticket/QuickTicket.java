@@ -22,9 +22,14 @@ public class QuickTicket implements Serializable {
     @Column(name = "unique_id", unique = true)
     private  UUID uuid;
     @Column(name = "ticket_type")
-    private final TicketType type;
+    private  TicketType type;
     @Column(name = "price")
-    private int Price;
+    private int price;
+
+    public QuickTicket() {
+    }
+
+
 
 
     @ManyToOne
