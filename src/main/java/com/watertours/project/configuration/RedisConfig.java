@@ -1,5 +1,7 @@
 package com.watertours.project.configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,12 +22,23 @@ public class RedisConfig {
     public RedisTemplate<String, TicketOrder> redisTemplate(LettuceConnectionFactory connectionFactory) {
         RedisTemplate<String, TicketOrder> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
-        Jackson2JsonRedisSerializer<TicketOrder> serializer = new Jackson2JsonRedisSerializer<>(TicketOrder.class);
-        template.setDefaultSerializer(serializer);
+
+        // Создаем ObjectMapper и регистрируем JavaTimeModule
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+
+        // Передаем ObjectMapper прямо в конструктор сериализатора
+        Jackson2JsonRedisSerializer<TicketOrder> serializer = new Jackson2JsonRedisSerializer<>(mapper, TicketOrder.class);
+
+        // Настройка сериализации ключей и значений
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
         template.setHashKeySerializer(new StringRedisSerializer());
         template.setHashValueSerializer(serializer);
+        template.setDefaultSerializer(serializer);
+
         return template;
     }
+
+
 }

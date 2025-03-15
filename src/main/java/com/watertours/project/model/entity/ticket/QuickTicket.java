@@ -1,6 +1,7 @@
 package com.watertours.project.model.entity.ticket;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.watertours.project.enums.TicketStatus;
 import com.watertours.project.enums.TicketType;
 import com.watertours.project.model.entity.order.TicketOrder;
@@ -8,6 +9,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.jpa.convert.threeten.Jsr310JpaConverters;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -30,6 +32,7 @@ public class QuickTicket implements Serializable {
     private int price;
 
     @Column(name = "status")
+    @Enumerated(EnumType.STRING)
     private TicketStatus ticketStatus;
     @Column(updatable = false)
     private LocalDateTime dateStamp;
@@ -57,6 +60,7 @@ public class QuickTicket implements Serializable {
         return false;
     }
 
+    @JsonIgnore
     public boolean isExpired() {
         long diffDays = ChronoUnit.DAYS.between(dateStamp, LocalDateTime.now());
         if (diffDays > 5) {
