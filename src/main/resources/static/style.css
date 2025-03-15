@@ -1,261 +1,84 @@
-/* ===== ОБЩИЕ СТИЛИ =====
+/* === Основные настройки === */
+:root {
+    --background: #ecf0f3;
+    --shadow-light: 5px 5px 10px #2d7ea3, -5px -5px 10px white;
+    --shadow-inset: inset 5px 5px 10px #2d7ea3, inset -5px -5px 10px white;
+    --text: #333;
+    --border-radius: 12px;
+
+    /* Цвета кнопок */
+    --primary: #0077b6;
+    --primary-light: #00b4d8;
+    --gradient: linear-gradient(135deg, var(--primary) 30%, var(--primary-light) 100%);
+}
 body {
-    font-family: Impact, fantasy, 'Times New Roman', serif;
-    margin: 0;
-    padding: 0;
-    font-size: 2rem;
-    background: url('/static/images/water-bg2.webp') no-repeat center center/cover;
-}
-
-/* ===== ШАПКА =====
-header {
+    font-family: "Poppins", sans-serif;
+    background: var(--background);
+    color: var(--text);
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
-    padding: 2% 5%;
-    background-color: rgba(0, 0, 0, 0.1);
 }
 
-header .logo img {
-    border-radius: 50%;
-    width: 10vw;
-    height: auto;
-    box-shadow: 3px 3px 10px #007bff;
-}
-
-header nav a {
-    border-radius: 10px;
-    transition: 0.2s linear;
-    color: rgb(21, 53, 67);
-    text-decoration: none;
-    margin: 0 10px;
-    font-size: 2rem;
-}
-
-header nav a:hover {
-    box-shadow: 0 0 0 2px white, 0 0 0 4px #ffd901;
-}
-
-/* ===== ГЛАВНЫЙ БЛОК =====
-#hero {
-    text-shadow: 3px 1px 3px rgb(12, 12, 12);
-    background-color: rgba(0, 0, 0, 0);
-    -webkit-text-stroke: 1px #030303;
-    padding: 22vh 5%;
-    color: rgb(241, 239, 235);
-    padding: 30px 90px 30px 30px;
-    width: 530px;
-}
-
-#hero h1 {
-    font-size: 2.5rem;
-    margin-bottom: 1.7rem;
-}
-
-#hero p {
-    font-size: 1.8rem;
-    -webkit-text-stroke: 1px #030303;
-}
-
-/* ===== РАЗДЕЛ "БЫСТРАЯ ПОКУПКА БИЛЕТОВ" =====
-#cart {
-    background-color: rgba(0, 0, 0, 0);
-    font-family: Impact, fantasy, 'Times New Roman', serif;
-    font-size: 1rem;
-    color: rgb(241, 239, 235);
-    -webkit-text-stroke: 1px #030303;
-}
-
-#cart_box {
-    font-size: 2rem;
-}
-
-#cart_summary {
-    margin-top: 1.25rem;
-    font-size: 1rem;
-    color: rgb(241, 239, 235);
-    text-shadow: 1px 1px 2px black;
-}
-
-#cart_button {
-    margin-top: 20px;
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1.1rem;
-    transition: background-color 0.3s ease;
-}
-
-#cart_button:hover {
-    background-color: #0056b3;
-}
-
-/* ===== РАЗДЕЛ "О КОМПАНИИ" =====
-#about {
-    padding: 5%;
-    background-color: rgba(0, 0, 0, 0.1);
-    width: 80%;
-    margin: auto;
-    text-align: center;
-}
-
-#about h2 {
-    font-size: 2rem;
-    margin-bottom: 0.625;
-}
-
-#about p {
-    font-size: 1rem;
-    line-height: 1.5;
-}
-
-/* ===== ПОДВАЛ =====
-footer {
-    font-size: 1.2rem;
-    text-align: center;
-    padding: 2%;
-    background-color: rgba(0, 0, 0, 0.5);
-    color: white;
-}
-
-/* ===== ДОПОЛНИТЕЛЬНЫЕ СТИЛИ =====
-.gradient-text {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 1.8rem;
-    background: radial-gradient(black 1px, rgb(0, 0, 0) 30%, rgb(50, 218, 230));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    display: table;
-}
-
-/* ===== МЕДИАЗАПРОСЫ =====
-@media (max-width: 768px) {
-    header nav a {
-        font-size: 0.8rem;
-        margin: 0 0.3rem;
-    }
-
-    #hero h1 {
-        font-size: 1.8rem;
-    }
-
-    #hero p {
-        font-size: 1rem;
-    }
-
-    #about {
-        width: 95%;
-    }
-
-    #cart_button {
-        font-size: 0.9rem;
-        padding: 0.5rem 1rem;
-    }
-}
-*/
-.modal-window {
-     display: none;
-     position: fixed;
-     border-radius: 10px;
-     z-index: 1000;
-     left: 50%;
-     top: 50%;
-     transform: translate(-50%, -50%);
-     width: 90%;
-     max-width: 600px;
-     height: auto;
-     padding: 40px 20px;
-     background-color: rgba(255, 255, 255, 0.9);
-     box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.3);
- }
-
- .modal-content {
-    background-color: #fefefe;
-    margin: 15% auto; /* 15% from the top and centered */
+/* === Карточки билетов === */
+.ticket-card {
+    background: var(--background);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
     padding: 20px;
-    border: 1px solid #888;
-    width: 80%; /* Could be more or less, depending on screen size */
-  }
+    margin: 10px;
+    text-align: center;
+    width: 300px;
+    transition: 0.3s ease-in-out;
+}
 
-  .close {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    background-color: rgb(114, 78, 78);
-  }
+.ticket-card:hover {
+    box-shadow: var(--shadow-inset);
+}
 
+/* === Кнопки === */
+.button {
+    background: var(--gradient);
+    color: #2d7ea3;
+    border: none;
+    padding: 12px 25px;
+    border-radius: var(--border-radius);
+    font-size: 16px;
+    box-shadow: var(--shadow-light);
+    cursor: pointer;
+    transition: 0.3s ease-in-out;
+}
 
- .close:hover,
- .close:focus {
-   color: black;
-   text-decoration: none;
-   cursor: pointer;
- }
-.success-window {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+.button:hover {
+    background: linear-gradient(135deg, var(--primary-light) 30%, var(--primary) 100%);
+}
+
+/* === Корзина === */
+.cart {
+    background: var(--background);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+    padding: 15px;
+    width: 320px;
+}
+
+/* === Модальное окно === */
+.modal {
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    border-radius: var(--border-radius);
+    padding: 20px;
     width: 90%;
-    max-width: 500px;
-    background-color: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
+    max-width: 400px;
+    box-shadow: var(--shadow-light);
 }
 
-.success-content {
-    font-size: 1.5rem;
-    color: #333;
-}
-
-.success-content button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    background-color: #007bff;
-    color: #fff;
-    cursor: pointer;
-}
-
-.success-content button:hover {
-    background-color: #0056b3;
-}
-.success-message, .error-message {
-    text-align: center;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-    background-color: #fff;
-    max-width: 500px;
-    margin: 0 auto;
-}
-
-.success-message h2 {
-    color: green;
-}
-
-.error-message h2 {
-    color: red;
-}
-
-.success-message button, .error-message button {
-    margin-top: 20px;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    background-color: #007bff;
-    color: white;
-    cursor: pointer;
-}
-
-.success-message button:hover, .error-message button:hover {
-    background-color: #0056b3;
+/* === Адаптивность === */
+@media (max-width: 768px) {
+    .ticket-card {
+        width: 90%;
+    }
+    .cart {
+        width: 100%;
+    }
 }

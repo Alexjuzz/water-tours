@@ -4,7 +4,6 @@ import com.watertours.project.enums.OrderStatus;
 import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.model.entity.ticket.QuickTicket;
 import com.watertours.project.repository.OrderRepository;
-import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,15 +12,13 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
 public class OrderService {
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
-    private TicketOrder order;
     private final OrderRepository orderRepository;
-    private RedisTemplate<String, TicketOrder> redisTemplate;
+    private final RedisTemplate<String, TicketOrder> redisTemplate;
 
     @Autowired
     public OrderService(OrderRepository orderRepository, RedisTemplate<String, TicketOrder> redisTemplate) {
@@ -95,16 +92,6 @@ public class OrderService {
     }
 
     //region PRIVATE METHODS
-
-
-    private TicketOrder createOrder(HttpSession httpSession) {
-
-        this.order = (TicketOrder) httpSession.getAttribute("order");
-        if (order == null) {
-            order = new TicketOrder();
-        }
-        return order;
-    }
 
 
     private boolean isValidOrder(List<QuickTicket> listTicket, String name, String email, String phone) {

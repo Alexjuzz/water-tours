@@ -9,32 +9,36 @@
         <div th:if="${order.ticketList != null and not order.ticketList.isEmpty()}">
             <ul>
 
-                    <div th:if="${order.getTicketByType('CHILD') != null}">
+                <div th:if="${order.getTicketByType('CHILD') != null}">
                     <span>Детских билетов</span>
-                    <span th:text="${childCount} + ' на сумму ' "  >0</span>
+                    <span th:text="${childCount} + ' на сумму ' ">0</span>
                     <span th:text="${childAmount} + ' рублей.' ">0</span>
-                    </div>
-                    <div th:if="${order.getTicketByType('SENIOR') != null}">
-                        <span>Детских билетов</span>
-                        <span th:text="${seniorCount} + ' на сумму ' "  >0</span>
-                        <span th:text="${seniorAmount} + ' рублей.' ">0</span>
-                    </div>
-                    <div th:if="${order.getTicketByType('DISCOUNT') != null}">
-                        <span>Детских билетов</span>
-                        <span th:text="${discountCount} + ' на сумму ' "  >0</span>
-                        <span th:text="${discountAmount} + ' рублей.' ">0</span>
-                    </div>
-                    <h3> Общая сумма к заказу : <span th:text="${totalAmount}"> 0</span></h3>
+                </div>
+                <div th:if="${order.getTicketByType('SENIOR') != null}">
+                    <span>Детских билетов</span>
+                    <span th:text="${seniorCount} + ' на сумму ' ">0</span>
+                    <span th:text="${seniorAmount} + ' рублей.' ">0</span>
+                </div>
+                <div th:if="${order.getTicketByType('DISCOUNT') != null}">
+                    <span>Детских билетов</span>
+                    <span th:text="${discountCount} + ' на сумму ' ">0</span>
+                    <span th:text="${discountAmount} + ' рублей.' ">0</span>
+                </div>
+                <h3> Общая сумма к заказу : <span th:text="${totalAmount}"> 0</span></h3>
             </ul>
         </div>
-        <button th:hx-post="'/proceedToUserData?cartId=' + ${cartId}"
-                hx-target="#modalBody"
-                hx-swap="innerHTML">
-            Перейти к оформлению.
-        </button>
-        <button th:hx-get="'/getModal?cartId=' + ${cartId}"
-                hx-target="#modalBody"
-                hx-swap="innerHTML"> Венуться к покупке билетов.
-        </button>
     </div>
+
+    <button th:if="${not order.ticketList.isEmpty}"
+            th:hx-post="'/proceedToUserData?cartId=' + ${cartId}"
+            hx-target="#modalBody"
+            hx-swap="innerHTML">
+        Перейти к оформлению.
+    </button>
+
+    <button th:hx-get="'/getModal?cartId=' + ${cartId}"
+            hx-target="#modalBody"
+            hx-swap="innerHTML"> Венуться к покупке билетов.
+    </button>
+</div>
 </div>
