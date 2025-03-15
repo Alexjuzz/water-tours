@@ -32,6 +32,7 @@ public class QuickTicketService {
     public TicketUpdateDto incrementTicket(TicketType type, TicketOrder order) {
         QuickTicket ticket = ticketService.createQuickTicket(type);
         order.addToTicketList(ticket);
+        ticket.setOrder(order);
         return createTicketUpdateDto(type, order);
     }
 
@@ -95,7 +96,6 @@ public class QuickTicketService {
         int price = properties.getPriceByType(type);
         int totalAmountTicket = getTicketsPrice(count, price);
         int totalAmount = getTotalAmount(order.getTicketList());
-//        System.out.println(order.getTicketList() + " - order.getTicketList() createTicketUpdateDto");
         return new TicketUpdateDto(type, count, price, totalAmountTicket, totalAmount);
     }
 

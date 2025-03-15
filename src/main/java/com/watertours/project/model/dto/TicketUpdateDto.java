@@ -15,6 +15,8 @@ public class TicketUpdateDto {
     private final  int totalAmount;
 
 
+
+
     public String getFragmentName() {
         return String.format(TICKET_FRAGMENT, type);
     }

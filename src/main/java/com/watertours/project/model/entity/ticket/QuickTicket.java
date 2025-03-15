@@ -37,7 +37,7 @@ public class QuickTicket implements Serializable {
 
     public QuickTicket(TicketType type) {
         this.type = type;
-
+        this.uuid = UUID.randomUUID();
 
     }
 

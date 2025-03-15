@@ -3305,3 +3305,780 @@ Caused by: java.net.ConnectException: Connection refused: getsockopt
 13:50:59.976 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
 13:50:59.977 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
 13:50:59.978 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+13:51:01.800 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 7248 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+13:51:01.802 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+13:51:02.180 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+13:51:02.181 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+13:51:02.256 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 71 ms. Found 2 JPA repository interfaces.
+13:51:02.265 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+13:51:02.267 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+13:51:02.275 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+13:51:02.276 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+13:51:02.276 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+13:51:02.571 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+13:51:02.578 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+13:51:02.579 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+13:51:02.601 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+13:51:02.602 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 778 ms
+13:51:02.693 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+13:51:02.720 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+13:51:02.736 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+13:51:02.874 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+13:51:02.890 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+13:51:02.976 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@238ad211
+13:51:02.977 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+13:51:02.993 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+13:51:03.005 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+13:51:03.432 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+13:51:03.467 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+13:51:03.738 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+13:51:03.752 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+13:51:03.987 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+13:51:03.993 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.468 seconds (process running for 2.671)
+13:51:11.522 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+13:51:11.522 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+13:51:11.523 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+13:51:20.242 [http-nio-8087-exec-10] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: null
+13:51:20.245 [http-nio-8087-exec-10] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 2
+13:51:20.246 [http-nio-8087-exec-10] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0, creating new one
+13:51:20.256 [http-nio-8087-exec-10] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:21.181 [http-nio-8087-exec-1] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+13:51:21.197 [http-nio-8087-exec-1] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:21.200 [http-nio-8087-exec-1] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:22.138 [http-nio-8087-exec-2] DEBUG c.w.p.c.QuickTicketController - Decrementing ticket of type: CHILD
+13:51:22.139 [http-nio-8087-exec-2] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:22.140 [http-nio-8087-exec-2] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:22.556 [http-nio-8087-exec-3] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+13:51:22.557 [http-nio-8087-exec-3] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:22.558 [http-nio-8087-exec-3] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:25.506 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:25.506 [http-nio-8087-exec-4] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = null
+13:51:28.684 [http-nio-8087-exec-5] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 5ea92422-1d46-41b4-b8e5-f193dc43d0f0
+13:51:28.684 [http-nio-8087-exec-5] DEBUG c.w.p.c.QuickTicketController - Modal data prepared: List<QuickTicket> = null
+13:55:13.164 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+13:55:13.167 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+13:55:13.176 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+13:55:13.177 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+13:55:13.179 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+13:55:15.598 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 4556 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+13:55:15.599 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+13:55:15.968 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+13:55:15.969 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+13:55:16.041 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 65 ms. Found 2 JPA repository interfaces.
+13:55:16.050 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+13:55:16.050 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+13:55:16.058 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+13:55:16.058 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+13:55:16.058 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+13:55:16.364 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+13:55:16.372 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+13:55:16.372 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+13:55:16.398 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+13:55:16.398 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 777 ms
+13:55:16.493 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+13:55:16.521 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+13:55:16.538 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+13:55:16.678 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+13:55:16.693 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+13:55:16.771 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@225e09f0
+13:55:16.772 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+13:55:16.786 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+13:55:16.798 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+13:55:17.229 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+13:55:17.269 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+13:55:17.538 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+13:55:17.550 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+13:55:17.803 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+13:55:17.809 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.478 seconds (process running for 2.68)
+13:55:18.783 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+13:55:18.783 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+13:55:18.784 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+13:55:48.761 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+13:55:48.764 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+13:55:48.773 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+13:55:48.774 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+13:55:48.776 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+13:55:50.830 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 8372 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+13:55:50.831 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+13:55:51.224 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+13:55:51.224 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+13:55:51.311 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 78 ms. Found 2 JPA repository interfaces.
+13:55:51.320 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+13:55:51.320 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+13:55:51.330 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+13:55:51.330 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+13:55:51.330 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+13:55:51.625 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+13:55:51.632 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+13:55:51.632 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+13:55:51.656 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+13:55:51.656 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 804 ms
+13:55:51.749 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+13:55:51.775 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+13:55:51.793 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+13:55:51.932 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+13:55:51.947 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+13:55:52.027 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@225e09f0
+13:55:52.027 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+13:55:52.045 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+13:55:52.057 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+13:55:52.488 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+13:55:52.525 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+13:55:52.800 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+13:55:52.812 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+13:55:53.048 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+13:55:53.053 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.49 seconds (process running for 2.675)
+13:55:56.411 [http-nio-8087-exec-2] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+13:55:56.412 [http-nio-8087-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+13:55:56.412 [http-nio-8087-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+13:55:57.344 [http-nio-8087-exec-6] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: null
+13:55:57.345 [http-nio-8087-exec-6] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 0
+13:55:57.346 [http-nio-8087-exec-6] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: 56eeeeeb-9aa1-4a8a-9875-2ea21fdf1e07, creating new one
+13:55:57.356 [http-nio-8087-exec-6] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: 56eeeeeb-9aa1-4a8a-9875-2ea21fdf1e07
+13:55:58.448 [http-nio-8087-exec-4] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+13:55:58.465 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 56eeeeeb-9aa1-4a8a-9875-2ea21fdf1e07
+13:55:58.469 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 56eeeeeb-9aa1-4a8a-9875-2ea21fdf1e07
+13:55:59.211 [http-nio-8087-exec-5] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 56eeeeeb-9aa1-4a8a-9875-2ea21fdf1e07
+13:55:59.211 [http-nio-8087-exec-5] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = null
+13:56:01.191 [http-nio-8087-exec-3] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 56eeeeeb-9aa1-4a8a-9875-2ea21fdf1e07
+13:56:01.191 [http-nio-8087-exec-3] DEBUG c.w.p.c.QuickTicketController - Modal data prepared: List<QuickTicket> = null
+14:00:38.111 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:00:38.115 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:00:38.123 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:00:38.124 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:00:38.126 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:00:40.364 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 10396 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:00:40.365 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:00:40.764 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:00:40.765 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:00:40.846 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 77 ms. Found 2 JPA repository interfaces.
+14:00:40.855 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:00:40.856 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:00:40.864 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:00:40.864 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:00:40.864 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:00:41.162 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:00:41.169 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:00:41.170 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:00:41.195 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:00:41.195 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 809 ms
+14:00:41.283 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:00:41.312 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:00:41.330 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:00:41.479 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:00:41.497 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:00:41.582 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@225e09f0
+14:00:41.583 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:00:41.598 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:00:41.608 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:00:42.099 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:00:42.135 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:00:42.439 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:00:42.452 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:00:42.691 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:00:42.696 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.601 seconds (process running for 2.791)
+14:00:42.726 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:00:42.727 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:00:42.727 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+14:00:43.737 [http-nio-8087-exec-3] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: null
+14:00:43.738 [http-nio-8087-exec-3] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 0
+14:00:43.739 [http-nio-8087-exec-3] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: 5eac80f0-8aa4-4309-854a-49ec5fa94ee3, creating new one
+14:00:43.750 [http-nio-8087-exec-3] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: 5eac80f0-8aa4-4309-854a-49ec5fa94ee3
+14:00:44.507 [http-nio-8087-exec-4] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+14:00:44.524 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 5eac80f0-8aa4-4309-854a-49ec5fa94ee3
+14:00:44.530 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 5eac80f0-8aa4-4309-854a-49ec5fa94ee3
+14:00:46.207 [http-nio-8087-exec-5] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 5eac80f0-8aa4-4309-854a-49ec5fa94ee3
+14:00:46.208 [http-nio-8087-exec-5] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = null
+14:00:46.884 [http-nio-8087-exec-6] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 5eac80f0-8aa4-4309-854a-49ec5fa94ee3
+14:00:46.884 [http-nio-8087-exec-6] DEBUG c.w.p.c.QuickTicketController - Modal data prepared: List<QuickTicket> = null
+14:02:11.484 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:02:11.487 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:02:11.495 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:02:11.496 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:02:11.498 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:02:13.554 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 25608 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:02:13.556 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:02:13.913 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:02:13.914 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:02:13.987 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 68 ms. Found 2 JPA repository interfaces.
+14:02:13.997 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:02:13.998 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:02:14.007 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:02:14.007 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:02:14.007 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:02:14.314 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:02:14.322 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:02:14.322 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:02:14.346 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:02:14.346 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 770 ms
+14:02:14.435 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:02:14.463 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:02:14.480 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:02:14.649 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:02:14.663 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:02:14.738 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@225e09f0
+14:02:14.739 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:02:14.752 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:02:14.763 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:02:15.198 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:02:15.236 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:02:15.508 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:02:15.521 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:02:15.759 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:02:15.766 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.472 seconds (process running for 2.661)
+14:02:15.840 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:02:15.841 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:02:15.841 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+14:02:19.842 [http-nio-8087-exec-6] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: null
+14:02:19.844 [http-nio-8087-exec-6] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 1
+14:02:19.845 [http-nio-8087-exec-6] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: d3fe657b-0c08-48ac-8956-42a463a7b4a2, creating new one
+14:02:19.855 [http-nio-8087-exec-6] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: d3fe657b-0c08-48ac-8956-42a463a7b4a2
+14:02:20.785 [http-nio-8087-exec-7] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+14:02:20.802 [http-nio-8087-exec-7] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: d3fe657b-0c08-48ac-8956-42a463a7b4a2
+14:02:20.805 [http-nio-8087-exec-7] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: d3fe657b-0c08-48ac-8956-42a463a7b4a2
+14:02:21.611 [http-nio-8087-exec-8] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: d3fe657b-0c08-48ac-8956-42a463a7b4a2
+14:02:21.612 [http-nio-8087-exec-8] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = null
+14:02:22.492 [http-nio-8087-exec-9] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: d3fe657b-0c08-48ac-8956-42a463a7b4a2
+14:02:22.495 [http-nio-8087-exec-9] DEBUG c.w.p.c.QuickTicketController - Modal data prepared: List<QuickTicket> = null
+14:03:22.864 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:03:22.867 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:03:22.875 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:03:22.877 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:03:22.879 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:03:24.925 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 10468 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:03:24.926 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:03:25.293 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:03:25.294 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:03:25.376 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 76 ms. Found 2 JPA repository interfaces.
+14:03:25.385 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:03:25.386 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:03:25.394 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:03:25.394 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:03:25.394 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:03:25.686 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:03:25.694 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:03:25.695 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:03:25.723 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:03:25.723 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 775 ms
+14:03:25.815 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:03:25.842 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:03:25.859 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:03:25.992 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:03:26.006 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:03:26.081 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@60ae7cf2
+14:03:26.082 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:03:26.101 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:03:26.113 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:03:26.540 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:03:26.574 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:03:26.837 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:03:26.852 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:03:27.073 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:03:27.079 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.42 seconds (process running for 2.602)
+14:03:29.148 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:03:29.148 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:03:29.149 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+14:03:31.976 [http-nio-8087-exec-8] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: null
+14:03:31.979 [http-nio-8087-exec-8] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 1
+14:03:31.980 [http-nio-8087-exec-8] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: 12e2741a-14eb-49a2-a4eb-de6eaabcffd3, creating new one
+14:03:31.989 [http-nio-8087-exec-8] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: 12e2741a-14eb-49a2-a4eb-de6eaabcffd3
+14:03:32.700 [http-nio-8087-exec-6] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+14:03:32.716 [http-nio-8087-exec-6] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 12e2741a-14eb-49a2-a4eb-de6eaabcffd3
+14:03:32.719 [http-nio-8087-exec-6] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 12e2741a-14eb-49a2-a4eb-de6eaabcffd3
+14:03:33.424 [http-nio-8087-exec-7] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 12e2741a-14eb-49a2-a4eb-de6eaabcffd3
+14:03:33.425 [http-nio-8087-exec-7] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = null
+14:03:34.152 [http-nio-8087-exec-9] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 12e2741a-14eb-49a2-a4eb-de6eaabcffd3
+14:03:34.152 [http-nio-8087-exec-9] DEBUG c.w.p.c.QuickTicketController - Modal data prepared: List<QuickTicket> = [QuickTicket(id=null, uuid=bb51de10-69b8-4129-a600-ab3dbdf43abd, type=CHILD, price=599, order=TicketOrder(id=null, buyerName=null, email=null, phone=null, totalAmount=599, createDate=null, status=null))]
+14:03:48.792 [http-nio-8087-exec-5] DEBUG c.w.p.c.QuickTicketController - User data: UserDto(buyerName=ALex, email=juzz@222da2d, phone=+7952388222)
+14:03:48.793 [http-nio-8087-exec-5] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 12e2741a-14eb-49a2-a4eb-de6eaabcffd3
+14:03:48.856 [http-nio-8087-exec-5] INFO  c.w.p.c.QuickTicketController - Order processed successfully. ID: 1, Email: juzz@222da2d
+14:03:48.857 [http-nio-8087-exec-5] DEBUG c.w.project.service.OrderService - Order cleared from Redis for cartId: 12e2741a-14eb-49a2-a4eb-de6eaabcffd3
+14:04:11.005 [http-nio-8087-exec-6] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: null
+14:04:11.006 [http-nio-8087-exec-6] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 1
+14:04:11.007 [http-nio-8087-exec-6] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: 42a6b55e-b796-4a39-8bdc-3d4194435374, creating new one
+14:04:11.007 [http-nio-8087-exec-6] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: 42a6b55e-b796-4a39-8bdc-3d4194435374
+14:04:12.099 [http-nio-8087-exec-7] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: SENIOR
+14:04:12.099 [http-nio-8087-exec-7] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 42a6b55e-b796-4a39-8bdc-3d4194435374
+14:04:12.100 [http-nio-8087-exec-7] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 42a6b55e-b796-4a39-8bdc-3d4194435374
+14:04:12.904 [http-nio-8087-exec-9] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: DISCOUNT
+14:04:12.904 [http-nio-8087-exec-9] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 42a6b55e-b796-4a39-8bdc-3d4194435374
+14:04:12.905 [http-nio-8087-exec-9] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 42a6b55e-b796-4a39-8bdc-3d4194435374
+14:04:13.483 [http-nio-8087-exec-5] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 42a6b55e-b796-4a39-8bdc-3d4194435374
+14:04:13.483 [http-nio-8087-exec-5] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = null
+14:04:15.497 [http-nio-8087-exec-10] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: 42a6b55e-b796-4a39-8bdc-3d4194435374
+14:04:15.499 [http-nio-8087-exec-10] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 1
+14:04:15.500 [http-nio-8087-exec-10] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: c5feab61-1b1c-4b60-814b-6fdf2a6e9445, creating new one
+14:04:15.501 [http-nio-8087-exec-10] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: c5feab61-1b1c-4b60-814b-6fdf2a6e9445
+14:04:19.214 [http-nio-8087-exec-1] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: c5feab61-1b1c-4b60-814b-6fdf2a6e9445
+14:04:19.214 [http-nio-8087-exec-1] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = null
+14:04:20.215 [http-nio-8087-exec-2] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: c5feab61-1b1c-4b60-814b-6fdf2a6e9445
+14:04:20.216 [http-nio-8087-exec-2] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 1
+14:04:20.217 [http-nio-8087-exec-2] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533, creating new one
+14:04:20.217 [http-nio-8087-exec-2] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:21.284 [http-nio-8087-exec-3] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: DISCOUNT
+14:04:21.285 [http-nio-8087-exec-3] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:21.285 [http-nio-8087-exec-3] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:22.057 [http-nio-8087-exec-4] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: SENIOR
+14:04:22.058 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:22.059 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:22.859 [http-nio-8087-exec-8] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+14:04:22.860 [http-nio-8087-exec-8] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:22.861 [http-nio-8087-exec-8] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:23.785 [http-nio-8087-exec-6] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:23.786 [http-nio-8087-exec-6] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = null
+14:04:25.512 [http-nio-8087-exec-7] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:25.512 [http-nio-8087-exec-7] DEBUG c.w.p.c.QuickTicketController - Modal data prepared: List<QuickTicket> = [QuickTicket(id=null, uuid=565f0e96-71ba-4fe4-8f94-4355a48f26e5, type=DISCOUNT, price=799, order=TicketOrder(id=null, buyerName=null, email=null, phone=null, totalAmount=2497, createDate=null, status=null)), QuickTicket(id=null, uuid=b2db7fe6-491f-4bb3-9a95-53fdcfadbe06, type=SENIOR, price=1099, order=TicketOrder(id=null, buyerName=null, email=null, phone=null, totalAmount=2497, createDate=null, status=null)), QuickTicket(id=null, uuid=bf16fa93-8754-4e16-a084-7e0f1a187c07, type=CHILD, price=599, order=TicketOrder(id=null, buyerName=null, email=null, phone=null, totalAmount=2497, createDate=null, status=null))]
+14:04:37.423 [http-nio-8087-exec-9] DEBUG c.w.p.c.QuickTicketController - User data: UserDto(buyerName=ALex, email=juzz@222da2d, phone=+79523773221)
+14:04:37.424 [http-nio-8087-exec-9] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:04:37.434 [http-nio-8087-exec-9] INFO  c.w.p.c.QuickTicketController - Order processed successfully. ID: 2, Email: juzz@222da2d
+14:04:37.435 [http-nio-8087-exec-9] DEBUG c.w.project.service.OrderService - Order cleared from Redis for cartId: a4b18786-d113-459a-b103-fd5c86c7b533
+14:05:23.209 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:05:23.212 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:05:23.222 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:05:23.223 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:05:23.224 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:05:25.264 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 27104 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:05:25.265 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:05:25.630 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:05:25.630 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:05:25.704 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 69 ms. Found 2 JPA repository interfaces.
+14:05:25.713 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:05:25.713 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:05:25.722 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:05:25.722 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:05:25.722 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:05:26.002 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:05:26.009 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:05:26.009 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:05:26.035 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:05:26.035 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 745 ms
+14:05:26.133 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:05:26.175 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:05:26.191 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:05:26.324 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:05:26.340 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:05:26.418 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@2fa212df
+14:05:26.419 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:05:26.433 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:05:26.444 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:05:26.868 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:05:26.904 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:05:27.178 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:05:27.191 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:05:27.425 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:05:27.430 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.432 seconds (process running for 2.625)
+14:05:34.541 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:05:34.541 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:05:34.542 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+14:05:35.612 [http-nio-8087-exec-3] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: null
+14:05:35.614 [http-nio-8087-exec-3] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 1
+14:05:35.615 [http-nio-8087-exec-3] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: da4d150e-5290-40dd-b517-eac90fa2b9d3, creating new one
+14:05:35.625 [http-nio-8087-exec-3] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: da4d150e-5290-40dd-b517-eac90fa2b9d3
+14:05:36.383 [http-nio-8087-exec-4] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+14:05:36.401 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: da4d150e-5290-40dd-b517-eac90fa2b9d3
+14:05:36.404 [http-nio-8087-exec-4] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: da4d150e-5290-40dd-b517-eac90fa2b9d3
+14:05:37.448 [http-nio-8087-exec-5] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: da4d150e-5290-40dd-b517-eac90fa2b9d3
+14:05:37.449 [http-nio-8087-exec-5] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = [QuickTicket(id=null, uuid=d751f6df-316e-4683-8317-3c453d0fa7cd, type=CHILD, price=599, order=TicketOrder(id=null, buyerName=null, email=null, phone=null, totalAmount=0, createDate=null, status=null))]
+14:05:41.709 [http-nio-8087-exec-6] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: da4d150e-5290-40dd-b517-eac90fa2b9d3
+14:05:41.710 [http-nio-8087-exec-6] INFO  c.w.project.service.OrderService - Cleared all cart entries from Redis. Removed keys: 1
+14:05:41.711 [http-nio-8087-exec-6] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: 4283d645-12c7-4196-82cb-62d58f0cc93e, creating new one
+14:05:41.712 [http-nio-8087-exec-6] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: 4283d645-12c7-4196-82cb-62d58f0cc93e
+14:05:42.881 [http-nio-8087-exec-7] DEBUG c.w.p.c.QuickTicketController - Increment ticket of type: CHILD
+14:05:42.882 [http-nio-8087-exec-7] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 4283d645-12c7-4196-82cb-62d58f0cc93e
+14:05:42.882 [http-nio-8087-exec-7] DEBUG c.w.project.service.OrderService - Order saved to Redis for cartId: 4283d645-12c7-4196-82cb-62d58f0cc93e
+14:05:43.590 [http-nio-8087-exec-8] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 4283d645-12c7-4196-82cb-62d58f0cc93e
+14:05:43.590 [http-nio-8087-exec-8] DEBUG c.w.p.c.QuickTicketController - Basket data prepared: List<QuickTicket> = [QuickTicket(id=null, uuid=02999bee-fc1e-469e-93e8-61a688c9e9c1, type=CHILD, price=599, order=TicketOrder(id=null, buyerName=null, email=null, phone=null, totalAmount=0, createDate=null, status=null))]
+14:05:46.369 [http-nio-8087-exec-9] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 4283d645-12c7-4196-82cb-62d58f0cc93e
+14:05:46.369 [http-nio-8087-exec-9] DEBUG c.w.p.c.QuickTicketController - Modal data prepared: List<QuickTicket> = [QuickTicket(id=null, uuid=02999bee-fc1e-469e-93e8-61a688c9e9c1, type=CHILD, price=599, order=TicketOrder(id=null, buyerName=null, email=null, phone=null, totalAmount=599, createDate=null, status=null))]
+14:05:52.405 [http-nio-8087-exec-10] DEBUG c.w.p.c.QuickTicketController - User data: UserDto(buyerName=ALex, email=jsu@mail.ru, phone=+79991234567)
+14:05:52.406 [http-nio-8087-exec-10] DEBUG c.w.project.service.OrderService - Order retrieved from Redis for cartId: 4283d645-12c7-4196-82cb-62d58f0cc93e
+14:05:52.460 [http-nio-8087-exec-10] INFO  c.w.p.c.QuickTicketController - Order processed successfully. ID: 3, Email: jsu@mail.ru
+14:05:52.461 [http-nio-8087-exec-10] DEBUG c.w.project.service.OrderService - Order cleared from Redis for cartId: 4283d645-12c7-4196-82cb-62d58f0cc93e
+14:36:13.676 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:36:13.679 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:36:13.687 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:36:13.688 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:36:13.690 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:36:15.826 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 12928 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:36:15.827 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:36:16.239 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:36:16.240 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:36:16.320 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 74 ms. Found 2 JPA repository interfaces.
+14:36:16.330 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:36:16.330 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:36:16.338 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:36:16.338 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:36:16.339 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:36:16.634 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:36:16.641 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:36:16.642 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:36:16.666 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:36:16.666 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 790 ms
+14:36:16.755 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:36:16.781 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:36:16.797 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:36:16.930 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:36:16.945 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:36:17.027 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@448086ab
+14:36:17.028 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:36:17.044 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:36:17.055 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:36:17.479 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:36:17.514 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:36:17.630 [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'redisConfig' defined in file [C:\Users\user\Desktop\HTMX\testHtmx\target\classes\com\watertours\project\configuration\RedisConfig.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'orderService' defined in file [C:\Users\user\Desktop\HTMX\testHtmx\target\classes\com\watertours\project\service\OrderService.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'redisConfig': Requested bean is currently in creation: Is there an unresolvable circular reference or an asynchronous initialization dependency?
+14:36:17.630 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:36:17.631 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:36:17.634 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:36:17.637 [main] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+14:36:17.643 [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+14:36:17.654 [main] ERROR o.s.b.d.LoggingFailureAnalysisReporter - 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+The dependencies of some of the beans in the application context form a cycle:
+
+┌─────┐
+|  redisConfig defined in file [C:\Users\user\Desktop\HTMX\testHtmx\target\classes\com\watertours\project\configuration\RedisConfig.class]
+↑     ↓
+|  orderService defined in file [C:\Users\user\Desktop\HTMX\testHtmx\target\classes\com\watertours\project\service\OrderService.class]
+└─────┘
+
+
+Action:
+
+Relying upon circular references is discouraged and they are prohibited by default. Update your application to remove the dependency cycle between beans. As a last resort, it may be possible to break the cycle automatically by setting spring.main.allow-circular-references to true.
+
+14:37:04.772 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 33924 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:37:04.773 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:37:05.114 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:37:05.115 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:37:05.197 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 76 ms. Found 2 JPA repository interfaces.
+14:37:05.206 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:37:05.206 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:37:05.214 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:37:05.214 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:37:05.214 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 3 ms. Found 0 Redis repository interfaces.
+14:37:05.500 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:37:05.507 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:37:05.507 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:37:05.530 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:37:05.530 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 735 ms
+14:37:05.641 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:37:05.667 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:37:05.684 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:37:05.821 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:37:05.835 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:37:05.910 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@23ec2bdc
+14:37:05.911 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:37:05.926 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:37:05.937 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:37:06.368 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:37:06.403 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:37:06.673 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:37:06.683 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:37:06.906 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:37:06.911 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.415 seconds (process running for 2.598)
+14:37:15.025 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:37:15.026 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:37:15.026 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+14:38:06.745 [http-nio-8087-exec-2] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.HttpRequestMethodNotSupportedException: Request method 'POST' is not supported]
+14:38:21.236 [http-nio-8087-exec-3] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [org.springframework.web.HttpRequestMethodNotSupportedException: Request method 'POST' is not supported]
+14:39:17.568 [http-nio-8087-exec-10] INFO  c.w.p.c.QuickTicketController - Handling /getModal request with cartId: null
+14:39:17.570 [http-nio-8087-exec-10] INFO  c.w.project.service.OrderService - No order found in Redis for cartId: d2abec74-1d33-45c9-a4fb-20a1e155322c, creating new one
+14:39:17.580 [http-nio-8087-exec-10] INFO  c.w.p.c.QuickTicketController - Returning QuickBuyTicketFragment for cartId: d2abec74-1d33-45c9-a4fb-20a1e155322c
+14:42:16.124 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:42:16.127 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:42:16.136 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:42:16.137 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:42:16.139 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:42:17.880 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 27664 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:42:17.881 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:42:18.247 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:42:18.248 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:42:18.333 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 78 ms. Found 2 JPA repository interfaces.
+14:42:18.342 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:42:18.343 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:42:18.351 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:42:18.351 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:42:18.351 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:42:18.661 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:42:18.669 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:42:18.669 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:42:18.696 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:42:18.696 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 794 ms
+14:42:18.789 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:42:18.817 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:42:18.835 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:42:18.972 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:42:18.987 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:42:19.068 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@448086ab
+14:42:19.069 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:42:19.086 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:42:19.096 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:42:19.529 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:42:19.567 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:42:19.851 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:42:19.874 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:42:20.129 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:42:20.134 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.559 seconds (process running for 2.743)
+14:42:23.611 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:42:23.612 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:42:23.612 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+14:42:52.956 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:42:52.959 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:42:52.967 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:42:52.968 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:42:52.970 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:42:54.249 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 38772 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:42:54.250 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:42:54.604 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:42:54.605 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:42:54.680 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 71 ms. Found 2 JPA repository interfaces.
+14:42:54.688 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:42:54.689 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:42:54.698 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:42:54.698 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:42:54.698 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:42:54.992 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:42:55.000 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:42:55.000 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:42:55.025 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:42:55.025 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 750 ms
+14:42:55.114 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:42:55.141 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:42:55.159 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:42:55.296 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:42:55.310 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:42:55.387 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@23ec2bdc
+14:42:55.387 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:42:55.403 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:42:55.413 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:42:55.844 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:42:55.882 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:42:56.158 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:42:56.171 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:42:56.400 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:42:56.405 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.432 seconds (process running for 2.63)
+14:43:00.243 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:43:00.243 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:43:00.244 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+14:48:31.463 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:48:31.467 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:48:31.475 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:48:31.476 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:48:31.478 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:48:32.859 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 34856 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:48:32.861 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:48:33.244 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:48:33.245 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:48:33.325 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 75 ms. Found 2 JPA repository interfaces.
+14:48:33.334 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:48:33.335 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:48:33.344 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:48:33.344 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:48:33.344 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:48:33.659 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:48:33.666 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:48:33.667 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:48:33.691 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:48:33.691 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 809 ms
+14:48:33.789 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:48:33.819 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:48:33.837 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:48:33.978 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:48:33.992 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:48:34.080 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@448086ab
+14:48:34.081 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:48:34.095 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:48:34.107 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:48:34.559 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:48:34.598 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:48:34.878 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:48:34.890 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:48:35.126 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:48:35.131 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.593 seconds (process running for 2.811)
+14:48:35.597 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:48:35.598 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:48:35.599 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+14:48:54.798 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:48:54.802 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:48:54.811 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:48:54.812 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:48:54.814 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:48:56.154 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 40516 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:48:56.156 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:48:56.506 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:48:56.507 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:48:56.588 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 75 ms. Found 2 JPA repository interfaces.
+14:48:56.597 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:48:56.598 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:48:56.606 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:48:56.606 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:48:56.606 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 4 ms. Found 0 Redis repository interfaces.
+14:48:56.903 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:48:56.910 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:48:56.910 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:48:56.936 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:48:56.936 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 760 ms
+14:48:57.025 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:48:57.053 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:48:57.070 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:48:57.207 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:48:57.224 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:48:57.307 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@23ec2bdc
+14:48:57.308 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:48:57.322 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:48:57.334 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:48:57.801 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:48:57.838 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:48:58.123 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:48:58.136 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:48:58.378 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:48:58.384 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.53 seconds (process running for 2.734)
+14:48:58.962 [http-nio-8087-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+14:48:58.962 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+14:48:58.962 [http-nio-8087-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+14:49:53.031 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:49:53.036 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:49:53.049 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:49:53.050 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:49:53.051 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:49:54.383 [main] INFO  com.watertours.TestHtmxApplication - Starting TestHtmxApplication using Java 21.0.2 with PID 40752 (C:\Users\user\Desktop\HTMX\testHtmx\target\classes started by user in C:\Users\user\Desktop\HTMX\testHtmx)
+14:49:54.385 [main] INFO  com.watertours.TestHtmxApplication - No active profile set, falling back to 1 default profile: "default"
+14:49:54.756 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:49:54.757 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+14:49:54.831 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 69 ms. Found 2 JPA repository interfaces.
+14:49:54.840 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+14:49:54.841 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+14:49:54.848 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.OrderRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:49:54.848 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.watertours.project.repository.QuickTicketRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+14:49:54.848 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 3 ms. Found 0 Redis repository interfaces.
+14:49:55.136 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8087 (http)
+14:49:55.144 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:49:55.144 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.34]
+14:49:55.167 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:49:55.168 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 758 ms
+14:49:55.257 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+14:49:55.283 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.4.Final
+14:49:55.299 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+14:49:55.435 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+14:49:55.450 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+14:49:55.536 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@448086ab
+14:49:55.537 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+14:49:55.552 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:49:55.564 [main] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 15.10
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+14:49:56.000 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:49:56.038 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+14:49:56.328 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+14:49:56.341 [main] INFO  o.s.b.a.w.s.WelcomePageHandlerMapping - Adding welcome page template: index
+14:49:56.577 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8087 (http) with context path '/'
+14:49:56.582 [main] INFO  com.watertours.TestHtmxApplication - Started TestHtmxApplication in 2.498 seconds (process running for 2.692)
+14:51:27.177 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+14:51:27.180 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+14:51:27.187 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+14:51:27.188 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:51:27.190 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.

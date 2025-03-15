@@ -73,19 +73,7 @@ public class OrderService {
         }
     }
 
-    public void clearAllCartsFromRedis() {
-        try {
-            Set<String> keys = redisTemplate.keys("cartId*");
-            if (keys != null) {
-                redisTemplate.delete(keys);
-                logger.info("Cleared all cart entries from Redis. Removed keys: {}", keys.size());
-            } else {
-                logger.info("No cart entries found in Redis");
-            }
-        } catch (Exception e) {
-            logger.error("Failed to clear all cart entries from Redis", e);
-        }
-    }
+
 
     public TicketOrder saveOrderToDB(TicketOrder order) {
         if (!isValidOrder(order.getTicketList(), order.getBuyerName(), order.getEmail(), order.getPhone())) {

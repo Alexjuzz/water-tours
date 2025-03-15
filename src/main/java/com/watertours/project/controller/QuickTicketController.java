@@ -53,19 +53,14 @@ public class QuickTicketController {
     }
 
     @GetMapping("/getModal")
-    public String getModal(@RequestParam(required = false) String cartId, Model model, HttpServletResponse response, HttpSession session) {
+    public String getModal(@RequestParam(required = false) String cartId, Model model,   HttpSession session) {
         logger.info("Handling /getModal request with cartId: {}", cartId);
-        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-        response.setHeader("Pragma", "no-cache");
-        response.setDateHeader("Expires", 0);
 
         try {
-            // Очищаем все корзины в Redis перед созданием новой
-            orderService.clearAllCartsFromRedis();
-
-            // Всегда создаём новый cartId
-            cartId = UUID.randomUUID().toString();
-            session.setAttribute("cartId", cartId); // Сохраняем в сессии для последующих действий
+            if(cartId==null || cartId.isEmpty()){
+                cartId = UUID.randomUUID().toString();
+                session.setAttribute("cartId", cartId); // Сохраняем в сессии для последующих действий
+            }
 
             TicketOrder order = orderService.getOrder(cartId);
             QuickTicketModalDto dto = quickTicketService.prepareModalDto(order);
@@ -121,7 +116,7 @@ public class QuickTicketController {
         model.addAttribute("ticketList", dto.getTicketList());
         model.addAttribute("order", order);
         order.setTotalAmount((int) dto.getTotalAmount());
-        logger.debug("Modal data prepared: List<QuickTicket> = {}", dto.getTicketList());
+        logger.debug("Modal data prepared: List<QuickTicket> = {}", order.getTicketList());
         return "fragments/proceedToUserData :: proceedToUserDataFragment";
     }
 
@@ -176,7 +171,7 @@ public class QuickTicketController {
         model.addAllAttributes(dto.toModelAttributes());
         model.addAttribute("ticketList", dto.getTicketList());
         model.addAttribute("order", order);
-        logger.debug("Basket data prepared: List<QuickTicket> = {}", dto.getTicketList());
+        logger.debug("Basket data prepared: List<QuickTicket> = {}", order.getTicketList());
         return dto.getFragmentName();
     }
 

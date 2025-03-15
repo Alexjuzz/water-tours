@@ -14,16 +14,18 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
 
-        @Bean
-        public RedisTemplate<String, TicketOrder> redisTemplate(LettuceConnectionFactory connectionFactory) {
-            RedisTemplate<String, TicketOrder> template = new RedisTemplate<>();
-            template.setConnectionFactory(connectionFactory);
-            Jackson2JsonRedisSerializer<TicketOrder> serializer = new Jackson2JsonRedisSerializer<>(TicketOrder.class);
-            template.setDefaultSerializer(serializer);
-            template.setKeySerializer(new StringRedisSerializer());
-            template.setValueSerializer(serializer);
-            template.setHashKeySerializer(new StringRedisSerializer());
-            template.setHashValueSerializer(serializer);
-            return template;
-        }
+
+
+    @Bean
+    public RedisTemplate<String, TicketOrder> redisTemplate(LettuceConnectionFactory connectionFactory) {
+        RedisTemplate<String, TicketOrder> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        Jackson2JsonRedisSerializer<TicketOrder> serializer = new Jackson2JsonRedisSerializer<>(TicketOrder.class);
+        template.setDefaultSerializer(serializer);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(serializer);
+        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setHashValueSerializer(serializer);
+        return template;
     }
+}
