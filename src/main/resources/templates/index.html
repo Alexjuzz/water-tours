@@ -2,6 +2,9 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Water Tours</title>
     <link rel="stylesheet" href="style-test.css">
     <script src="https://unpkg.com/htmx.org"></script>
@@ -9,19 +12,21 @@
 <body>
 <div id="modalWindow" class="modal" style="display: none">
     <div class="modal-content">
-            <span class="close" hx-target="body" hx-swap="none" hx-get="/closeModal" onclick="document.getElementById('modalWindow').style.display='none'; document.getElementById('buyTicketsButton').style.display='block'">
-                ×
-            </span>
+        <span class="close" hx-get="/closeModal" hx-target="body" hx-swap="none"
+              onclick="document.getElementById('modalWindow').style.display='none'; document.getElementById('buyTicketsButton').style.display='block'">
+            ×
+        </span>
         <div id="modalBody">
             ИНФО
         </div>
     </div>
 </div>
 <button id="buyTicketsButton"
-        onclick="document.getElementById('modalWindow').style.display='block'; this.style.display='none'"
         hx-get="/getModal"
         hx-target="#modalBody"
-        hx-swap="innerHTML">
+        hx-swap="innerHTML"
+        hx-headers='{"Cache-Control": "no-cache"}'
+        onclick="document.getElementById('modalWindow').style.display='block'; this.style.display='none'">
     Купить билеты
 </button>
 </body>

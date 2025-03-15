@@ -95,6 +95,7 @@ public class QuickTicketService {
         int price = properties.getPriceByType(type);
         int totalAmountTicket = getTicketsPrice(count, price);
         int totalAmount = getTotalAmount(order.getTicketList());
+//        System.out.println(order.getTicketList() + " - order.getTicketList() createTicketUpdateDto");
         return new TicketUpdateDto(type, count, price, totalAmountTicket, totalAmount);
     }
 

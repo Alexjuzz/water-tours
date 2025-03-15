@@ -9,6 +9,7 @@ import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.service.EmailService;
 import com.watertours.project.service.OrderService;
 import com.watertours.project.service.QuickTicketService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -24,25 +25,19 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+
 import java.util.UUID;
-
-
-// todo Доделать totalAmount - Не считается общая сумма заказа
-// todo Доделать корзину - Не отображается общая сумма заказа
-//todo Сделать обратный переход в корзину, заказ не сохраняется
-//todo доделать возрат коризны при отмене платежа.
-
 
 @Controller
 public class QuickTicketController {
 
     private final Logger logger = LoggerFactory.getLogger(QuickTicketController.class);
 
-    @Autowired
     private final QuickTicketService quickTicketService;
     private final OrderService orderService;
     private final EmailService emailService;
 
+    @Autowired
     public QuickTicketController(QuickTicketService quickTicketService, OrderService orderService, EmailService emailService) {
         this.quickTicketService = quickTicketService;
         this.orderService = orderService;
@@ -50,31 +45,49 @@ public class QuickTicketController {
     }
 
     @GetMapping("/")
-    public String home() {
+    public String home(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
         return "index";
     }
 
     @GetMapping("/getModal")
-    public String getModal(@RequestParam(required = false) String cartId, Model model) {
-        if (cartId == null) {
-            cartId = UUID.randomUUID().toString();
-        }
-        TicketOrder order = orderService.getOrder(cartId);
-        QuickTicketModalDto dto = quickTicketService.prepareModalDto(order);
-        model.addAttribute("CHILDCount", dto.getChildCount());
-        model.addAttribute("SENIORCount", dto.getSeniorCount());
-        model.addAttribute("DISCOUNTCount", dto.getDiscountCount());
-        model.addAttribute("CHILDAmount", dto.getChildAmount());
-        model.addAttribute("SENIORAmount", dto.getSeniorAmount());
-        model.addAttribute("DISCOUNTAmount", dto.getDiscountAmount());
-        model.addAttribute("totalAmount", dto.getTotalAmount());
-        model.addAttribute("CHILDPrice", dto.getChildPrice());
-        model.addAttribute("SENIORPrice", dto.getSeniorPrice());
-        model.addAttribute("DISCOUNTPrice", dto.getDiscountPrice());
-        model.addAttribute("cartId", cartId);
-        return "fragments/QuickBuyTicket :: QuickBuyTicketFragment";
-    }
+    public String getModal(@RequestParam(required = false) String cartId, Model model, HttpServletResponse response, HttpSession session) {
+        logger.info("Handling /getModal request with cartId: {}", cartId);
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
 
+        try {
+            // Очищаем все корзины в Redis перед созданием новой
+            orderService.clearAllCartsFromRedis();
+
+            // Всегда создаём новый cartId
+            cartId = UUID.randomUUID().toString();
+            session.setAttribute("cartId", cartId); // Сохраняем в сессии для последующих действий
+
+            TicketOrder order = orderService.getOrder(cartId);
+            QuickTicketModalDto dto = quickTicketService.prepareModalDto(order);
+            model.addAttribute("CHILDCount", dto.getChildCount());
+            model.addAttribute("SENIORCount", dto.getSeniorCount());
+            model.addAttribute("DISCOUNTCount", dto.getDiscountCount());
+            model.addAttribute("CHILDAmount", dto.getChildAmount());
+            model.addAttribute("SENIORAmount", dto.getSeniorAmount());
+            model.addAttribute("DISCOUNTAmount", dto.getTotalAmount());
+            model.addAttribute("totalAmount", dto.getTotalAmount());
+            model.addAttribute("CHILDPrice", dto.getChildPrice());
+            model.addAttribute("SENIORPrice", dto.getSeniorPrice());
+            model.addAttribute("DISCOUNTPrice", dto.getDiscountPrice());
+            model.addAttribute("cartId", cartId);
+            logger.info("Returning QuickBuyTicketFragment for cartId: {}", cartId);
+            return "fragments/QuickBuyTicket :: QuickBuyTicketFragment";
+        } catch (Exception e) {
+            logger.error("Error processing /getModal for cartId: {}", cartId, e);
+            model.addAttribute("error", "Ошибка загрузки формы. Попробуйте позже.");
+            return "fragments/error :: errorFragment";
+        }
+    }
 
     @PostMapping("/cart/inc")
     public String incrementTicket(@RequestParam TicketType type, @RequestParam String cartId, Model model) {
@@ -99,8 +112,7 @@ public class QuickTicketController {
     }
 
     @PostMapping("/proceedToUserData")
-    public String proceedToUserData(@RequestParam String cartId,
-                                    Model model) {
+    public String proceedToUserData(@RequestParam String cartId, Model model) {
         TicketOrder order = orderService.getOrder(cartId);
         BasketUpdateDto dto = quickTicketService.getBasket(order);
         model.addAttribute("cartId", cartId);
@@ -109,7 +121,7 @@ public class QuickTicketController {
         model.addAttribute("ticketList", dto.getTicketList());
         model.addAttribute("order", order);
         order.setTotalAmount((int) dto.getTotalAmount());
-        logger.debug("Modal data  prepared: List<QuickTicket> = {}", dto.getTicketList());
+        logger.debug("Modal data prepared: List<QuickTicket> = {}", dto.getTicketList());
         return "fragments/proceedToUserData :: proceedToUserDataFragment";
     }
 
@@ -128,8 +140,7 @@ public class QuickTicketController {
             for (FieldError fieldError : bindingResult.getFieldErrors()) {
                 error.append(fieldError.getDefaultMessage()).append(" ");
             }
-            logger.warn("Validation error: " + error);
-
+            logger.warn("Validation error: {}", error);
             model.addAttribute("error", error.toString());
             model.addAttribute("userDto", userDto);
             return "fragments/proceedToUserData :: proceedToUserDataFragment";
@@ -148,15 +159,14 @@ public class QuickTicketController {
             orderService.changeStatusToPaid(order);
             emailService.sendConfirmationEmail(userDto.getEmail());
             model.addAttribute("confirmation", "Заказ был успешно оформлен! Подтверждение отправлено на ваш e-mail!");
-            logger.info("Order was successfully processed: {}", order);
-
+            logger.info("Order processed successfully. ID: {}, Email: {}", order.getId(), order.getEmail());
+            orderService.clearOrderFromRedis(cartId); // Очищаем после успешной оплаты
         } else {
             model.addAttribute("confirmation", "Произошла ошибка при оплате. Попробуйте снова.");
-            logger.error("Error during payment processing: {}", order);
+            logger.error("Error during payment processing. ID: {}, Email: {}", order.getId(), order.getEmail());
         }
         return "fragments/confirmation :: confirmationFragment";
     }
-
 
     @PostMapping("/basket")
     public String getBasket(Model model, @RequestParam String cartId) {
@@ -171,11 +181,12 @@ public class QuickTicketController {
     }
 
     @GetMapping("/closeModal")
-    public ResponseEntity<Void> clearSession(HttpSession httpSession) {
+    public ResponseEntity<Void> clearSession(HttpSession httpSession, @RequestParam(required = false) String cartId) {
         logger.debug("Clearing session order");
         httpSession.removeAttribute("order");
+        if (cartId != null) {
+            orderService.clearOrderFromRedis(cartId);
+        }
         return ResponseEntity.noContent().build();
     }
-
-
 }

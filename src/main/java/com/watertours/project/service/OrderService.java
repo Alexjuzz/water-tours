@@ -5,16 +5,20 @@ import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.model.entity.ticket.QuickTicket;
 import com.watertours.project.repository.OrderRepository;
 import jakarta.servlet.http.HttpSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
 public class OrderService {
+    private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
     private TicketOrder order;
     private final OrderRepository orderRepository;
     private RedisTemplate<String, TicketOrder> redisTemplate;
@@ -31,42 +35,68 @@ public class OrderService {
     }
 
     public TicketOrder getOrder(String cartId) {
-        {
-            TicketOrder order = redisTemplate.opsForValue().get("cartId" + cartId);
-            if (order == null) {
-                order = new TicketOrder();
-                redisTemplate.opsForValue().set("cartId" + cartId, order, 10, TimeUnit.MINUTES);
-            }
-            for(QuickTicket ticket : order.getTicketList()){
-                ticket.setOrder(order);
-            }
-            return order;
-        }
-    }
-
-    public void saveOrderToRedis(String cartId, TicketOrder order) {
-        redisTemplate.opsForValue().set("cartId" + cartId, order, 10, TimeUnit.MINUTES);
-    }
-
-    public void clearOrderFromRedis(String cartId) {
-        redisTemplate.delete("cartId" + cartId);
-    }
-
-    public TicketOrder saveOrderToDB(TicketOrder order) {
-        TicketOrder resultOrder = null;
+        TicketOrder order;
         try {
-            if (isValidOrder(order.getTicketList(), order.getBuyerName(), order.getEmail(), order.getPhone())) {
+            order = redisTemplate.opsForValue().get("cartId" + cartId);
+            if (order == null) {
+                logger.info("No order found in Redis for cartId: {}, creating new one", cartId);
+                order = new TicketOrder();
+                redisTemplate.opsForValue().set("cartId" + cartId, order, 3, TimeUnit.MINUTES);
+            } else {
+                logger.debug("Order retrieved from Redis for cartId: {}", cartId);
                 for (QuickTicket ticket : order.getTicketList()) {
                     ticket.setOrder(order);
                 }
-                resultOrder = orderRepository.save(order);
             }
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Не выбраны поля или не правильно заполнены данные");
+        } catch (Exception e) {
+            logger.error("Failed to connect to Redis for cartId: {}. Creating new order", cartId, e);
+            order = new TicketOrder();
         }
-        orderRepository.save(order);
-        return resultOrder;
+        return order;
     }
+
+    public void saveOrderToRedis(String cartId, TicketOrder order) {
+        try {
+            redisTemplate.opsForValue().set("cartId" + cartId, order, 3, TimeUnit.MINUTES);
+            logger.debug("Order saved to Redis for cartId: {}", cartId);
+        } catch (Exception e) {
+            logger.error("Failed to save order to Redis for cartId: {}", cartId, e);
+        }
+    }
+
+    public void clearOrderFromRedis(String cartId) {
+        try {
+            redisTemplate.delete("cart:" + cartId);
+            logger.debug("Order cleared from Redis for cartId: {}", cartId);
+        } catch (Exception e) {
+            logger.error("Failed to clear order from Redis for cartId: {}", cartId, e);
+        }
+    }
+
+    public void clearAllCartsFromRedis() {
+        try {
+            Set<String> keys = redisTemplate.keys("cartId*");
+            if (keys != null) {
+                redisTemplate.delete(keys);
+                logger.info("Cleared all cart entries from Redis. Removed keys: {}", keys.size());
+            } else {
+                logger.info("No cart entries found in Redis");
+            }
+        } catch (Exception e) {
+            logger.error("Failed to clear all cart entries from Redis", e);
+        }
+    }
+
+    public TicketOrder saveOrderToDB(TicketOrder order) {
+        if (!isValidOrder(order.getTicketList(), order.getBuyerName(), order.getEmail(), order.getPhone())) {
+            throw new IllegalArgumentException("Invalid order");
+        }
+        for (QuickTicket ticket : order.getTicketList()) {
+            ticket.setOrder(order);
+        }
+        return orderRepository.save(order);
+    }
+
     public void changeStatusToPaid(TicketOrder order) {
         Optional<TicketOrder> optionalOrder = orderRepository.findById(order.getId());
         if (optionalOrder.isPresent()) {

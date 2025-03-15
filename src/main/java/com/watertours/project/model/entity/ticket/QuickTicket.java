@@ -37,14 +37,11 @@ public class QuickTicket implements Serializable {
 
     public QuickTicket(TicketType type) {
         this.type = type;
+
+
     }
 
-    @PrePersist
-    private void prePersist() {
-        if(this.uuid == null){
-            this.uuid = UUID.randomUUID();
-        }
-    }
+
 
 
 
