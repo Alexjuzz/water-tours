@@ -1,6 +1,7 @@
 package com.watertours.project.model.entity.ticket;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.watertours.project.enums.TicketStatus;
 import com.watertours.project.enums.TicketType;
 import com.watertours.project.model.entity.order.TicketOrder;
@@ -57,6 +58,7 @@ public class QuickTicket implements Serializable {
         return false;
     }
 
+    @JsonIgnore
     public boolean isExpired() {
         long diffDays = ChronoUnit.DAYS.between(dateStamp, LocalDateTime.now());
         if (diffDays > 5) {
