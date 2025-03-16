@@ -6,7 +6,7 @@ import com.watertours.project.model.dto.QuickTicketModalDto;
 import com.watertours.project.model.dto.TicketUpdateDto;
 import com.watertours.project.model.dto.UserDto;
 import com.watertours.project.model.entity.order.TicketOrder;
-import com.watertours.project.service.EmailService;
+import com.watertours.project.service.emailService.EmailService;
 import com.watertours.project.service.OrderService;
 import com.watertours.project.service.QuickTicketService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -42,6 +42,7 @@ public class QuickTicketController {
         this.quickTicketService = quickTicketService;
         this.orderService = orderService;
         this.emailService = emailService;
+
     }
 
     @GetMapping("/")

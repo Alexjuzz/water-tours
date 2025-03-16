@@ -6,9 +6,21 @@ spring:
     name : testHtmx
   datasource:
     url: jdbc:postgresql://localhost:5430/htmxserver
-    username: htmxserver
-    password: 123
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name:  org.postgresql.Driver
+  mail:
+    host: smtp.yandex.ru
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+        mail:
+          smtp:
+            auth: true
+            starttls:
+              enable: true
+              required: true
   jpa:
     database: POSTGRESQL
     show-sql: true
