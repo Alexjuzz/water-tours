@@ -9,6 +9,7 @@ import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.service.emailService.EmailService;
 import com.watertours.project.service.OrderService;
 import com.watertours.project.service.QuickTicketService;
+import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -125,7 +126,7 @@ public class QuickTicketController {
     public String processOrder(@Valid @ModelAttribute("userDto") UserDto userDto,
                                BindingResult bindingResult,
                                Model model,
-                               @RequestParam String cartId) {
+                               @RequestParam String cartId) throws MessagingException {
         if (userDto.getBuyerName().isEmpty() || userDto.getEmail().isEmpty() || userDto.getPhone().isEmpty()) {
             model.addAttribute("error", "Пожалуйста уточните введенные данные.");
             return "fragments/proceedToUserData :: proceedToUserDataFragment";
@@ -153,7 +154,7 @@ public class QuickTicketController {
         boolean paymentSuccess = orderService.simulatePayment(order);
         if (paymentSuccess) {
             orderService.changeStatusToPaid(order);
-            emailService.sendConfirmationEmail(userDto.getEmail());
+//            emailService.sendConfirmationEmail(userDto.getEmail());
             model.addAttribute("confirmation", "Заказ был успешно оформлен! Подтверждение отправлено на ваш e-mail!");
             logger.info("Order processed successfully. ID: {}, Email: {}", order.getId(), order.getEmail());
             orderService.clearOrderFromRedis(cartId); // Очищаем после успешной оплаты
