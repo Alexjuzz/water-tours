@@ -6,14 +6,12 @@ import com.watertours.project.model.entity.ticket.QuickTicket;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 
 
 @Service
 public class TicketService {
     private final TicketProperties ticketProperties;
 
-    private List<QuickTicket> listTicket;
 
 
     @Autowired

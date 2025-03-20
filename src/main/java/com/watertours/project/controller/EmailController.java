@@ -3,10 +3,8 @@ package com.watertours.project.controller;
 import com.watertours.project.service.emailService.EmailService;
 import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.Banner;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,11 +32,11 @@ public class EmailController {
             try {
                 emailService.sendConfirmationEmail(email,code);
                 model.addAttribute("message","Email отправляется!");
-                return "result";
+                return "fragments/paymentFragments/resultFragment";
             }catch (MessagingException e){
                 redisTemplate.delete(email);
                 model.addAttribute("Ошибка отправки ссылки для подтверждения "  +  e.getMessage());
-                return "result";
+                return "fragments/paymentFragments/errorFragment";
             }
 
     }
@@ -46,7 +44,7 @@ public class EmailController {
     @GetMapping("/confirm-code")
     public String confirmCode(@RequestParam String email, @RequestParam String code) {
                 String storeCode = redisTemplate.opsForValue().get(email);
-                if(storeCode != null && storeCode.equals(storeCode)){
+                if(storeCode != null && storeCode.equals(code)){
                     redisTemplate.delete(email);
                     return "redirect:/payment?email="+email;
                 }else {
@@ -57,12 +55,12 @@ public class EmailController {
     @GetMapping("/payment")
     public String paymentPage(@RequestParam String email, Model model){
         model.addAttribute("email", email);
-        return "payment";
+        return "fragments/paymentFragments/paymentFragment";
     }
 
     @GetMapping("/error")
     public String errorPage(Model model){
         model.addAttribute("message", "Неверный код  или Email");
-        return "error";
+        return "fragments/paymentFragments/errorFragment";
     }
 }

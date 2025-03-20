@@ -87,8 +87,7 @@ public class QuickTicketService {
     }
 
     private int getTicketsPrice(Long count, int price) {
-        int result = (int) (count * price);
-        return result;
+        return  (int) (count * price);
     }
 
     private TicketUpdateDto createTicketUpdateDto(TicketType type, TicketOrder order) {
