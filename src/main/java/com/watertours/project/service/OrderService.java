@@ -41,13 +41,16 @@ public class OrderService {
                 redisTemplate.opsForValue().set("cartId" + cartId, order, 3, TimeUnit.MINUTES);
             } else {
                 logger.debug("Order retrieved from Redis for cartId: {}", cartId);
+                int totalamount = 0;
                 for (QuickTicket ticket : order.getTicketList()) {
                     ticket.setOrder(order);
+                    totalamount+=ticket.getPrice();
                 }
+                order.setTotalAmount(totalamount);
             }
         } catch (Exception e) {
             logger.error("Failed to connect to Redis for cartId: {}. Creating new order", cartId, e);
-            order = new TicketOrder();
+            order = new TicketOrder(); //todo проверить данные, нужно ли отправять пустой заказ.
         }
         return order;
     }
@@ -71,7 +74,6 @@ public class OrderService {
     }
 
 
-
     public TicketOrder saveOrderToDB(TicketOrder order) {
         if (!isValidOrder(order.getTicketList(), order.getBuyerName(), order.getEmail(), order.getPhone())) {
             throw new IllegalArgumentException("Invalid order");
@@ -91,6 +93,10 @@ public class OrderService {
         }
     }
 
+    public boolean checkOrderExist(TicketOrder order) {
+        Optional<TicketOrder> optionalOrder = orderRepository.findById(order.getId());
+        return optionalOrder.isPresent();
+    }
     //region PRIVATE METHODS
 
 

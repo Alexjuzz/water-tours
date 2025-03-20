@@ -1,24 +1,7 @@
-<!DOCTYPE html>
+<!DOCTYPE html >
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Результат отправки</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; }
-        header, footer { text-align: center; padding: 10px; background-color: #f0f0f0; }
-    </style>
-</head>
-<body>
-<header>
-    <h1>Water Tours</h1>
-</header>
-<main>
-    <h2>Результат отправки</h2>
+<div th:fragment="result">
+    <p>Резултат отправки </p>
     <p th:text="${message}"></p>
-    <a href="/">Вернуться на главную</a>
-</main>
-<footer>
-    <p>© 2025 Water Tours</p>
-</footer>
-</body>
-</html>
+    <p>Проверьте почту и перейдите по ссылке для подтвержения</p>
+</div>

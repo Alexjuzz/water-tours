@@ -36,13 +36,11 @@ public class QuickTicketController {
 
     private final QuickTicketService quickTicketService;
     private final OrderService orderService;
-    private final EmailService emailService;
 
     @Autowired
-    public QuickTicketController(QuickTicketService quickTicketService, OrderService orderService, EmailService emailService) {
+    public QuickTicketController(QuickTicketService quickTicketService, OrderService orderService) {
         this.quickTicketService = quickTicketService;
         this.orderService = orderService;
-        this.emailService = emailService;
 
     }
 
@@ -90,6 +88,7 @@ public class QuickTicketController {
     public String incrementTicket(@RequestParam TicketType type, @RequestParam String cartId, Model model) {
         logger.debug("Increment ticket of type: {}", type);
         TicketOrder order = orderService.getOrder(cartId);
+
         TicketUpdateDto dto = quickTicketService.incrementTicket(type, order);
         orderService.saveOrderToRedis(cartId, order);
         model.addAllAttributes(dto.toModelAttributes());
@@ -131,6 +130,7 @@ public class QuickTicketController {
             model.addAttribute("error", "Пожалуйста уточните введенные данные.");
             return "fragments/proceedToUserData :: proceedToUserDataFragment";
         }
+
         if (bindingResult.hasErrors()) {
             StringBuilder error = new StringBuilder();
             error.append("Пожалуйста уточните введенные данные: ");
@@ -145,7 +145,9 @@ public class QuickTicketController {
 
         logger.debug("User data: {}", userDto);
 
-        TicketOrder order = orderService.getOrder(cartId);
+        TicketOrder order = orderService.getOrder(cartId); // todo проверить данные чтобы не сохранить уже созданый заказ дважды.
+
+
         order.setBuyerName(userDto.getBuyerName());
         order.setPhone(userDto.getPhone());
         order.setEmail(userDto.getEmail());
@@ -155,14 +157,17 @@ public class QuickTicketController {
         if (paymentSuccess) {
             orderService.changeStatusToPaid(order);
 //            emailService.sendConfirmationEmail(userDto.getEmail());
+            model.addAttribute("email",userDto.getEmail());
+
             model.addAttribute("confirmation", "Заказ был успешно оформлен! Подтверждение отправлено на ваш e-mail!");
             logger.info("Order processed successfully. ID: {}, Email: {}", order.getId(), order.getEmail());
-            orderService.clearOrderFromRedis(cartId); // Очищаем после успешной оплаты
+            return "redirect:/send-email?email=" + userDto.getEmail();
         } else {
             model.addAttribute("confirmation", "Произошла ошибка при оплате. Попробуйте снова.");
             logger.error("Error during payment processing. ID: {}, Email: {}", order.getId(), order.getEmail());
+            return "fragments/confirmation :: confirmationFragment";
         }
-        return "fragments/confirmation :: confirmationFragment";
+
     }
 
     @PostMapping("/basket")

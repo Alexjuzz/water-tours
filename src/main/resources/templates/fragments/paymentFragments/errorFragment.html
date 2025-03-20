@@ -1,24 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Ошибка</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; }
-        header, footer { text-align: center; padding: 10px; background-color: #f0f0f0; }
-    </style>
-</head>
-<body>
-<header>
-    <h1>Water Tours</h1>
-</header>
-<main>
+<div th:fragment="error">
     <h2>Ошибка</h2>
     <p th:text="${message}"></p>
-    <a href="/">Вернуться на главную</a>
-</main>
-<footer>
-    <p>© 2025 Water Tours</p>
-</footer>
-</body>
+    <button onclick="document.getElementById('modalWindow').style.display='none'; document.getElementById('buyTicketsButton').style.display='block'">
+        Закрыть
+    </button>
+</div>
 </html>
