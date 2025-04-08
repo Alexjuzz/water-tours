@@ -4,6 +4,7 @@ import com.watertours.project.enums.OrderStatus;
 import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.model.entity.ticket.QuickTicket;
 import com.watertours.project.repository.OrderRepository;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,32 +33,27 @@ public class OrderService {
     }
 
     public TicketOrder getOrder(String cartId) {
-        TicketOrder order;
-        try {
-            order = redisTemplate.opsForValue().get("cartId" + cartId);
-            if (order == null) {
-                logger.info("No order found in Redis for cartId: {}, creating new one", cartId);
-                order = new TicketOrder();
-                redisTemplate.opsForValue().set("cartId" + cartId, order, 3, TimeUnit.MINUTES);
-            } else {
-                logger.debug("Order retrieved from Redis for cartId: {}", cartId);
-                int totalamount = 0;
-                for (QuickTicket ticket : order.getTicketList()) {
-                    ticket.setOrder(order);
-                    totalamount+=ticket.getPrice();
-                }
-                order.setTotalAmount(totalamount);
+        TicketOrder order = redisTemplate.opsForValue().get("cartId:" + cartId);
+        if (order == null) {
+            logger.info("No order found in Redis for cartId: {}, creating new one", cartId);
+            order = new TicketOrder();
+            order.setCartId(cartId);
+            redisTemplate.opsForValue().set("cartId:" + cartId, order, 3, TimeUnit.MINUTES);
+        } else {
+            logger.debug("Order retrieved from Redis for cartId: {}", cartId);
+            int totalamount = 0;
+            for (QuickTicket ticket : order.getTicketList()) {
+                ticket.setOrder(order);
+                totalamount += ticket.getPrice();
             }
-        } catch (Exception e) {
-            logger.error("Failed to connect to Redis for cartId: {}. Creating new order", cartId, e);
-            order = new TicketOrder(); //todo проверить данные, нужно ли отправять пустой заказ.
+            order.setTotalAmount(totalamount);
         }
         return order;
     }
 
     public void saveOrderToRedis(String cartId, TicketOrder order) {
         try {
-            redisTemplate.opsForValue().set("cartId" + cartId, order, 3, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("cartId:" + cartId, order, 3, TimeUnit.MINUTES);
             logger.debug("Order saved to Redis for cartId: {}", cartId);
         } catch (Exception e) {
             logger.error("Failed to save order to Redis for cartId: {}", cartId, e);
@@ -66,22 +62,30 @@ public class OrderService {
 
     public void clearOrderFromRedis(String cartId) {
         try {
-            redisTemplate.delete("cart:" + cartId);
+            redisTemplate.delete("cartId:" + cartId);
             logger.debug("Order cleared from Redis for cartId: {}", cartId);
         } catch (Exception e) {
             logger.error("Failed to clear order from Redis for cartId: {}", cartId, e);
         }
     }
 
-
+    @Transactional
     public TicketOrder saveOrderToDB(TicketOrder order) {
         if (!isValidOrder(order.getTicketList(), order.getBuyerName(), order.getEmail(), order.getPhone())) {
             throw new IllegalArgumentException("Invalid order");
         }
+
+        if (orderRepository.findByCartId(order.getCartId()).isPresent()) {
+            logger.warn("Order with cartId {} already exists", order.getCartId());
+            throw new IllegalArgumentException("Order with cartId already exists");
+        }
+        order.setStatus(OrderStatus.PAID);
         for (QuickTicket ticket : order.getTicketList()) {
             ticket.setOrder(order);
         }
-        return orderRepository.save(order);
+        TicketOrder savedOrder = orderRepository.save(order);
+        logger.info("Order saved to DB with id: {}", savedOrder.getId());
+        return savedOrder;
     }
 
     public void changeStatusToPaid(TicketOrder order) {
@@ -102,6 +106,10 @@ public class OrderService {
 
     private boolean isValidOrder(List<QuickTicket> listTicket, String name, String email, String phone) {
         return !listTicket.isEmpty() && name != null && !name.isEmpty() && email != null && !email.isEmpty() && phone != null && !phone.isEmpty();
+    }
+
+    public boolean isOrderAllReadyPaid(String cartId) {
+        return orderRepository.findByCartId(cartId).isPresent();
     }
 
 

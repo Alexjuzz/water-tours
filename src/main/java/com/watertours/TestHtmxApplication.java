@@ -12,6 +12,10 @@ public class TestHtmxApplication {
 		Dotenv dotenv = Dotenv.configure().load();
 		dotenv.entries().forEach(entry ->System.setProperty(entry.getKey(), entry.getValue()));
 		SpringApplication.run(TestHtmxApplication.class, args);
+
+
+		
+
 	}
 
 }

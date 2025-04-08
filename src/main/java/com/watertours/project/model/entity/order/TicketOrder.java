@@ -28,6 +28,9 @@ public class TicketOrder implements Serializable {
     @Serial
     private static final long serialVersionUID = 1;
 
+    @Column(name = "cart_id", unique = true)
+    private String cartId;
+
     @JoinColumn(name = "ticket_list")
     @JsonManagedReference
     @OneToMany(cascade = CascadeType.ALL)
@@ -95,6 +98,9 @@ public class TicketOrder implements Serializable {
         return ticket.orElse(null);
 
     }
+
+
+
 
 
 }

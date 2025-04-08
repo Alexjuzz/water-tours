@@ -2,6 +2,27 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <div th:fragment="payment">
     <h2>Оплата заказа</h2>
+<!--    <div th:if="${order.ticketList != null and not order.ticketList.isEmpty()}">-->
+<!--        <ul>-->
+
+<!--            <div th:if="${order.getTicketByType('CHILD') != null}">-->
+<!--                <span>Детских билетов</span>-->
+<!--                <span th:text="${childCount} + ' на сумму ' ">0</span>-->
+<!--                <span th:text="${childAmount} + ' рублей.' ">0</span>-->
+<!--            </div>-->
+<!--            <div th:if="${order.getTicketByType('SENIOR') != null}">-->
+<!--                <span>Детских билетов</span>-->
+<!--                <span th:text="${seniorCount} + ' на сумму ' ">0</span>-->
+<!--                <span th:text="${seniorAmount} + ' рублей.' ">0</span>-->
+<!--            </div>-->
+<!--            <div th:if="${order.getTicketByType('DISCOUNT') != null}">-->
+<!--                <span>Детских билетов</span>-->
+<!--                <span th:text="${discountCount} + ' на сумму ' ">0</span>-->
+<!--                <span th:text="${discountAmount} + ' рублей.' ">0</span>-->
+<!--            </div>-->
+<!--            <h3> Общая сумма к заказу : <span th:text="${totalAmount}"> 0</span></h3>-->
+<!--        </ul>-->
+<!--    </div>-->
     <p>Оплата для: <span th:text="${email}"></span></p>
     <form action="/process-payment" method="post" hx-post="/process-payment" hx-target="#modalBody" hx-swap="innerHTML">
         <div class="form-group" style="margin-bottom: 15px;">

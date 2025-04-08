@@ -88,7 +88,6 @@ public class QuickTicketController {
     public String incrementTicket(@RequestParam TicketType type, @RequestParam String cartId, Model model) {
         logger.debug("Increment ticket of type: {}", type);
         TicketOrder order = orderService.getOrder(cartId);
-
         TicketUpdateDto dto = quickTicketService.incrementTicket(type, order);
         orderService.saveOrderToRedis(cartId, order);
         model.addAllAttributes(dto.toModelAttributes());
@@ -146,19 +145,25 @@ public class QuickTicketController {
         logger.debug("User data: {}", userDto);
 
         TicketOrder order = orderService.getOrder(cartId); // todo проверить данные чтобы не сохранить уже созданый заказ дважды.
+        if(orderService.isOrderAllReadyPaid(cartId)){
+            logger.info("Order with cartId {} already paid", cartId);
+            model.addAttribute("email", userDto.getEmail());
+            model.addAttribute("confirmation", "Заказ уже оплачен.");
 
+            return "redirect:/send-email?email=" + userDto.getEmail();
+        }
 
         order.setBuyerName(userDto.getBuyerName());
         order.setPhone(userDto.getPhone());
         order.setEmail(userDto.getEmail());
+        orderService.saveOrderToRedis(cartId, order);
         model.addAttribute("cartId", cartId);
-        orderService.saveOrderToDB(order);
         boolean paymentSuccess = orderService.simulatePayment(order);
         if (paymentSuccess) {
-            orderService.changeStatusToPaid(order);
-//            emailService.sendConfirmationEmail(userDto.getEmail());
-            model.addAttribute("email",userDto.getEmail());
+            orderService.saveOrderToDB(order);
+            orderService.clearOrderFromRedis(cartId);
 
+            model.addAttribute("email",userDto.getEmail());
             model.addAttribute("confirmation", "Заказ был успешно оформлен! Подтверждение отправлено на ваш e-mail!");
             logger.info("Order processed successfully. ID: {}, Email: {}", order.getId(), order.getEmail());
             return "redirect:/send-email?email=" + userDto.getEmail();

@@ -15,12 +15,12 @@
                     <span th:text="${childAmount} + ' рублей.' ">0</span>
                 </div>
                 <div th:if="${order.getTicketByType('SENIOR') != null}">
-                    <span>Детских билетов</span>
+                    <span>Взрослых билетов</span>
                     <span th:text="${seniorCount} + ' на сумму ' ">0</span>
                     <span th:text="${seniorAmount} + ' рублей.' ">0</span>
                 </div>
                 <div th:if="${order.getTicketByType('DISCOUNT') != null}">
-                    <span>Детских билетов</span>
+                    <span>Льготных билетов</span>
                     <span th:text="${discountCount} + ' на сумму ' ">0</span>
                     <span th:text="${discountAmount} + ' рублей.' ">0</span>
                 </div>
