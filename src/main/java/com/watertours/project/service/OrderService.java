@@ -38,7 +38,7 @@ public class OrderService {
             logger.info("No order found in Redis for cartId: {}, creating new one", cartId);
             order = new TicketOrder();
             order.setCartId(cartId);
-            redisTemplate.opsForValue().set("cartId:" + cartId, order, 3, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("cartId:" + cartId, order, 5, TimeUnit.MINUTES);
         } else {
             logger.debug("Order retrieved from Redis for cartId: {}", cartId);
             int totalamount = 0;
@@ -53,7 +53,7 @@ public class OrderService {
 
     public void saveOrderToRedis(String cartId, TicketOrder order) {
         try {
-            redisTemplate.opsForValue().set("cartId:" + cartId, order, 3, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("cartId:" + cartId, order, 5, TimeUnit.MINUTES);
             logger.debug("Order saved to Redis for cartId: {}", cartId);
         } catch (Exception e) {
             logger.error("Failed to save order to Redis for cartId: {}", cartId, e);
@@ -69,6 +69,10 @@ public class OrderService {
         }
     }
 
+    public boolean isOrderAllReadyPaid(String cartId) {
+        return orderRepository.findByCartId(cartId).isPresent();
+    }
+
     @Transactional
     public TicketOrder saveOrderToDB(TicketOrder order) {
         if (!isValidOrder(order.getTicketList(), order.getBuyerName(), order.getEmail(), order.getPhone())) {
@@ -79,7 +83,7 @@ public class OrderService {
             logger.warn("Order with cartId {} already exists", order.getCartId());
             throw new IllegalArgumentException("Order with cartId already exists");
         }
-        order.setStatus(OrderStatus.PAID);
+        order.setStatus(OrderStatus.PENDING);
         for (QuickTicket ticket : order.getTicketList()) {
             ticket.setOrder(order);
         }
@@ -88,11 +92,11 @@ public class OrderService {
         return savedOrder;
     }
 
-    public void changeStatusToPaid(TicketOrder order) {
+    public void changeStatusOrder(TicketOrder order, OrderStatus status) {
         Optional<TicketOrder> optionalOrder = orderRepository.findById(order.getId());
         if (optionalOrder.isPresent()) {
             TicketOrder orderFromDB = optionalOrder.get();
-            orderFromDB.setStatus(OrderStatus.PAID);
+            orderFromDB.setStatus(status);
             orderRepository.save(orderFromDB);
         }
     }
@@ -108,9 +112,7 @@ public class OrderService {
         return !listTicket.isEmpty() && name != null && !name.isEmpty() && email != null && !email.isEmpty() && phone != null && !phone.isEmpty();
     }
 
-    public boolean isOrderAllReadyPaid(String cartId) {
-        return orderRepository.findByCartId(cartId).isPresent();
-    }
+
 
 
     //endregion

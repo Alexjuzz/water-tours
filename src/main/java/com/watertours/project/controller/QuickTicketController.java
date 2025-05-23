@@ -1,5 +1,6 @@
 package com.watertours.project.controller;
 
+import com.watertours.project.enums.OrderStatus;
 import com.watertours.project.enums.TicketType;
 import com.watertours.project.model.dto.BasketUpdateDto;
 import com.watertours.project.model.dto.QuickTicketModalDto;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 
+import java.security.PublicKey;
 import java.util.UUID;
 
 @Controller
@@ -53,11 +55,11 @@ public class QuickTicketController {
     }
 
     @GetMapping("/getModal")
-    public String getModal(@RequestParam(required = false) String cartId, Model model,   HttpSession session) {
+    public String getModal(@RequestParam(required = false) String cartId, Model model, HttpSession session) {
         logger.info("Handling /getModal request with cartId: {}", cartId);
 
         try {
-            if(cartId==null || cartId.isEmpty()){
+            if (cartId == null || cartId.isEmpty()) {
                 cartId = UUID.randomUUID().toString();
                 session.setAttribute("cartId", cartId); // Сохраняем в сессии для последующих действий
             }
@@ -145,7 +147,7 @@ public class QuickTicketController {
         logger.debug("User data: {}", userDto);
 
         TicketOrder order = orderService.getOrder(cartId); // todo проверить данные чтобы не сохранить уже созданый заказ дважды.
-        if(orderService.isOrderAllReadyPaid(cartId)){
+        if (orderService.isOrderAllReadyPaid(cartId)) {
             logger.info("Order with cartId {} already paid", cartId);
             model.addAttribute("email", userDto.getEmail());
             model.addAttribute("confirmation", "Заказ уже оплачен.");
@@ -156,24 +158,18 @@ public class QuickTicketController {
         order.setBuyerName(userDto.getBuyerName());
         order.setPhone(userDto.getPhone());
         order.setEmail(userDto.getEmail());
-        orderService.saveOrderToRedis(cartId, order);
+        order.setStatus(OrderStatus.DRAFT);
         model.addAttribute("cartId", cartId);
-        boolean paymentSuccess = orderService.simulatePayment(order);
-        if (paymentSuccess) {
-            orderService.saveOrderToDB(order);
-            orderService.clearOrderFromRedis(cartId);
 
-            model.addAttribute("email",userDto.getEmail());
-            model.addAttribute("confirmation", "Заказ был успешно оформлен! Подтверждение отправлено на ваш e-mail!");
-            logger.info("Order processed successfully. ID: {}, Email: {}", order.getId(), order.getEmail());
-            return "redirect:/send-email?email=" + userDto.getEmail();
-        } else {
-            model.addAttribute("confirmation", "Произошла ошибка при оплате. Попробуйте снова.");
-            logger.error("Error during payment processing. ID: {}, Email: {}", order.getId(), order.getEmail());
-            return "fragments/confirmation :: confirmationFragment";
-        }
 
+        model.addAttribute("email", userDto.getEmail());
+        model.addAttribute("confirmation", "Заказ был успешно оформлен! Подтверждение отправлено на ваш e-mail!");
+        logger.info("Order processed successfully. ID: {}, Email: {}", order.getId(), order.getEmail());
+        return "redirect:/send-email?email=" + userDto.getEmail();
     }
+
+
+
 
     @PostMapping("/basket")
     public String getBasket(Model model, @RequestParam String cartId) {

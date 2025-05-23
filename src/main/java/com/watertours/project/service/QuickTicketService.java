@@ -73,6 +73,7 @@ public class QuickTicketService {
 
 
 //endregion
+    //region private methods
 
     private Long getTicketCount(List<QuickTicket> ticketList, TicketType type) {
         return ticketList.stream().filter(t -> t.getType() == type).count();

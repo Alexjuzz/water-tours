@@ -51,7 +51,6 @@ public class EmailController {
 
     @GetMapping("/confirm-code")
     public String confirmCode(@RequestParam String email, @RequestParam String code, Model model) {
-        System.out.println(model);
         String storeCode = redisTemplate.opsForValue().get(email);
         if (storeCode != null && storeCode.equals(code)) {
             redisTemplate.delete(email);
@@ -80,17 +79,17 @@ public class EmailController {
     public String processPayment(@RequestParam String email,
                                  @RequestParam String cardNumber,
                                  @RequestParam String cvv,
-                                 @RequestParam String expiryDate,
+                                 @RequestParam String expiry,
                                  Model model) {
         boolean paymentResult = true;
+        System.out.println(cardNumber + " " + cvv + " " + expiry);
         String cartKey = "cardId" + email;
         if (paymentResult) {
             model.addAttribute("message", "Оплата прошла успешно, ваша почта " + email);
             if (redisTemplate.hasKey(cartKey)) {
                 redisTemplate.delete(cartKey);
-
             }
-            return "fragments/paymentFragments/resultFragment :: result";
+            return "fragments/paymentFragments/finalizeFragment :: finalize";
         } else {
             model.addAttribute("message", "Ошибка оплаты");
             return "fragments/paymentFragments/errorFragment :: error";

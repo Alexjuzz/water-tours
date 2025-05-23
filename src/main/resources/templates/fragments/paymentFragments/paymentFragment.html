@@ -2,43 +2,29 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <div th:fragment="payment">
     <h2>Оплата заказа</h2>
-<!--    <div th:if="${order.ticketList != null and not order.ticketList.isEmpty()}">-->
-<!--        <ul>-->
-
-<!--            <div th:if="${order.getTicketByType('CHILD') != null}">-->
-<!--                <span>Детских билетов</span>-->
-<!--                <span th:text="${childCount} + ' на сумму ' ">0</span>-->
-<!--                <span th:text="${childAmount} + ' рублей.' ">0</span>-->
-<!--            </div>-->
-<!--            <div th:if="${order.getTicketByType('SENIOR') != null}">-->
-<!--                <span>Детских билетов</span>-->
-<!--                <span th:text="${seniorCount} + ' на сумму ' ">0</span>-->
-<!--                <span th:text="${seniorAmount} + ' рублей.' ">0</span>-->
-<!--            </div>-->
-<!--            <div th:if="${order.getTicketByType('DISCOUNT') != null}">-->
-<!--                <span>Детских билетов</span>-->
-<!--                <span th:text="${discountCount} + ' на сумму ' ">0</span>-->
-<!--                <span th:text="${discountAmount} + ' рублей.' ">0</span>-->
-<!--            </div>-->
-<!--            <h3> Общая сумма к заказу : <span th:text="${totalAmount}"> 0</span></h3>-->
-<!--        </ul>-->
-<!--    </div>-->
     <p>Оплата для: <span th:text="${email}"></span></p>
+
     <form action="/process-payment" method="post" hx-post="/process-payment" hx-target="#modalBody" hx-swap="innerHTML">
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="cardNumber">Номер карты</label>
-            <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456" required style="width: 100%; padding: 8px;">
+            <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456" required
+                   style="width: 100%; padding: 8px;">
         </div>
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="expiry">Срок действия</label>
-            <input type="text" id="expiry" name="expiry" placeholder="MM/YY" required style="width: 100%; padding: 8px;">
+            <input type="text" id="expiry" name="expiry" placeholder="MM/YY" required
+                   style="width: 100%; padding: 8px;">
         </div>
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="cvv">CVV</label>
             <input type="text" id="cvv" name="cvv" placeholder="123" required style="width: 100%; padding: 8px;">
         </div>
         <input type="hidden" name="email" th:value="${email}">
-        <button type="submit" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Оплатить</button>
+        <button type="submit"
+                style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">
+            Оплатить
+        </button>
     </form>
+
 </div>
 </html>
