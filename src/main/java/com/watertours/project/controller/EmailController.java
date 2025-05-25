@@ -1,10 +1,12 @@
 package com.watertours.project.controller;
 
+import com.watertours.project.enums.OrderStatus;
 import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.repository.OrderRepository;
 import com.watertours.project.repository.QuickTicketRepository;
 import com.watertours.project.service.emailService.EmailService;
 import jakarta.mail.MessagingException;
+import org.aspectj.weaver.ast.Or;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -34,12 +37,13 @@ public class EmailController {
     }
 
     @GetMapping("/send-email")
-    public String sendEmail(@RequestParam String email, Model model) throws MessagingException {
+    public String sendEmail(@RequestParam String email,String cartId, Model model) throws MessagingException {
         String code = UUID.randomUUID().toString().substring(0, 8);
         redisTemplate.opsForValue().set(email, code, 5, TimeUnit.MINUTES);
         try {
             emailService.sendConfirmationEmail(email, code);
             model.addAttribute("message", "Email отправляется! ");
+            model.addAttribute("cartId", cartId);
             return "fragments/paymentFragments/resultFragment :: result";
         } catch (MessagingException e) {
             redisTemplate.delete(email);
@@ -62,12 +66,12 @@ public class EmailController {
         }
     }
 
-    @GetMapping("/payment")
-    public String paymentPage(@RequestParam String email, Model model) {
-        model.addAttribute("email", email);
-
-        return "fragments/paymentFragments/paymentFragment :: payment";
-    }
+//    @GetMapping("/payment")
+//    public String paymentPage(@RequestParam String email, Model model) {
+//        model.addAttribute("email", email);
+//
+//        return "fragments/paymentFragments/paymentFragment :: payment";
+//    }
 
     @GetMapping("/error")
     public String errorPage(Model model) {
@@ -80,11 +84,21 @@ public class EmailController {
                                  @RequestParam String cardNumber,
                                  @RequestParam String cvv,
                                  @RequestParam String expiry,
+                                 @RequestParam String cartId,
                                  Model model) {
-        boolean paymentResult = true;
+        boolean paymentResult = true; // todo : проверить на тестовом сервисе оплату
         System.out.println(cardNumber + " " + cvv + " " + expiry);
         String cartKey = "cardId" + email;
         if (paymentResult) {
+            Optional<TicketOrder> orderOptional = repository.findByCartId(cartId);
+            if(orderOptional.isPresent()){
+                TicketOrder order = orderOptional.get();
+                order.setStatus(OrderStatus.PAID);
+                repository.save(order);
+            }else{
+                model.addAttribute("message", "Заказ не найден");
+                throw  new IllegalArgumentException("Order not found");
+            }
             model.addAttribute("message", "Оплата прошла успешно, ваша почта " + email);
             if (redisTemplate.hasKey(cartKey)) {
                 redisTemplate.delete(cartKey);

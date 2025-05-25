@@ -1,5 +1,6 @@
 package com.watertours.project.service.emailService;
 
+import com.watertours.project.model.entity.order.TicketOrder;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
-    private JavaMailSender mailSender;
+    private final JavaMailSender mailSender;
 
 
     @Autowired
@@ -43,6 +44,10 @@ public class EmailService {
         }  catch (MessagingException e){
             System.err.println("Ошибка отправки письма на " + email + ": " + e.getMessage());
         }
+
+    }
+
+    public void sendTicketsEmail(TicketOrder savedOrder) {
 
     }
 }

@@ -57,7 +57,7 @@ public class TicketOrder implements Serializable {
 
     @PrePersist
     private void prePersist() {
-        this.status = OrderStatus.PENDING;
+        this.status = OrderStatus.DRAFT;
         this.createDate = new Date(System.currentTimeMillis());
     }
 

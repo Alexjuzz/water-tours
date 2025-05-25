@@ -38,11 +38,13 @@ public class QuickTicketController {
 
     private final QuickTicketService quickTicketService;
     private final OrderService orderService;
+    private final EmailService emailService;
 
     @Autowired
-    public QuickTicketController(QuickTicketService quickTicketService, OrderService orderService) {
+    public QuickTicketController(QuickTicketService quickTicketService, OrderService orderService,EmailService emailService) {
         this.quickTicketService = quickTicketService;
         this.orderService = orderService;
+        this.emailService = emailService;
 
     }
 
@@ -159,6 +161,7 @@ public class QuickTicketController {
         order.setPhone(userDto.getPhone());
         order.setEmail(userDto.getEmail());
         order.setStatus(OrderStatus.DRAFT);
+        orderService.saveOrderToRedis(cartId, order);
         model.addAttribute("cartId", cartId);
 
 
@@ -191,5 +194,23 @@ public class QuickTicketController {
             orderService.clearOrderFromRedis(cartId);
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/finalize-order")
+    public String finalizeOrder(@RequestParam String cartId, Model model) {
+        logger.debug("Finalizing order with cartId: {}", cartId);
+        TicketOrder order = orderService.getOrder(cartId);
+        if (orderService.checkOrderExist(order)) {
+            orderService.changeStatusOrder(order, OrderStatus.PAID);
+            TicketOrder savedOrder = orderService.saveOrderToDB(order);
+            emailService.sendTicketsEmail(savedOrder);
+            orderService.clearOrderFromRedis(cartId);
+            model.addAttribute("email", order.getEmail());
+            model.addAttribute("confirmation", "Заказ успешно оплачен!");
+            return "fragments/paymentFragments/finalizeFragment :: finalize";
+        } else {
+            model.addAttribute("error", "Заказ не найден или уже оплачен.");
+            return "fragments/paymentFragments/errorFragment :: error";
+        }
     }
 }

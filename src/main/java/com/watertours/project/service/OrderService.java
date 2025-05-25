@@ -38,7 +38,7 @@ public class OrderService {
             logger.info("No order found in Redis for cartId: {}, creating new one", cartId);
             order = new TicketOrder();
             order.setCartId(cartId);
-            redisTemplate.opsForValue().set("cartId:" + cartId, order, 5, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("cartId:" + cartId, order, 10, TimeUnit.MINUTES);
         } else {
             logger.debug("Order retrieved from Redis for cartId: {}", cartId);
             int totalamount = 0;
@@ -53,7 +53,7 @@ public class OrderService {
 
     public void saveOrderToRedis(String cartId, TicketOrder order) {
         try {
-            redisTemplate.opsForValue().set("cartId:" + cartId, order, 5, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("cartId:" + cartId, order, 10, TimeUnit.MINUTES);
             logger.debug("Order saved to Redis for cartId: {}", cartId);
         } catch (Exception e) {
             logger.error("Failed to save order to Redis for cartId: {}", cartId, e);
