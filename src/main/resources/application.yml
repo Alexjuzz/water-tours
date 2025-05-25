@@ -1,6 +1,8 @@
 server:
   port: 8087
-
+yookassa:
+  shopId: ${YOOKASSA_SHOP_ID}
+  secretKey: ${YOOKASSA_SECRET_KEY}
 spring:
   application:
     name : testHtmx
