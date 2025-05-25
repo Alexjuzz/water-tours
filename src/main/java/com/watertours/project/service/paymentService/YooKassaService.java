@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class YooKassaService {
@@ -19,7 +20,7 @@ public class YooKassaService {
 
     @Autowired
     public YooKassaService(RestTemplate restTemplate,
-                           @Value("${yookassa.shopId") String shopId,
+                           @Value("${yookassa.shopId}") String shopId,
                            @Value("${yookassa.secretKey}") String secretKey) {
         this.restTemplate = restTemplate;
         this.shopId = shopId;
@@ -30,12 +31,12 @@ public class YooKassaService {
      * Создаёт платёж и возвращает URL, куда редиректить пользователя.
      *
      * @param cartId       ваш идентификатор заказа (корзины)
-     * @param totalCents   сумма в копейках (например, 1598 = 15.98 RUB)
+     * @param totalRubles   сумма в рублях, которую нужно оплатить
      * @param returnUrl    публичный URL (ngrok или продакшен) для возврата после оплаты
      * @return ссылка на форму YooKassa
      */
 
-    public String createPayment(String cartId, int totalCents,String returnUrl){
+    public String createPayment(String cartId, int totalRubles,String returnUrl){
         String url = "https://api.yookassa.ru/v3/payments";
 
         // Создаём заголовок Headers
@@ -43,12 +44,16 @@ public class YooKassaService {
         headers.setBasicAuth(shopId, secretKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
 
+        //Уникальный ключ Idempotency-key Для предотвращения повторного создания платежа
+        String idempotencyKey = UUID.randomUUID().toString();
+        headers.set("Idempotence-Key", idempotencyKey);
+
         // Создаём тело запроса
-        BigDecimal amount = BigDecimal.valueOf(totalCents).divide(BigDecimal.valueOf(100),2, RoundingMode.HALF_UP);
+        BigDecimal amount = BigDecimal.valueOf(totalRubles).setScale(2, RoundingMode.HALF_UP);
 
         Map<String, Object> body = new HashMap<>();
         body.put("amount", Map.of(
-                "value", amount.toString(),
+                "value", amount,
                 "currency", "RUB"
         ));
         body.put("capture", true);
@@ -62,7 +67,7 @@ public class YooKassaService {
         ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, Map.class);
 
         // Проверяем статус ответа
-        if(response.getStatusCode() != HttpStatus.CREATED) {
+        if(response.getStatusCode() != HttpStatus.CREATED && response.getStatusCode() != HttpStatus.OK) {
             throw new RuntimeException("Ошибка создания платежа: " + response.getStatusCode());
         }
 

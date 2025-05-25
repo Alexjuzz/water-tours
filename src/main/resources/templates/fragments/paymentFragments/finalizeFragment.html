@@ -1,6 +1,8 @@
-<!DOCTYPE html >
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
-<div th:fragment="finalize">
-    <p>Резултат отправки </p>
-    <p th:text="${message}"></p>
-</div>
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Успех оплаты</title></head>
+<body>
+<h1 th:text="${message}">Спасибо за оплату!</h1>
+<a href="/">Вернуться на главную</a>
+</body>
+</html>
