@@ -62,3 +62,6 @@ logging:
     file: "%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"
   file:
     name: logs/waterTours.log
+email:
+  confirmation:
+    ttl-minutes: 3

@@ -8,6 +8,7 @@ public enum OrderStatus {
     DRAFT,
     EXPIRED,
     CANCELLED,
-    PENDING;
+    PENDING,
+    EMAIL_CONFIRM;
 
     }

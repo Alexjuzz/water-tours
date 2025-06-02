@@ -38,7 +38,6 @@ public class EmailService {
             messageHelper.setSubject("Подтверждение почты");
             messageHelper.setFrom("juzzleee@yandex.ru");
             messageHelper.setText("<h1> Спасибо за ваш заказ!<h1>" +
-                    "<p>Ваш заказ успешно подтвержден.<p>" +
                     "<p>Кликните <a href='" + confirmationUrl + "'>здесь</a> для подтверждения.</p>", true);
             mailSender.send(message);
         }  catch (MessagingException e){
@@ -50,5 +49,7 @@ public class EmailService {
     public void sendTicketsEmail(TicketOrder savedOrder) {
 
     }
+
+
 }
 

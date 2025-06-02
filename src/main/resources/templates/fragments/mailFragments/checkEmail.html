@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Подтверждение Email</title>
+</head>
+<body>
+<h2>Мы отправили код на ваш Email</h2>
+<p th:if="${message != null}" th:text="${message}" style="color: red;"></p>
+<form action="#" th:action="@{/confirm-code}" method="post">
+    <input type="hidden" name="email" th:value="${email}"/>
+    <input type="hidden" name="cartId" th:value="${cartId}"/>
+    <label for="code">Введите код:</label>
+    <input type="text" id="code" name="code" required/>
+    <button type="submit">Подтвердить</button>
+</form>
+</body>
+</html>
