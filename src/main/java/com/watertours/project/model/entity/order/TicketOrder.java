@@ -28,13 +28,17 @@ public class TicketOrder implements Serializable {
     @Serial
     private static final long serialVersionUID = 1;
 
-    @Column(name = "cart_id", unique = true)
+    @Column(name = "cart_id", unique = true,nullable = false)
     private String cartId;
 
     @JoinColumn(name = "ticket_list")
     @JsonManagedReference
-    @OneToMany(cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<QuickTicket> ticketList = new ArrayList<>();
+
+    @Column(name = "email_sent")
+    private boolean emailSent = false;
+    private int emailRetryCount = 0;
 
     @Column(name = "buyer_name")
     private String buyerName;

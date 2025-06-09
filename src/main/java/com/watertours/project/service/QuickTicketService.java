@@ -7,6 +7,7 @@ import com.watertours.project.model.dto.QuickTicketModalDto;
 import com.watertours.project.model.dto.TicketUpdateDto;
 import com.watertours.project.model.entity.ticket.QuickTicket;
 import com.watertours.project.model.entity.order.TicketOrder;
+import com.watertours.project.interfaces.OrderService.OrderService;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

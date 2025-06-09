@@ -6,17 +6,20 @@ import com.watertours.project.enums.OrderStatus;
 import com.watertours.project.interfaces.OrderService.OrderService;
 import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.repository.OrderRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 
 @Service
 public class OrderServiceImpl implements OrderService {
-        private static final String REDIS_KEY_PREFIX = "order:";
+    private static final String REDIS_KEY_PREFIX = "order:";
+    private final Logger logger = LoggerFactory.getLogger(OrderServiceImpl.class);
 
-        private final StringRedisTemplate redisTemplate;
-        private final OrderRepository orderRepository;
-        private final ObjectMapper mapper;
+    private final StringRedisTemplate redisTemplate;
+    private final OrderRepository orderRepository;
+    private final ObjectMapper mapper;
 
     public OrderServiceImpl(StringRedisTemplate redisTemplate, OrderRepository orderRepository, ObjectMapper mapper) {
         this.redisTemplate = redisTemplate;
@@ -24,47 +27,74 @@ public class OrderServiceImpl implements OrderService {
         this.mapper = mapper;
     }
 
-
-    // Implement the methods from OrderService interface here
     @Override
     public TicketOrder getOrderById(String cartId) throws JsonProcessingException {
         String redisKey = redisKey(cartId);
-        String jsonOrder = redisTemplate.opsForValue().get(redisKey);
-        if(jsonOrder != null) {
+        String jsonOrder = null;
+
+        try {
+            jsonOrder = redisTemplate.opsForValue().get(redisKey);
+        } catch (Exception e) {
+            logger.error("Redis is unavailable: {}", e.getMessage());
+            throw new RuntimeException("Временные проблемы с сервисом. Попробуйте позже.");
+        }
+        if (jsonOrder != null) {
             try {
                 return mapper.readValue(jsonOrder, TicketOrder.class);
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        } else {
+            logger.error("Order with cartId {} not found in Redis", cartId);
+            throw new RuntimeException();
         }
-        TicketOrder order = new TicketOrder();
-        order.setCartId(cartId);
-        order.setStatus(OrderStatus.DRAFT);
-        saveOrderToRedis(cartId, order);
-        return order;
+        return null;
     }
-
 
 
     @Override
     public void saveOrderToRedis(String cartId, TicketOrder order) throws JsonProcessingException {
-        String redisKey  = redisKey(cartId);
-        String jsonOrder = mapper.writeValueAsString(order);
+        String redisKey = redisKey(cartId);
+        String jsonOrder = null;
+        try {
+            jsonOrder = mapper.writeValueAsString(order);
+        } catch (Exception e) {
+            logger.error("Error serializing order to JSON: {}", e.getMessage());
+            throw new JsonProcessingException("Ошибка сериализации заказа") {
+            };
+        }
+
         redisTemplate.opsForValue().set(redisKey, jsonOrder);
     }
 
 
     @Override
     public void changeStatus(String cartId, OrderStatus status) throws JsonProcessingException {
-        TicketOrder order = getOrderById(cartId);
+        TicketOrder order = null;
+        try {
+            order = getOrderById(cartId);
+
+        } catch (Exception e) {
+            logger.error("Error changing  order status with cartId {}: {}", cartId, e.getMessage());
+            throw new RuntimeException("Ошибка изменения статуса заказа. Попробуйте позже.");
+        }
         order.setStatus(status);
         saveOrderToRedis(cartId, order);
     }
 
     @Override
-    public boolean isOrderPaid(String cartId) throws JsonProcessingException {
-        TicketOrder order  = getOrderById(cartId);
-        return  order.getStatus() == OrderStatus.PAID;
+    public boolean isOrderPaid(String cartId) {
+        TicketOrder order = null;
+        try {
+            order = getOrderById(cartId);
+        } catch (JsonProcessingException e) {
+            logger.error("Error retrieving order with cartId {}: {}", cartId, e.getMessage());
+            throw new RuntimeException("Ошибка получения заказа. Попробуйте позже.");
+        } catch (RuntimeException e) {
+            logger.error("Order with cartId {} not found: {}", cartId, e.getMessage());
+            return false;
+        }
+        return order.getStatus() == OrderStatus.PAID;
     }
 
     @Override
@@ -75,7 +105,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public void clearOrderFromRedis(String cartId) {
-       redisTemplate.delete(redisKey(cartId));
+        redisTemplate.delete(redisKey(cartId));
     }
 
 

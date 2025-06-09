@@ -1,5 +1,10 @@
 package com.watertours.project.service.paymentService;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.watertours.project.controller.PaymentController;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -17,14 +22,20 @@ public class YooKassaService {
     private final RestTemplate restTemplate;
     private final String shopId;
     private final String secretKey;
+    private final ObjectMapper mapper;
+    private static final Logger logger = org.slf4j.LoggerFactory.getLogger(PaymentController.class); {
+    };
 
     @Autowired
     public YooKassaService(RestTemplate restTemplate,
                            @Value("${yookassa.shopId}") String shopId,
-                           @Value("${yookassa.secretKey}") String secretKey) {
+                           @Value("${yookassa.secretKey}") String secretKey,
+                           ObjectMapper mapper
+                           ) {
         this.restTemplate = restTemplate;
         this.shopId = shopId;
         this.secretKey = secretKey;
+        this.mapper = mapper;
     }
 
     /**
@@ -78,4 +89,36 @@ public class YooKassaService {
 
     }
 
+    public String checkPaymentStatus(String paymentId) {
+        String url = "https://api.yookassa.ru/v3/payments/" + paymentId;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBasicAuth(shopId, secretKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                JsonNode root = null;
+                try {
+                    root = mapper.readTree(response.getBody());
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+                String status = root.get("status").asText();
+                return status; // "succeeded", "pending", "canceled"
+
+            } else {
+                logger.error("Ошибка при вызове /checkPaymentStatus проверке статуса платежа: {}",
+                        response.getStatusCode());
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("Ошибка при проверке статуса платежа в YooKassa: {}", e.getMessage());
+            return null;
+        }
+    }
 }

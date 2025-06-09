@@ -4,8 +4,8 @@ import jakarta.mail.MessagingException;
 
 public interface EmailConfirmationService {
 
-    void sendConfirmationEmail(String token) throws MessagingException;
+    void sendConfirmationEmail(String email,String cartId) throws MessagingException;
 
-    boolean verifyConfirmationCode(String email,String code);
+    boolean verifyConfirmationCode(String code,String cartId) ;
 
 }

@@ -3,6 +3,10 @@
 <div th:fragment="error">
     <h2>Ошибка</h2>
     <p th:text="${message}"></p>
+    <p>Ссылка устарела или не верный код</p>
+    <button hx-get="/resend-email?email=${email}&cartId=${cartId}"
+            hx-target="#modalBody"
+            hx-swap="innerHTML"> Отправка повторного письма</button>
     <button onclick="document.getElementById('modalWindow').style.display='none'; document.getElementById('buyTicketsButton').style.display='block'">
         Закрыть
     </button>
