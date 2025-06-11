@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -106,6 +108,12 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void clearOrderFromRedis(String cartId) {
         redisTemplate.delete(redisKey(cartId));
+    }
+
+    @Override
+    public TicketOrder getOrderByIdFromDatabase(String cartId) throws JsonProcessingException {
+        Optional<TicketOrder> order = orderRepository.findByCartId(cartId);
+        return order.orElse(null);
     }
 
 

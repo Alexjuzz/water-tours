@@ -11,4 +11,6 @@ public interface OrderService {
     boolean isOrderPaid(String cartId) throws JsonProcessingException;
     TicketOrder saveOrderToDatabase(TicketOrder order);
     void clearOrderFromRedis(String cartId);
+    TicketOrder getOrderByIdFromDatabase(String cartId) throws JsonProcessingException;
+
 }

@@ -34,31 +34,55 @@ public class YooKassaWebhookController {
             JsonNode objectNode = jsonNode.get("object");
             String status = objectNode.path("status").asText();
             String cartId = objectNode.path("metadata").path("cartId").asText();
+
+            // 1. Проверяем что пришёл нужный статус успешного платежа
             if ("payment.succeeded".equals(eventType) && "succeeded".equals(status)) {
-                TicketOrder order = null;
-                try {
-                    order = orderService.getOrderById(cartId);
-                    if (order == null || order.getStatus() == OrderStatus.PAID) {
-                        logger.error("Вызов метода /yookassa/webhook, не найден заказ с cartId: {}. Или заказ был оплачен ранее", cartId);
-                        return ResponseEntity.ok("Order not found");
-                    }
-                    emailService.sendTicketsEmail(order);
-                    order.setStatus(OrderStatus.PAID);
-                    orderService.saveOrderToDatabase(order);
-                } catch (Exception e) {
-                    logger.error("Вызов метода /yookassa/webhook, не удалось найти заказ: {}", cartId, e);
+                TicketOrder order = orderService.getOrderById(cartId);
+                if (order == null) {
+                    logger.error("Заказ с cartId={} не найден!", cartId);
+                    // ЮKassa требует HTTP 200 — чтобы не повторяли отправку!
                     return ResponseEntity.ok("Order not found");
                 }
-            } else if ("payment.waiting_for_capture".equals(eventType) && "waiting_for_capture".equals(status)) {
-                logger.info("Вызов метода /yookassa/webhook, заказ {} ожидает подтверждения", cartId);
-            } else {
-                logger.warn("Вызов метода /yookassa/webhook, не удалось обработать событие: {}, статус: {}", eventType, status);
-            }
-        }catch (Exception e) {
-            logger.error("Ошибка при обработке вебхука YooKassa: {}", e.getMessage());
-            return ResponseEntity.ok("Ошибка при обработке вебхука YooKassa");
-        }
 
-        return ResponseEntity.ok("Webhook received successfully");
+                // 2. Если заказ уже оплачен и письмо отправлено — ничего делать не надо
+                if (order.getStatus() == OrderStatus.PAID && order.isEmailSent()) {
+                    logger.info("Заказ {} уже обработан (оплачен и письмо отправлено)", cartId);
+                    return ResponseEntity.ok("Already processed");
+                }
+
+                // 3. Если письмо ещё не отправляли и не превышен лимит попыток — пробуем отправить
+                if (!order.isEmailSent() && order.getEmailRetryCount() <= 3) {
+                    try {
+                        emailService.sendTicketsEmail(order);
+                        order.setEmailSent(true);
+                        order.setEmailRetryCount(0); // сбрасываем, если всё ок
+                    } catch (Exception e) {
+                        // увеличиваем счётчик ошибок
+                        order.setEmailRetryCount(order.getEmailRetryCount() + 1);
+                        logger.error("Не удалось отправить письмо с билетами по заказу {}: {}", cartId, e.getMessage());
+                    }
+                }
+
+                // 4. Всегда отмечаем заказ как оплаченный, если раньше не был
+                order.setStatus(OrderStatus.PAID);
+                orderService.saveOrderToDatabase(order); // сохраняем все изменения!
+
+                // 5. Очищаем временные данные, если они были
+                orderService.clearOrderFromRedis(cartId);
+
+                return ResponseEntity.ok("Processed");
+            }
+
+            // 6. Если неудачный статус — просто логируем
+            logger.warn("Webhook: событие или статус не обрабатывается: event={}, status={}, cartId={}", eventType, status, cartId);
+
+        } catch (Exception e) {
+            logger.error("Ошибка в обработке webhook: {}", e.getMessage());
+            // Не пугай ЮKassa ошибками, всё равно верни 200 OK
+            return ResponseEntity.ok("Error processing webhook");
+        }
+        return ResponseEntity.ok("Webhook ignored");
     }
+
+
 }
