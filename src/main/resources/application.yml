@@ -6,6 +6,8 @@ yookassa:
 spring:
   application:
     name : testHtmx
+    qrcode:
+      url-template: ${QRCODE_URL}
   datasource:
     url: jdbc:postgresql://localhost:5430/htmxserver
     username: ${DB_USERNAME}

@@ -31,13 +31,13 @@ public class TicketOrder implements Serializable {
     @Column(name = "cart_id", unique = true,nullable = false)
     private String cartId;
 
-    @JoinColumn(name = "ticket_list")
     @JsonManagedReference
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<QuickTicket> ticketList = new ArrayList<>();
 
     @Column(name = "email_sent")
     private boolean emailSent = false;
+    @Column(name = "email_retry_count")
     private int emailRetryCount = 0;
 
     @Column(name = "buyer_name")

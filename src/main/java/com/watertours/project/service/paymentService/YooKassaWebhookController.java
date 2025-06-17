@@ -13,6 +13,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.slf4j.Logger;
 
+// TODO: Вынести отправку email с билетами из finalize-order и webhook
+// TODO: Сделать отдельный сервис для повторных попыток отправки email по оплаченным заказам (PAID, emailSent=false)
+// TODO: Добавить endpoint для ручного запроса отправки письма пользователем (с фронта)
+
 @RestController
 public class YooKassaWebhookController {
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -37,7 +41,7 @@ public class YooKassaWebhookController {
 
             // 1. Проверяем что пришёл нужный статус успешного платежа
             if ("payment.succeeded".equals(eventType) && "succeeded".equals(status)) {
-                TicketOrder order = orderService.getOrderById(cartId);
+                TicketOrder order = orderService.getOrderByIdFromDatabase(cartId);
                 if (order == null) {
                     logger.error("Заказ с cartId={} не найден!", cartId);
                     // ЮKassa требует HTTP 200 — чтобы не повторяли отправку!
@@ -50,23 +54,13 @@ public class YooKassaWebhookController {
                     return ResponseEntity.ok("Already processed");
                 }
 
-                // 3. Если письмо ещё не отправляли и не превышен лимит попыток — пробуем отправить
-                if (!order.isEmailSent() && order.getEmailRetryCount() <= 3) {
-                    try {
-                        emailService.sendTicketsEmail(order);
-                        order.setEmailSent(true);
-                        order.setEmailRetryCount(0); // сбрасываем, если всё ок
-                    } catch (Exception e) {
-                        // увеличиваем счётчик ошибок
-                        order.setEmailRetryCount(order.getEmailRetryCount() + 1);
-                        logger.error("Не удалось отправить письмо с билетами по заказу {}: {}", cartId, e.getMessage());
-                    }
-                }
+
 
                 // 4. Всегда отмечаем заказ как оплаченный, если раньше не был
                 order.setStatus(OrderStatus.PAID);
                 orderService.saveOrderToDatabase(order); // сохраняем все изменения!
-
+                // 3. Если письмо ещё не отправляли и не превышен лимит попыток — пробуем отправить
+                emailService.sendTicketsEmail(order);
                 // 5. Очищаем временные данные, если они были
                 orderService.clearOrderFromRedis(cartId);
 
