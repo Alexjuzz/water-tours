@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.watertours.project.enums.OrderStatus;
 import com.watertours.project.enums.TicketType;
 import com.watertours.project.interfaces.OrderService.OrderService;
+import com.watertours.project.interfaces.email.TicketEmailService;
 import com.watertours.project.model.dto.BasketUpdateDto;
 import com.watertours.project.model.dto.QuickTicketModalDto;
 import com.watertours.project.model.dto.TicketUpdateDto;
@@ -40,10 +41,10 @@ public class QuickTicketController {
 
     private final QuickTicketService quickTicketService;
     private final OrderService orderService;
-    private final EmailService emailService;
+    private final TicketEmailService emailService;
 
     @Autowired
-    public QuickTicketController(QuickTicketService quickTicketService, OrderService orderService, EmailService emailService) {
+    public QuickTicketController(QuickTicketService quickTicketService, OrderService orderService, TicketEmailService emailService) {
         this.quickTicketService = quickTicketService;
         this.orderService = orderService;
         this.emailService = emailService;
@@ -205,7 +206,17 @@ public class QuickTicketController {
 
         orderService.changeStatus(cartId, OrderStatus.PAID);
         TicketOrder savedOrder = orderService.saveOrderToDatabase(order);
-        emailService.sendTicketsEmail(savedOrder);
+        try {
+
+            emailService.sendTicketsEmail(savedOrder);
+            logger.info("Вызов метода finalizeOrder : письмо отправлено {}", cartId);
+        } catch (MessagingException e) {
+            logger.error("Ошибка отправки письма для заказа {}: {}", cartId, e.getMessage());
+            model.addAttribute("message", "Не удалось отправить письмо с билетами. Попробуйте ещё раз.");
+            return "fragments/paymentFragments/errorFragment :: error";
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         orderService.clearOrderFromRedis(cartId);
         model.addAttribute("email", order.getEmail());
         model.addAttribute("confirmation", "Заказ успешно оплачен!");

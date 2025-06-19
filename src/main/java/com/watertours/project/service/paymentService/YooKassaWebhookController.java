@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.watertours.project.enums.OrderStatus;
 import com.watertours.project.interfaces.OrderService.OrderService;
+import com.watertours.project.interfaces.email.TicketEmailService;
 import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.service.emailService.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,12 +21,12 @@ import org.slf4j.Logger;
 @RestController
 public class YooKassaWebhookController {
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final EmailService emailService;
+    private final TicketEmailService emailService;
     private final OrderService orderService;
     private final Logger logger = org.slf4j.LoggerFactory.getLogger(YooKassaWebhookController.class);
 
     @Autowired
-    public YooKassaWebhookController(OrderService orderService, EmailService emailService) {
+    public YooKassaWebhookController(OrderService orderService, TicketEmailService emailService) {
         this.emailService = emailService;
         this.orderService = orderService;
     }

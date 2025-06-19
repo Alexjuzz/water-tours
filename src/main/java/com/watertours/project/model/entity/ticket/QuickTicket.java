@@ -9,9 +9,9 @@ import jakarta.persistence.*;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.jpa.convert.threeten.Jsr310JpaConverters;
 
 import java.io.Serializable;
+import java.sql.Date;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -37,7 +37,12 @@ public class QuickTicket implements Serializable {
     @Column(updatable = false)
     private LocalDateTime dateStamp;
 
-    public QuickTicket() {
+    public QuickTicket(String unique1, TicketType discount, Date date, int i,UUID uuid) {
+        this.uuid = uuid;
+        this.type = discount;
+        this.dateStamp = date.toLocalDate().atStartOfDay();
+        this.ticketStatus = TicketStatus.ACTIVE;
+        this.price = i;
     }
 
     @ManyToOne

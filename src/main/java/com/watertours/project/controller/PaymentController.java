@@ -3,6 +3,7 @@ package com.watertours.project.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.watertours.project.enums.OrderStatus;
 import com.watertours.project.interfaces.OrderService.OrderService;
+import com.watertours.project.interfaces.email.TicketEmailService;
 import com.watertours.project.model.entity.order.TicketOrder;
 import com.watertours.project.service.emailService.EmailService;
 import com.watertours.project.service.paymentService.YooKassaService;
@@ -19,10 +20,10 @@ public class PaymentController {
     private final Logger logger = org.slf4j.LoggerFactory.getLogger(PaymentController.class);
     private final OrderService orderService;
     private final YooKassaService yooKassaService;
-    private final EmailService emailService;
+    private final TicketEmailService emailService;
 
     @Autowired
-    public PaymentController(OrderService orderService, YooKassaService yooKassaService, EmailService emailService) {
+    public PaymentController(OrderService orderService, YooKassaService yooKassaService, TicketEmailService emailService) {
         this.orderService = orderService;
         this.yooKassaService = yooKassaService;
         this.emailService = emailService;

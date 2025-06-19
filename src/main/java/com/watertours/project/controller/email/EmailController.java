@@ -40,14 +40,16 @@ public class EmailController {
                             Model model) throws MessagingException {
 
         try {
-
+            logger.info("Вызов метода sendEmail с email: {}, cartId: {}", email, cartId);
             emailConfirmationService.sendConfirmationEmail(email,cartId);
             model.addAttribute("message", "Email отправляется! ");
 
         }catch (MessagingException e) {
+            logger.error("Вызван метод sendEmail, ошибка отправки письма: {}", e.getMessage());
             model.addAttribute("message", "Ошибка отправки письма: " + e.getMessage());
             return "fragments/paymentFragments/errorFragment :: error";
         }
+        logger.info("Вызов метода sendEmail: Email отправлен на адрес: {}", email);
         model.addAttribute("cartId", cartId);
         return "fragments/paymentFragments/resultFragment :: result";
 
@@ -56,12 +58,15 @@ public class EmailController {
     public String resendEmail(@RequestParam String email,
                               @RequestParam String cartId,
                               Model model) throws MessagingException {
+        logger.info("Вызов метода resendEmail с email: {}, cartId: {}", email, cartId);
         String attemptKey = "resend_attempt:" + cartId;
         Long attempts = redisTemplate.opsForValue().increment(attemptKey);
         if (attempts != null && attempts == 1) {
+
             redisTemplate.expire(attemptKey, Duration.ofMinutes(RESEND_EMAIL_TIMEOUT));
         }
         if(attempts != null && attempts > RESEND_EMAIL_LIMIT){
+            logger.warn("Вызван метод resendEmail, превышен лимит повторной отправки писем для cartId: {}", cartId);
             model.addAttribute("message", "Превышен лимит повторной отправки писем. Пожалуйста, проверьте почту или обратитесь в службу поддержки.");
             return "fragments/paymentFragments/errorFragment :: error";
         }
@@ -69,21 +74,26 @@ public class EmailController {
             TicketOrder ticketOrder = null;
             try {
                 ticketOrder = orderService.getOrderById(cartId);
+                logger.info("Вызван метод resendEmail, заказ найден: {}", ticketOrder);
             } catch (JsonProcessingException e) {
+                logger.info("Вызван метод resendEmail, ошибка получения заказа: {}", e.getMessage());
                 throw new RuntimeException(e);
             }
             if(ticketOrder == null || !ticketOrder.getEmail().equals(email)){
+                logger.warn("Вызван метод resendEmail, заказ не найден или Email не совпадает с заказом для cartId: {}", cartId);
                 model.addAttribute("message", "Заказ не найден или Email не совпадает с заказом.");
                 return "fragments/paymentFragments/errorFragment :: error";
             }
-
+            logger.info("Вызван метод resendEmail, повторная отправка письма на email: {}", email);
             emailConfirmationService.sendConfirmationEmail(email,cartId);
             model.addAttribute("message", "Повторная отправка письма на почту! ");
 
         }catch (MessagingException e) {
+            logger.error("Вызван метод resendEmail, ошибка отправки письма: {}", e.getMessage());
             model.addAttribute("message", "Ошибка отправки письма: " + e.getMessage());
             return "fragments/paymentFragments/errorFragment :: error";
         }
+        logger.info("Вызван метод resendEmail: Повторная отправка письма на адрес: {}", email);
         model.addAttribute("cartId", cartId);
         return "fragments/paymentFragments/resultFragment :: result";
     }
@@ -93,12 +103,15 @@ public class EmailController {
                               @RequestParam String code,
                               @RequestParam String cartId,
                               Model model) {
+        logger.info("Вызов метода confirmCode с email: {}, code: {}, cartId: {}", email, code, cartId);
         model.addAttribute("email", email);
         if (emailConfirmationService.verifyConfirmationCode(code, cartId)) {
             model.addAttribute("code", code);
             model.addAttribute( "cartId",cartId);
+            logger.warn("Вызван метод confirmCode: Код подтверждения верный для email: {}, cartId: {}", email, cartId);
             return "fragments/paymentFragments/paymentFragment :: payment";
         } else {
+            logger.warn("Вызван метод confirmCode: Неверный код подтверждения или Email для email: {}, cartId: {}", email, cartId);
             model.addAttribute("message", "Неверный код или Email");
             return "fragments/paymentFragments/errorFragment :: error";
         }

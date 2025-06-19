@@ -3,33 +3,35 @@ server:
 yookassa:
   shopId: ${YOOKASSA_SHOP_ID}
   secretKey: ${YOOKASSA_SECRET_KEY}
+qrcode:
+  url: ${"https://water-tours.ru/admin/check-ticket?uniqueId="}
 spring:
   application:
-    name : testHtmx
-    qrcode:
-      url-template: ${QRCODE_URL}
+    name: testHtmx
+
+
   datasource:
     url: jdbc:postgresql://localhost:5430/htmxserver
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    driver-class-name:  org.postgresql.Driver
+    driver-class-name: org.postgresql.Driver
   mail:
     host: smtp.yandex.ru
     port: 587
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
     properties:
-        mail:
-          smtp:
-            auth: true
-            starttls:
-              enable: true
-              required: true
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
   jpa:
     database: POSTGRESQL
     show-sql: true
     hibernate:
-        ddl-auto: update
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -40,18 +42,18 @@ spring:
 
 values:
   ticket:
-      price:
-          child: 599
-          senior: 1099
-          discount: 799
+    price:
+      child: 599
+      senior: 1099
+      discount: 799
 logging:
   level:
     com:
       watertours:
-          project:
-            controller: debug
-            service: debug
-            repository: debug
+        project:
+          controller: debug
+          service: debug
+          repository: debug
     level:
       org:
         springframework:
