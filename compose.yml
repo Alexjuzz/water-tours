@@ -59,6 +59,7 @@ services:
       STAFF_REMEMBER_ME_KEY: ${STAFF_REMEMBER_ME_KEY}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      STAFF_TELEGRAM_CHAT_IDS: ${STAFF_TELEGRAM_CHAT_IDS}
       # Docker Desktop's host-to-container port forwarding arrives from this fixed bridge
       # gateway address rather than loopback; only relevant when local-checkout is active.
       LOCAL_CHECKOUT_TRUSTED_REMOTE_ADDRESSES: 172.28.0.1

@@ -10,6 +10,7 @@ import ru.Water_Tours.ticket.model.ticket.TicketResponse;
 import ru.Water_Tours.ticket.service.TicketService;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -21,13 +22,16 @@ public class TelegramUpdateHandler {
     private final TelegramLinkService linkService;
     private final TicketService ticketService;
     private final TelegramSender sender;
+    private final StaffTelegramAuthorization staffAuthorization;
     private final String baseUrl;
 
     public TelegramUpdateHandler(TelegramLinkService linkService, TicketService ticketService,
-                                  TelegramSender sender, @Value("${app.base-url}") String baseUrl) {
+                                  TelegramSender sender, StaffTelegramAuthorization staffAuthorization,
+                                  @Value("${app.base-url}") String baseUrl) {
         this.linkService = linkService;
         this.ticketService = ticketService;
         this.sender = sender;
+        this.staffAuthorization = staffAuthorization;
         this.baseUrl = baseUrl;
     }
 
@@ -38,6 +42,8 @@ public class TelegramUpdateHandler {
         String trimmed = text.trim();
         if (trimmed.equals(START_COMMAND) || trimmed.startsWith(START_COMMAND + " ")) {
             handleStart(chatId, trimmed.substring(START_COMMAND.length()).trim());
+        } else if (staffAuthorization.isStaff(chatId)) {
+            handleStaffRedeem(chatId, trimmed);
         } else {
             handleStatus(chatId);
         }
@@ -74,6 +80,44 @@ public class TelegramUpdateHandler {
                 .collect(Collectors.joining("\n"));
         String pdfUrl = baseUrl + "/api/v1/orders/" + order.getId() + "/tickets/pdf?accessToken=" + order.getAccessToken();
         sender.sendMessage(chatId, summary + "\n\nСкачать билет: " + pdfUrl);
+    }
+
+    /**
+     * Mirrors CheckController.redeemForCheckPage's exception mapping so a Telegram staff redeem
+     * carries the same one-time-use guarantee (same TicketService.redeemByCode pessimistic lock).
+     */
+    private void handleStaffRedeem(long chatId, String text) {
+        String code = extractTicketCode(text);
+        if (code.isEmpty() || !code.matches("^[A-Za-z0-9-]{1,64}$")) {
+            sender.sendMessage(chatId, "Не удалось распознать код билета. Пришлите код или ссылку из QR-кода.");
+            return;
+        }
+        try {
+            ticketService.redeemByCode(code);
+            sender.sendMessage(chatId, "Билет действителен. Погашён.");
+        } catch (NoSuchElementException e) {
+            sender.sendMessage(chatId, "Билет не найден.");
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(chatId, "Этот билет уже был использован.");
+        } catch (IllegalStateException e) {
+            sender.sendMessage(chatId, "Этот билет недействителен (истёк или ещё не начал действовать).");
+        } catch (Exception e) {
+            log.warn("Telegram staff redeem failed for chatId={}, errorType={}", chatId, e.getClass().getSimpleName());
+            sender.sendMessage(chatId, "Произошла ошибка при проверке билета.");
+        }
+    }
+
+    private String extractTicketCode(String text) {
+        String candidate = text.trim();
+        int slashIdx = candidate.lastIndexOf("/t/");
+        if (slashIdx >= 0) {
+            candidate = candidate.substring(slashIdx + "/t/".length());
+        }
+        int queryIdx = candidate.indexOf('?');
+        if (queryIdx >= 0) {
+            candidate = candidate.substring(0, queryIdx);
+        }
+        return candidate.trim();
     }
 
     private String statusText(TicketStatus status) {

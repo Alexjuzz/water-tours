@@ -54,6 +54,7 @@ staff:
   username: ${STAFF_USERNAME:staff}
   password: ${STAFF_PASSWORD:staff12345}
   remember-me-key: ${STAFF_REMEMBER_ME_KEY:change-me-in-production-please}
+  telegram-chat-ids: ${STAFF_TELEGRAM_CHAT_IDS:}
 management:
   endpoints:
     web:
