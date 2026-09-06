@@ -75,7 +75,8 @@ public class Web {
 
 
     @PostMapping("/api/v1/orders/{orderId}/pay")
-    public ResponseEntity<PaymentStartResponse> startPayment(@PathVariable UUID orderId) {
+    public ResponseEntity<PaymentStartResponse> startPayment(@PathVariable UUID orderId, @RequestParam UUID accessToken) {
+        orderService.checkAccess(orderId, accessToken);
 
         PaymentStartResponse response = paymentService.startPayment(orderId);
 
@@ -94,7 +95,8 @@ public class Web {
     }
 
     @PostMapping("/api/v1/orders/{orderId}/tickets/issue")
-    public ResponseEntity<List<TicketResponse>> issueTickets(@PathVariable UUID orderId) {
+    public ResponseEntity<List<TicketResponse>> issueTickets(@PathVariable UUID orderId, @RequestParam UUID accessToken) {
+        orderService.checkAccess(orderId, accessToken);
         List<TicketResponse> tickets = ticketService.issueTickets(orderId);
         return ResponseEntity.ok(tickets);
     }

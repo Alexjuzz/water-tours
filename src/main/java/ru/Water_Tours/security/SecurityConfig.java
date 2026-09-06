@@ -38,8 +38,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .ignoringRequestMatchers(
                                 "/api/v1/orders/**",
-                                "/api/v1/payments/webhook",
-                                "/api/v1/tickets/**"
+                                "/api/v1/payments/webhook"
                         )
                 )
                 .authorizeHttpRequests(auth -> auth

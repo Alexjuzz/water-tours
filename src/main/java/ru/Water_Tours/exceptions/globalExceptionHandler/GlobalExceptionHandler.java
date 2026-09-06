@@ -136,6 +136,14 @@ public class GlobalExceptionHandler {
                 .body(body);
     }
 
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<ExceptionResponse> handleMissingParameter(
+            org.springframework.web.bind.MissingServletRequestParameterException e,
+            HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(new ExceptionResponse(
+                Instant.now(), HttpStatus.BAD_REQUEST.value(), "Missing parameter",
+                "Required parameter is missing: " + e.getParameterName(), request.getRequestURI()));
+    }
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ExceptionResponse> handleGeneralException(Exception e, HttpServletRequest request) {
         // Полный стектрейс только в логи
