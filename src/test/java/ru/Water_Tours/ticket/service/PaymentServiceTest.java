@@ -297,6 +297,75 @@ class PaymentServiceTest {
     }
 
     @Test
+    void verifiedCanceledNotificationTransitionsPendingToCancelled() {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        Payment payment = seedPendingPayment("provider-canceled-1");
+
+        server.expect(requestTo("https://api.yookassa.ru/v3/payments/provider-canceled-1"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(providerPaymentJson("provider-canceled-1", "canceled",
+                        order.getTotalAmount(), order.getId(), payment.getId(), false, null), MediaType.APPLICATION_JSON));
+
+        service.handleWebhook(notification("provider-canceled-1", "payment.canceled"));
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+        server.verify();
+    }
+
+    @Test
+    void duplicateCanceledNotificationMakesNoFurtherHttpRequest() {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        Payment payment = seedPendingPayment("provider-canceled-2");
+
+        server.expect(once(), requestTo("https://api.yookassa.ru/v3/payments/provider-canceled-2"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(providerPaymentJson("provider-canceled-2", "canceled",
+                        order.getTotalAmount(), order.getId(), payment.getId(), false, null), MediaType.APPLICATION_JSON));
+
+        service.handleWebhook(notification("provider-canceled-2", "payment.canceled"));
+        service.handleWebhook(notification("provider-canceled-2", "payment.canceled"));
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+        server.verify();
+    }
+
+    @Test
+    void startPaymentAfterCancellationReturnsSameAttemptWithoutNewPayment() {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        Payment payment = seedPendingPayment("provider-canceled-3");
+
+        server.expect(once(), requestTo("https://api.yookassa.ru/v3/payments/provider-canceled-3"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(providerPaymentJson("provider-canceled-3", "canceled",
+                        order.getTotalAmount(), order.getId(), payment.getId(), false, null), MediaType.APPLICATION_JSON));
+
+        service.handleWebhook(notification("provider-canceled-3", "payment.canceled"));
+
+        var result = service.startPayment(order.getId());
+
+        assertThat(result.paymentId()).isEqualTo(payment.getId());
+        assertThat(store).hasSize(1);
+        server.verify();
+    }
+
+    @Test
+    void succeededPaymentIsNotDowngradedByLaterCanceledNotification() {
+        order.setStatus(OrderStatus.PAID);
+        Payment payment = seedPendingPayment("provider-succeeded-final");
+        payment.setStatus(PaymentStatus.SUCCEEDED);
+        payment.setSucceededAt(Instant.now());
+        order.setPaidAt(payment.getSucceededAt());
+
+        service.handleWebhook(notification("provider-succeeded-final", "payment.canceled"));
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+        server.verify();
+    }
+
+    @Test
     void providerOutageRaisesPaymentProviderException() {
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         seedPendingPayment("provider-outage");
