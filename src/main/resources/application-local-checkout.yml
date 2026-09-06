@@ -1,0 +1,17 @@
+server:
+  address: 127.0.0.1
+payments:
+  reconciliation:
+    enabled: false
+tickets:
+  issuance:
+    enabled: false
+  email-delivery:
+    enabled: false
+management:
+  health:
+    mail:
+      enabled: false
+spring:
+  jpa:
+    show-sql: false

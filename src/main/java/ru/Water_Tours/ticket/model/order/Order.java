@@ -47,6 +47,9 @@ public class Order {
     @Column(name = "tickets_issued_at")
     private Instant ticketIssuedAt;
 
+    @Column(name = "test_paid", nullable = false, columnDefinition = "boolean default false")
+    private Boolean testPaid = false;
+
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<Ticket> ticketList;
@@ -60,6 +63,7 @@ public class Order {
         if (createdAt == null) createdAt = Instant.now();
         if (status == null) status = OrderStatus.DRAFT;
         if(accessToken  == null) accessToken = UUID.randomUUID();
+        if(testPaid == null) testPaid = false;
     }
 
 }

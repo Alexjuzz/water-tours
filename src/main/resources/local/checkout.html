@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>Water Tours — проверка покупки</title>
+<style>[hidden]{display:none!important}body{font:16px system-ui;max-width:600px;margin:32px auto;padding:0 18px;color:#143347}label{display:block;margin:16px 0 5px}input,button{font:inherit;padding:10px;box-sizing:border-box}input{width:100%}button{margin:12px 6px 0 0;cursor:pointer}fieldset{border:0;padding:0}aside{padding:15px;background:#fff1c9}#result{white-space:pre-wrap;margin:20px 0}a{display:inline-block;margin:15px 0}</style></head>
+<body><h1>Покупка билетов</h1><aside>Локальная проверка. Деньги не списываются, письма не отправляются. Заказ и билеты сохраняются в тестовой локальной базе.</aside>
+<form id="checkoutForm"><fieldset id="fields"><div id="catalog">Загрузка тарифов…</div><p>Итого: <strong id="total">0 ₽</strong></p><label for="email">Электронная почта</label><input id="email" type="email" maxlength="254" required autocomplete="email"><label for="phone">Телефон (необязательно)</label><input id="phone" type="tel" maxlength="40" autocomplete="tel"></fieldset><button id="createBtn" disabled>Создать заказ</button></form>
+<button id="payBtn" hidden>Подтвердить тестовую оплату</button><button id="refreshBtn" hidden>Обновить статус</button><button id="newBtn">Новый заказ</button><div id="result" role="status" aria-live="polite"></div><a id="pdf" hidden>Скачать билеты PDF</a>
+<script>
+const el=id=>document.getElementById(id), names={ADULT:'Взрослый',CHILD:'Детский',BENEFIT:'Льготный'};
+let state={},prices={},busy=false;
+try{state=JSON.parse(sessionStorage.getItem('wtLocalCheckout')||'{}')}catch{}
+function save(){sessionStorage.setItem('wtLocalCheckout',JSON.stringify(state))}
+function controls(){el('fields').disabled=!!state.body;el('createBtn').disabled=busy||!!state.order||!Object.keys(prices).length;el('payBtn').hidden=!state.order;el('refreshBtn').hidden=!state.order;el('payBtn').disabled=busy;el('refreshBtn').disabled=busy;el('newBtn').disabled=busy}
+async function api(url,options){const r=await fetch(url,{cache:'no-store',...options});if(!r.ok)throw Error('Запрос не выполнен ('+r.status+'). Можно повторить попытку.');return r.json()}
+function total(){el('total').textContent=Object.keys(prices).reduce((n,t)=>n+prices[t]*Number(el('qty_'+t).value||0),0).toLocaleString('ru-RU')+' ₽'}
+function url(){return '/api/v1/orders/'+state.order.id+'/test-pay?accessToken='+encodeURIComponent(state.order.accessToken)}
+function show(data){el('result').textContent='Статус: '+data.status+'\nБилетов в базе: '+data.tickets.length+'\nПисьма отключены.'+(data.paidAt?'\nТестовая оплата: '+new Date(data.paidAt).toLocaleString('ru-RU'): '');el('pdf').hidden=!data.tickets.length;if(data.tickets.length)el('pdf').href=data.pdfUrl}
+async function run(fn){if(busy)return;busy=true;controls();try{await fn()}catch(e){el('result').textContent=e.message}finally{busy=false;controls()}}
+el('checkoutForm').onsubmit=e=>{e.preventDefault();run(async()=>{if(!state.body){const tickets={};for(const t of Object.keys(prices)){const q=Number(el('qty_'+t).value);if(!Number.isInteger(q)||q<0||q>20)throw Error('Количество: от 0 до 20.');if(q)tickets[t]=q}if(!Object.keys(tickets).length)throw Error('Выберите хотя бы один билет.');state={key:crypto.randomUUID(),body:{email:el('email').value,phoneNumber:el('phone').value,tickets}};save();controls()}state.order=await api('/api/v1/orders',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':state.key},body:JSON.stringify(state.body)});save();el('result').textContent='Заказ создан. Сумма: '+state.order.totalAmount+' ₽. Теперь подтвердите тестовую оплату.'})};
+el('payBtn').onclick=()=>run(async()=>show(await api(url(),{method:'POST'})));
+el('refreshBtn').onclick=()=>run(async()=>show(await api(url())));
+el('newBtn').onclick=()=>{sessionStorage.removeItem('wtLocalCheckout');location.reload()};
+run(async()=>{prices=await api('/api/v1/local-checkout/catalog');el('catalog').textContent='';for(const [t,p] of Object.entries(prices)){const label=document.createElement('label');label.htmlFor='qty_'+t;label.textContent=names[t]+' — '+p+' ₽';const input=document.createElement('input');Object.assign(input,{type:'number',id:'qty_'+t,min:'0',max:'20',step:'1',value:state.body?.tickets[t]??(t==='ADULT'?1:0)});input.oninput=total;el('catalog').append(label,input)}total();if(state.body){el('email').value=state.body.email;el('phone').value=state.body.phoneNumber||''}if(state.order)show(await api(url()))});
+</script></body></html>
