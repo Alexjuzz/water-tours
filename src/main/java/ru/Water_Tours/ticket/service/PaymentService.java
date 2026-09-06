@@ -38,6 +38,7 @@ public class PaymentService {
 
     public PaymentService(OrderRepository orderRepository,
                           PaymentRepository paymentRepository,
+                          RestClient.Builder clientBuilder,
                           @Value("${yookassa.shopId}") String shopId,
                           @Value("${yookassa.secretKey}") String secretKey,
                           @Value("${app.base-url}") String baseUrl) {
@@ -45,7 +46,7 @@ public class PaymentService {
         this.paymentRepository = paymentRepository;
         this.baseUrl = baseUrl;
 
-        this.yookassaClient = RestClient.builder()
+        this.yookassaClient = clientBuilder.clone()
                 .baseUrl("https://api.yookassa.ru/v3")
                 .defaultHeaders(headers -> headers.setBasicAuth(shopId, secretKey))
                 .build();
