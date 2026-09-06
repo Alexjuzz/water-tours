@@ -82,10 +82,10 @@
       position:absolute;top:100%;left:0;right:0;
       flex-direction:column;background:var(--navy-2);
       padding:10px 20px 20px;gap:0;
-      max-height:0;overflow:hidden;transition:max-height .25s ease;
+      max-height:0;overflow:hidden;visibility:hidden;transition:max-height .25s ease;
       border-bottom:3px solid var(--teal);
     }
-    .nav-links.open{max-height:400px}
+    .nav-links.open{max-height:400px;visibility:visible}
     .nav-links li{border-top:1px solid rgba(246,239,223,.15)}
     .nav-links a{display:block;padding:14px 4px}
     .nav-cta{display:none}
