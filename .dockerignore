@@ -1,0 +1,15 @@
+.git
+.gitattributes
+.gitignore
+target
+.mvn/wrapper/maven-wrapper.jar
+.idea
+*.iml
+.vscode
+.env
+.env.*
+!.env.example
+*.md
+prototype
+integrations
+scripts
