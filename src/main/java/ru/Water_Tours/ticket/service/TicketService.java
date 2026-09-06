@@ -13,7 +13,9 @@ import ru.Water_Tours.ticket.repository.OrderRepository;
 import ru.Water_Tours.ticket.repository.TicketRepository;
 import org.springframework.web.util.HtmlUtils;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.time.Duration;
+import java.time.Clock;
+import org.springframework.beans.factory.annotation.Value;
 import java.util.*;
 
 @Service
@@ -21,7 +23,14 @@ public class TicketService {
     private final TicketRepository ticketRepository;
     private final OrderRepository orderRepository;
 
-    public TicketService(TicketRepository ticketRepository, OrderRepository orderRepository) {
+    private final Duration validity;
+    private final Clock clock;
+
+    public TicketService(TicketRepository ticketRepository, OrderRepository orderRepository,
+                         @Value("${tickets.validity:72h}") Duration validity, Clock clock) {
+        if (validity.isNegative() || validity.isZero()) throw new IllegalArgumentException("Ticket validity must be positive");
+        this.validity = validity;
+        this.clock = clock;
         this.orderRepository = orderRepository;
         this.ticketRepository = ticketRepository;
     }
@@ -53,13 +62,16 @@ public class TicketService {
         }
         List<Ticket> existing = ticketRepository.findAllByOrderId(orderId);
         if (!existing.isEmpty()) {
-            order.setTicketIssuedAt(Instant.now());
+            order.setTicketIssuedAt(Instant.now(clock));
             orderRepository.save(order);
             return convertListTicketToTicketResponse(existing);
         }
 //        if (ticketRepository.existsByOrderId(order.getId())) return ticketRepository.findAllByOrderId(orderId);
+        if (order.getPaidAt() == null || order.getOrderItems() == null || order.getOrderItems().isEmpty()) {
+            throw new IllegalStateException("Paid order must have payment time and ticket items");
+        }
         List<Ticket> ticketList = ticketRepository.saveAll(createTicketsFromItem(order));
-        order.setTicketIssuedAt(Instant.now());
+        order.setTicketIssuedAt(Instant.now(clock));
         orderRepository.save(order);
 
         return convertListTicketToTicketResponse(ticketList);
@@ -70,9 +82,9 @@ public class TicketService {
     private Ticket createTicketByType(Order order, TicketType type) {
         Ticket ticket = new Ticket();
         ticket.setCode(UUID.randomUUID().toString());
-        ticket.setPurchaseDate(Instant.now());
-        ticket.setValidTo(Instant.now().plus(3, ChronoUnit.DAYS));
-        ticket.setValidFrom(Instant.now());
+        ticket.setPurchaseDate(order.getPaidAt());
+        ticket.setValidTo(order.getPaidAt().plus(validity));
+        ticket.setValidFrom(order.getPaidAt());
         ticket.setOrder(order);
         ticket.setTicketStatus(TicketStatus.ISSUED);
         ticket.setPurchaseEmail(order.getEmail());
@@ -91,12 +103,12 @@ public class TicketService {
     public TicketResponse redeemByCode(String code) {
         Ticket t = ticketRepository.findByCodeForUpdate(code).orElseThrow(() -> new NoSuchElementException("Ticket with id " + code + " not found"));
 
-        if (t.getTicketStatus() == TicketStatus.USED) {
-            throw new IllegalArgumentException("Ticket with id " + code + " is already used");
+        if (t.getTicketStatus() != TicketStatus.ISSUED) {
+            throw new IllegalArgumentException("Ticket with id " + code + " cannot be redeemed in its current status");
         }
 
-        Instant now = Instant.now();
-        if (t.getValidTo().isBefore(now) || t.getValidFrom().isAfter(now)) {
+        Instant now = Instant.now(clock);
+        if (!now.isBefore(t.getValidTo()) || t.getValidFrom().isAfter(now)) {
             throw new IllegalStateException("Ticket with id " + code + " is not valid at the moment");
         }
         t.setTicketStatus(TicketStatus.USED);
@@ -139,7 +151,7 @@ public class TicketService {
 
         Optional<Ticket> ticket = ticketRepository.findByCode(code);
         StringBuilder sb = new StringBuilder();
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
 
         if (ticket.isPresent()) {
             Ticket t = ticket.get();
@@ -165,7 +177,7 @@ public class TicketService {
                 return sb.toString();
             }
 
-            if (t.getValidTo().isBefore(now) || t.getValidFrom().isAfter(now)) {
+            if (t.getTicketStatus() == TicketStatus.EXPIRED || !now.isBefore(t.getValidTo()) || t.getValidFrom().isAfter(now)) {
                 sb.append("<html><body>");
                 sb.append("<div style=\"color:red\">{{errorMessage}}</div>");
                 sb.append("<h1>Ticket with code: ").append(safeCode).append(" is not valid at the moment</h1>");

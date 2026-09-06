@@ -40,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "yookassa.shopId=test", "yookassa.secretKey=test", "app.base-url=http://localhost:8080",
         "spring.mail.username=test@example.invalid", "spring.mail.password=test",
         "app.mail-from=test@example.invalid", "spring.jpa.show-sql=false",
-        "payments.reconciliation.enabled=false", "order.expiration-check-interval=86400000"
+        "management.health.mail.enabled=false", "payments.reconciliation.enabled=false", "tickets.issuance.enabled=false", "order.expiration-check-interval=86400000"
 })
 @Testcontainers
 @AutoConfigureMockMvc
@@ -203,6 +203,143 @@ class PaymentPersistenceTest {
                 .andExpect(status().isServiceUnavailable());
         assertThat(orders.findById(id).orElseThrow().getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
         assertThat(payments.findAllByOrderId(id)).hasSize(1);
+        server.verify();
+    }
+
+    @Autowired ru.Water_Tours.ticket.repository.TicketRepository ticketRepository;
+    @Autowired TicketService ticketService;
+    @Autowired TicketEmailService emailService;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    org.springframework.mail.javamail.JavaMailSender mailSender;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    PdfTicketService pdfService;
+
+    Order paidOrder() {
+        Order order = new Order();
+        order.setTotalAmount(new BigDecimal("3000.00"));
+        order.setEmail("test@example.invalid");
+        order.setStatus(OrderStatus.PAID);
+        order.setPaidAt(Instant.now().minusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
+        var item = new ru.Water_Tours.ticket.model.OrderItem.OrderItem();
+        item.setOrder(order);
+        item.setType(ru.Water_Tours.enums.TicketType.ADULT);
+        item.setQuantity(2);
+        item.setPrice(new BigDecimal("1500.00"));
+        item.setAmountPrice(new BigDecimal("3000.00"));
+        order.setOrderItems(List.of(item));
+        return orders.saveAndFlush(order);
+    }
+
+    @Test
+    void automaticIssuanceAndConcurrentRedemptionHappenOnlyOnce() throws Exception {
+        Order order = paidOrder();
+        var job = new ru.Water_Tours.component.TicketIssuanceJob(orders, ticketService);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(job::issuePaidOrders);
+            var second = executor.submit(job::issuePaidOrders);
+            first.get(20, TimeUnit.SECONDS);
+            second.get(20, TimeUnit.SECONDS);
+        }
+        var tickets = ticketRepository.findAllByOrderId(order.getId());
+        assertThat(tickets).hasSize(2);
+        assertThat(tickets).allSatisfy(ticket -> {
+            assertThat(ticket.getValidFrom()).isEqualTo(order.getPaidAt());
+            assertThat(ticket.getValidTo()).isEqualTo(order.getPaidAt().plusSeconds(72 * 3600));
+        });
+        new ru.Water_Tours.component.TicketIssuanceJob(orders, ticketService).issuePaidOrders();
+        assertThat(ticketRepository.findAllByOrderId(order.getId())).hasSize(2);
+        String code = tickets.getFirst().getCode();
+        CountDownLatch ready = new CountDownLatch(2);
+        Callable<Boolean> redeem = () -> {
+            ready.countDown();
+            if (!ready.await(10, TimeUnit.SECONDS)) throw new AssertionError("Redeem start timeout");
+            try { ticketService.redeemByCode(code); return true; }
+            catch (IllegalArgumentException | IllegalStateException expected) { return false; }
+        };
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(redeem);
+            var second = executor.submit(redeem);
+            assertThat(List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(true, false);
+        }
+        assertThat(ticketRepository.findByCode(code).orElseThrow().getTicketStatus())
+                .isEqualTo(ru.Water_Tours.enums.TicketStatus.USED);
+    }
+
+    @Test
+    void mailFailureKeepsPaidOrderQueuedAndRetryMarksDelivery() throws Exception {
+        Order order = paidOrder();
+        new ru.Water_Tours.component.TicketIssuanceJob(orders, ticketService).issuePaidOrders();
+        org.mockito.Mockito.when(pdfService.buildTicketsPdfByOrderId(order.getId(), "http://localhost:8080"))
+                .thenReturn(new byte[] {37, 80, 68, 70});
+        org.mockito.Mockito.when(mailSender.createMimeMessage()).thenAnswer(invocation ->
+                new jakarta.mail.internet.MimeMessage((jakarta.mail.Session) null));
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("test SMTP unavailable"))
+                .doNothing().when(mailSender).send(org.mockito.ArgumentMatchers.any(jakarta.mail.internet.MimeMessage.class));
+        new ru.Water_Tours.component.TicketEmailDeliveryJob(orders, emailService).deliverPendingEmails();
+        Order failed = orders.findById(order.getId()).orElseThrow();
+        assertThat(failed.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(failed.getTicketsEmailedAt()).isNull();
+        assertThat(orders.findOrderIdsAwaitingTicketEmail()).contains(order.getId());
+        var restartedJob = new ru.Water_Tours.component.TicketEmailDeliveryJob(orders, emailService);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(restartedJob::deliverPendingEmails);
+            var second = executor.submit(restartedJob::deliverPendingEmails);
+            first.get(20, TimeUnit.SECONDS);
+            second.get(20, TimeUnit.SECONDS);
+        }
+        restartedJob.deliverPendingEmails();
+        assertThat(orders.findById(order.getId()).orElseThrow().getTicketsEmailedAt()).isNotNull();
+        assertThat(orders.findOrderIdsAwaitingTicketEmail()).doesNotContain(order.getId());
+        org.mockito.Mockito.verify(mailSender, org.mockito.Mockito.times(2))
+                .send(org.mockito.ArgumentMatchers.any(jakarta.mail.internet.MimeMessage.class));
+    }
+
+    @Test
+    void concurrentSuccessNotificationsKeepOneFinalState() throws Exception {
+        Order order = new Order();
+        order.setTotalAmount(new BigDecimal("100.00"));
+        order.setEmail("test@example.invalid");
+        order = orders.saveAndFlush(order);
+        UUID id = order.getId();
+        server.expect(requestTo("https://api.yookassa.ru/v3/payments")).andRespond(request -> {
+            var json = mapper.readTree(((org.springframework.mock.http.client.MockClientHttpRequest) request).getBodyAsString());
+            return withSuccess(mapper.writeValueAsString(Map.of("id", "concurrent-webhook", "status", "pending",
+                    "amount", Map.of("value", "100.00", "currency", "RUB"),
+                    "metadata", mapper.convertValue(json.get("metadata"), Map.class),
+                    "confirmation", Map.of("confirmation_url", "https://example.invalid/pay"))),
+                    MediaType.APPLICATION_JSON).createResponse(request);
+        });
+        service.startPayment(id);
+        var payment = payments.findAllByOrderId(id).getFirst();
+        server.verify();
+        server.reset();
+        CountDownLatch requests = new CountDownLatch(2);
+        String success = mapper.writeValueAsString(Map.of("id", "concurrent-webhook", "status", "succeeded",
+                "amount", Map.of("value", "100.00", "currency", "RUB"), "paid", true,
+                "captured_at", "2026-09-06T10:00:00Z",
+                "metadata", Map.of("orderId", id.toString(), "paymentId", payment.getId().toString())));
+        server.expect(times(2), requestTo("https://api.yookassa.ru/v3/payments/concurrent-webhook"))
+                .andRespond(request -> {
+                    requests.countDown();
+                    try {
+                        if (!requests.await(10, TimeUnit.SECONDS)) throw new AssertionError("Second webhook did not reach provider");
+                    } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new AssertionError(e); }
+                    return withSuccess(success, MediaType.APPLICATION_JSON).createResponse(request);
+                });
+        WebhookRequestDTO notification = new WebhookRequestDTO();
+        notification.setEvent("payment.succeeded");
+        var object = new WebhookRequestDTO.ObjectData();
+        object.setId("concurrent-webhook");
+        notification.setObject(object);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> service.handleWebhook(notification));
+            var second = executor.submit(() -> service.handleWebhook(notification));
+            assertThat(first.get(20, TimeUnit.SECONDS).status()).isEqualTo(ru.Water_Tours.enums.PaymentStatus.SUCCEEDED);
+            assertThat(second.get(20, TimeUnit.SECONDS).status()).isEqualTo(ru.Water_Tours.enums.PaymentStatus.SUCCEEDED);
+        }
+        assertThat(payments.findAllByOrderId(id)).hasSize(1);
+        assertThat(orders.findById(id).orElseThrow().getPaidAt()).isEqualTo(Instant.parse("2026-09-06T10:00:00Z"));
         server.verify();
     }
 }

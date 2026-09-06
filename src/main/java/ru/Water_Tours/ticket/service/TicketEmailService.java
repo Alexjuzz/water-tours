@@ -36,7 +36,7 @@ public class TicketEmailService {
 
     @Transactional
     public void sendTicketsPdf(UUID orderId){
-        Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order with id " + orderId + " not found"));
+        Order order = orderRepository.findByIdForUpdate(orderId).orElseThrow(() -> new IllegalArgumentException("Order with id " + orderId + " not found"));
         if(order.getStatus() != OrderStatus.PAID){
             throw  new IllegalStateException("Order with id " + orderId + " is not paid. Current status: " + order.getStatus());
         }

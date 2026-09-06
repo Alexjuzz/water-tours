@@ -24,6 +24,9 @@ spring:
       mail:
         smtp:
           auth: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
           starttls:
             enable: true
             required: true
@@ -59,3 +62,12 @@ management:
       enabled: true
     redis:
       enabled: true
+
+tickets:
+  validity: 72h
+  issuance:
+    interval: 30000
+
+  email-delivery:
+    enabled: false
+    interval: 60000

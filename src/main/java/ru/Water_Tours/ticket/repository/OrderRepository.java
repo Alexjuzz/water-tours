@@ -21,5 +21,11 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("select o from Order o where o.id = :orderId")
     Optional<Order> findByIdForUpdate(@Param("orderId") UUID orderId);
 
+    @Query("select o.id from Order o where o.status = ru.Water_Tours.enums.OrderStatus.PAID and o.ticketIssuedAt is null")
+    List<UUID> findPaidOrderIdsAwaitingTickets();
+
+    @Query("select o.id from Order o where o.status = ru.Water_Tours.enums.OrderStatus.PAID and o.ticketIssuedAt is not null and o.ticketsEmailedAt is null")
+    List<UUID> findOrderIdsAwaitingTicketEmail();
+
     List<Order> findAllByStatusAndCreatedAtBefore(OrderStatus status, Instant cutoff);
 }
