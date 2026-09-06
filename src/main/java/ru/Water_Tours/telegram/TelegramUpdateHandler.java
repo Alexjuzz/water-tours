@@ -7,8 +7,12 @@ import org.springframework.stereotype.Component;
 import ru.Water_Tours.enums.TicketStatus;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
+import ru.Water_Tours.ticket.service.QrService;
 import ru.Water_Tours.ticket.service.TicketService;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -23,15 +27,17 @@ public class TelegramUpdateHandler {
     private final TicketService ticketService;
     private final TelegramSender sender;
     private final StaffTelegramAuthorization staffAuthorization;
+    private final QrService qrService;
     private final String baseUrl;
 
     public TelegramUpdateHandler(TelegramLinkService linkService, TicketService ticketService,
                                   TelegramSender sender, StaffTelegramAuthorization staffAuthorization,
-                                  @Value("${app.base-url}") String baseUrl) {
+                                  QrService qrService, @Value("${app.base-url}") String baseUrl) {
         this.linkService = linkService;
         this.ticketService = ticketService;
         this.sender = sender;
         this.staffAuthorization = staffAuthorization;
+        this.qrService = qrService;
         this.baseUrl = baseUrl;
     }
 
@@ -80,6 +86,30 @@ public class TelegramUpdateHandler {
                 .collect(Collectors.joining("\n"));
         String pdfUrl = baseUrl + "/api/v1/orders/" + order.getId() + "/tickets/pdf?accessToken=" + order.getAccessToken();
         sender.sendMessage(chatId, summary + "\n\nСкачать билет: " + pdfUrl);
+    }
+
+    /**
+     * Staff can send a photo of the printed/screen QR instead of typing the code. Decodes with
+     * the same ZXing pipeline used to generate the ticket's QR, then reuses handleStaffRedeem.
+     */
+    public void handlePhoto(long chatId, byte[] imageBytes) {
+        if (!staffAuthorization.isStaff(chatId)) {
+            sender.sendMessage(chatId, "Фото билета принимает только персонал.");
+            return;
+        }
+        String decoded;
+        try {
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            if (image == null) {
+                throw new IllegalArgumentException("Not a readable image");
+            }
+            decoded = qrService.decodeQRCode(image);
+        } catch (Exception e) {
+            log.warn("Telegram QR decode failed for chatId={}, errorType={}", chatId, e.getClass().getSimpleName());
+            sender.sendMessage(chatId, "Не удалось распознать QR-код на фото.");
+            return;
+        }
+        handleStaffRedeem(chatId, decoded);
     }
 
     /**

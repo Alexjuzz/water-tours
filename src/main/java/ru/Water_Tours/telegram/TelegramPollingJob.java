@@ -56,12 +56,29 @@ public class TelegramPollingJob {
                 continue;
             }
             long chatId = message.path("chat").path("id").asLong();
-            String text = message.path("text").asText(null);
             try {
-                handler.handle(chatId, text);
+                JsonNode photos = message.path("photo");
+                if (photos.isArray() && !photos.isEmpty()) {
+                    String fileId = photos.get(photos.size() - 1).path("file_id").asText();
+                    handler.handlePhoto(chatId, downloadFile(fileId));
+                } else {
+                    handler.handle(chatId, message.path("text").asText(null));
+                }
             } catch (Exception e) {
                 log.warn("Telegram update handling failed for chatId={}, errorType={}", chatId, e.getClass().getSimpleName());
             }
         }
+    }
+
+    private byte[] downloadFile(String fileId) {
+        JsonNode fileInfo = client.get()
+                .uri(uri -> uri.path("/getFile").queryParam("file_id", fileId).build())
+                .retrieve().body(JsonNode.class);
+        if (fileInfo == null || !fileInfo.path("ok").asBoolean(false)) {
+            throw new IllegalStateException("Telegram getFile failed for fileId=" + fileId);
+        }
+        String filePath = fileInfo.path("result").path("file_path").asText();
+        String fileUrl = "https://api.telegram.org/file/bot" + botToken + "/" + filePath;
+        return client.get().uri(fileUrl).retrieve().body(byte[].class);
     }
 }

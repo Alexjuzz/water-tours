@@ -6,8 +6,12 @@ import ru.Water_Tours.enums.TicketStatus;
 import ru.Water_Tours.enums.TicketType;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
+import ru.Water_Tours.ticket.service.QrService;
 import ru.Water_Tours.ticket.service.TicketService;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -28,8 +32,16 @@ class TelegramUpdateHandlerTest {
     private final TelegramSender sender = mock(TelegramSender.class);
     private final StaffTelegramAuthorization staffAuthorization =
             new StaffTelegramAuthorization(String.valueOf(STAFF_CHAT_ID));
-    private final TelegramUpdateHandler handler =
-            new TelegramUpdateHandler(linkService, ticketService, sender, staffAuthorization, "http://localhost:8080");
+    private final QrService qrService = new QrService();
+    private final TelegramUpdateHandler handler = new TelegramUpdateHandler(
+            linkService, ticketService, sender, staffAuthorization, qrService, "http://localhost:8080");
+
+    private byte[] qrPngBytes(String content) throws Exception {
+        BufferedImage image = qrService.generateQRCodeImage(content, 300);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        return out.toByteArray();
+    }
 
     @Test
     void startWithValidPayloadLinksAndConfirmsInRussian() {
@@ -145,5 +157,34 @@ class TelegramUpdateHandlerTest {
 
         verifyNoInteractions(ticketService);
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("не привязан"));
+    }
+
+    @Test
+    void staffChatRedeemsFromPhotoOfQrCode() throws Exception {
+        TicketResponse redeemed = new TicketResponse(UUID.randomUUID(), "abc-123", "a@a.com",
+                Instant.now(), Instant.now(), Instant.now(), TicketType.ADULT, TicketStatus.USED);
+        when(ticketService.redeemByCode("abc-123")).thenReturn(redeemed);
+        byte[] photo = qrPngBytes("http://localhost:8080/t/abc-123");
+
+        handler.handlePhoto(STAFF_CHAT_ID, photo);
+
+        verify(ticketService).redeemByCode("abc-123");
+        verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Погашён"));
+    }
+
+    @Test
+    void nonStaffPhotoIsRejectedWithoutDecoding() {
+        handler.handlePhoto(CUSTOMER_CHAT_ID, new byte[]{1, 2, 3});
+
+        verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("только персонал"));
+        verifyNoInteractions(ticketService);
+    }
+
+    @Test
+    void staffPhotoWithNoDecodableQrRepliesWithFailure() {
+        handler.handlePhoto(STAFF_CHAT_ID, new byte[]{1, 2, 3, 4, 5});
+
+        verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Не удалось распознать QR"));
+        verifyNoInteractions(ticketService);
     }
 }
