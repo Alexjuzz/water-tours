@@ -122,28 +122,34 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
-// ...
-
-
-
-        // ... все предыдущие хендлеры оставляем как есть ...
-
-        @ExceptionHandler(Exception.class)
-        public ResponseEntity<ExceptionResponse> handleGeneralException(Exception e, HttpServletRequest request) {
-            // Полный стектрейс только в логи
-            log.error("Unhandled exception on {}", request.getRequestURI(), e);
-
-            ExceptionResponse exceptionResponse = new ExceptionResponse(
-                    java.time.Instant.now(),
-                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "An unexpected error occurred",
-                    "Внутренняя ошибка сервера. Обратитесь в поддержку.",  // фиксированная фраза
-                    request.getRequestURI()
-            );
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(exceptionResponse);
-        }
+    @ExceptionHandler(StillProcessingException.class)
+    public ResponseEntity<ExceptionResponse> handleStillProcessing(StillProcessingException e, HttpServletRequest request) {
+        ExceptionResponse body = new ExceptionResponse(
+                Instant.now(),
+                HttpStatus.CONFLICT.value(),
+                "Still processing",
+                "The original request is still being processed, retry shortly.",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .header("Retry-After", "2")
+                .body(body);
     }
 
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ExceptionResponse> handleGeneralException(Exception e, HttpServletRequest request) {
+        // Полный стектрейс только в логи
+        log.error("Unhandled exception on {}", request.getRequestURI(), e);
 
+        ExceptionResponse exceptionResponse = new ExceptionResponse(
+                java.time.Instant.now(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "An unexpected error occurred",
+                "Внутренняя ошибка сервера. Обратитесь в поддержку.",
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(exceptionResponse);
+    }
+}
 

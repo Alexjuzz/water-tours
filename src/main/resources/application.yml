@@ -38,3 +38,23 @@ idempotency:
 app:
   base-url: http://localhost:8080
   mail-from: ${MAIL_USERNAME}
+order:
+  expiration-timeout: 30m          # заказы в PENDING_PAYMENT старше 30 минут → EXPIRED
+  expiration-check-interval: 300000 # проверка каждые 5 минут (в миллисекундах)
+staff:
+  username: ${STAFF_USERNAME:staff}
+  password: ${STAFF_PASSWORD:staff12345}
+  remember-me-key: ${STAFF_REMEMBER_ME_KEY:change-me-in-production-please}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized   # детали только авторизованным
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: true
