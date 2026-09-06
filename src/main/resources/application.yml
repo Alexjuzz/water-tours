@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5439/appdb
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:redis}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  mail:
+    host: smtp.yandex.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+yookassa:
+  shopId: ${YOOKASSA_SHOP_ID}
+  secretKey: ${YOOKASSA_SECRET_KEY}
+
+idempotency:
+  value-ttl: 10m
+  lock-ttl: 45s
+  wait-timeout: 3s
+  poll-interval: 100ms
+app:
+  base-url: http://localhost:8080
+  mail-from: ${MAIL_USERNAME}
