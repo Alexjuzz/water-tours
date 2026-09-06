@@ -126,6 +126,7 @@ public class Web {
         byte[] pdfBytes = pdfTicketService.buildTicketsPdfByOrderId(orderId, baseUrl);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
+                .header("Cache-Control", "no-store")
                 .header("Content-Disposition", "attachment; filename=\"tickets-" + orderId + ".pdf\"")
                 .body(pdfBytes);
     }

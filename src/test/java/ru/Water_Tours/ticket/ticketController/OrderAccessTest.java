@@ -79,4 +79,21 @@ class OrderAccessTest {
                 .andExpect(status().isForbidden());
         verifyNoInteractions(tickets);
     }
-}
+    @Test void pdfDownloadRequiresAccessAndDisablesCache() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        String url = "/api/v1/orders/" + id + "/tickets/pdf";
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url))
+                .andExpect(status().isBadRequest());
+        doThrow(new AccessDeniedException("invalid")).when(orders).checkAccess(id,token);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url).param("accessToken",token.toString()))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(pdf);
+        doNothing().when(orders).checkAccess(id,token);
+        byte[] expected = new byte[]{1,2,3};
+        when(pdf.buildTicketsPdfByOrderId(id,"http://localhost:8080")).thenReturn(expected);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url).param("accessToken",token.toString()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(expected));
+    }}

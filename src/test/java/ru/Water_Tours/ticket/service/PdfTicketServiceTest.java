@@ -1,0 +1,53 @@
+package ru.Water_Tours.ticket.service;
+
+import org.junit.jupiter.api.Test;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.PDFRenderer;
+import org.apache.pdfbox.text.PDFTextStripper;
+import com.google.zxing.*;
+import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
+import ru.Water_Tours.ticket.repository.TicketRepository;
+import ru.Water_Tours.ticket.model.ticket.Ticket;
+import ru.Water_Tours.enums.TicketType;
+import java.time.Instant;
+import java.util.*;
+import java.nio.file.*;
+import javax.imageio.ImageIO;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class PdfTicketServiceTest {
+    @Test void russianTicketsRenderAndQrDecodes() throws Exception {
+        var repository = mock(TicketRepository.class);
+        UUID orderId = UUID.randomUUID();
+        Ticket t = new Ticket();
+        t.setTicketType(TicketType.ADULT);
+        t.setCode("0123456789abcdef".repeat(4));
+        t.setPurchaseEmail("a".repeat(64) + "@" + "b".repeat(63) + "." + "c".repeat(63) + ".example.test");
+        t.setValidFrom(Instant.parse("2026-09-06T10:15:00Z"));
+        t.setValidTo(Instant.parse("2026-09-07T10:15:00Z"));
+        when(repository.findAllByOrderId(orderId)).thenReturn(List.of(t,t));
+        byte[] bytes = new PdfTicketService(repository,new QrService()).buildTicketsPdfByOrderId(orderId,"https://water-tours.ru/");
+        try (PDDocument doc = PDDocument.load(bytes)) {
+            assertEquals(2,doc.getNumberOfPages());
+            String text = new PDFTextStripper().getText(doc);
+            assertTrue(text.contains("Электронный билет"));
+            assertTrue(text.contains("Взрослый - один проход"));
+            assertTrue(text.contains("07.09.2026 13:15:00"));
+            assertTrue(text.contains("Момент окончания не включён"));
+            var rendered = new PDFRenderer(doc).renderImageWithDPI(0,150);
+            var bitmap = new BinaryBitmap(new HybridBinarizer(new BufferedImageLuminanceSource(rendered)));
+            assertEquals("https://water-tours.ru/t/" + t.getCode(),new MultiFormatReader().decode(bitmap).getText());
+            Path dir = Path.of("target/pdf-preview"); Files.createDirectories(dir);
+            Files.write(dir.resolve("ticket.pdf"),bytes);
+            ImageIO.write(rendered,"png",dir.resolve("ticket.png").toFile());
+        }
+    }
+    @Test void missingTicketsCannotProducePdf() {
+        var repository = mock(TicketRepository.class);
+        UUID id = UUID.randomUUID();
+        when(repository.findAllByOrderId(id)).thenReturn(List.of());
+        assertThrows(NoSuchElementException.class,()->new PdfTicketService(repository,new QrService()).buildTicketsPdfByOrderId(id,"https://water-tours.ru"));
+    }
+}
