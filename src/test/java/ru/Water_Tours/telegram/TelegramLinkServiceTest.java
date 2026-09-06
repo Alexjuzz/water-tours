@@ -5,7 +5,7 @@ import org.springframework.security.access.AccessDeniedException;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.repository.OrderRepository;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,6 +29,9 @@ class TelegramLinkServiceTest {
 
         assertThat(link).startsWith("https://t.me/water_tours_bot?start=");
         assertThat(link).matches("https://t\\.me/water_tours_bot\\?start=[A-Za-z0-9_-]+");
+        // Telegram silently drops start payloads over 64 chars, delivering a bare /start.
+        String payload = link.substring(link.indexOf("start=") + "start=".length());
+        assertThat(payload.length()).isLessThanOrEqualTo(64);
     }
 
     @Test
@@ -72,8 +75,7 @@ class TelegramLinkServiceTest {
         order.setAccessToken(UUID.randomUUID());
         when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
 
-        String payload = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString((orderId + ":" + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8));
+        String payload = encodePayload(orderId, UUID.randomUUID());
 
         assertThatThrownBy(() -> service.linkChat(payload, 555L)).isInstanceOf(AccessDeniedException.class);
         verify(orderRepository, never()).save(any());
@@ -92,5 +94,23 @@ class TelegramLinkServiceTest {
         when(orderRepository.findByTelegramChatId(555L)).thenReturn(Optional.of(order));
 
         assertThat(service.findLinkedOrder(555L)).contains(order);
+    }
+
+    @Test
+    void linkChatRejectsWrongSizedPayload() {
+        String payload = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[16]);
+
+        assertThatThrownBy(() -> service.linkChat(payload, 555L))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(orderRepository);
+    }
+
+    private static String encodePayload(UUID orderId, UUID accessToken) {
+        ByteBuffer buffer = ByteBuffer.allocate(32);
+        buffer.putLong(orderId.getMostSignificantBits());
+        buffer.putLong(orderId.getLeastSignificantBits());
+        buffer.putLong(accessToken.getMostSignificantBits());
+        buffer.putLong(accessToken.getLeastSignificantBits());
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(buffer.array());
     }
 }

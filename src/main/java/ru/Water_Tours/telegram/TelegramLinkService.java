@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.repository.OrderRepository;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 import java.util.Base64;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -15,6 +15,8 @@ import java.util.UUID;
 
 @Service
 public class TelegramLinkService {
+
+    private static final int PAYLOAD_BYTES = 32; // two UUIDs, 16 bytes each
 
     private final OrderRepository orderRepository;
     private final String botUsername;
@@ -29,23 +31,28 @@ public class TelegramLinkService {
     }
 
     /**
-     * Telegram deep-link start payloads only allow [A-Za-z0-9_-], which is exactly the
-     * base64url alphabet, so orderId:accessToken round-trips without extra escaping.
+     * Telegram truncates/drops a deep-link start parameter over 64 characters. Two UUIDs as
+     * text (36 chars each) plus a separator, base64url-encoded, comes to ~98 chars - over the
+     * limit. Packing each UUID's raw 16 bytes instead keeps the encoded payload at ~43 chars.
      */
     public String buildDeepLink(UUID orderId, UUID accessToken) {
         if (botUsername == null || botUsername.isBlank()) {
             return null;
         }
-        String payload = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString((orderId + ":" + accessToken).getBytes(StandardCharsets.UTF_8));
+        ByteBuffer buffer = ByteBuffer.allocate(PAYLOAD_BYTES);
+        buffer.putLong(orderId.getMostSignificantBits());
+        buffer.putLong(orderId.getLeastSignificantBits());
+        buffer.putLong(accessToken.getMostSignificantBits());
+        buffer.putLong(accessToken.getLeastSignificantBits());
+        String payload = Base64.getUrlEncoder().withoutPadding().encodeToString(buffer.array());
         return "https://t.me/" + botUsername + "?start=" + payload;
     }
 
     @Transactional
     public Order linkChat(String payload, long chatId) {
-        String[] parts = decode(payload);
-        UUID orderId = UUID.fromString(parts[0]);
-        UUID accessToken = UUID.fromString(parts[1]);
+        UUID[] parts = decode(payload);
+        UUID orderId = parts[0];
+        UUID accessToken = parts[1];
 
         Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new NoSuchElementException("Order not found: " + orderId));
@@ -60,16 +67,19 @@ public class TelegramLinkService {
         return orderRepository.findByTelegramChatId(chatId);
     }
 
-    private String[] decode(String payload) {
+    private UUID[] decode(String payload) {
+        byte[] bytes;
         try {
-            String decoded = new String(Base64.getUrlDecoder().decode(payload), StandardCharsets.UTF_8);
-            String[] parts = decoded.split(":", 2);
-            if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
-                throw new IllegalArgumentException("Malformed link payload");
-            }
-            return parts;
+            bytes = Base64.getUrlDecoder().decode(payload);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Malformed link payload", e);
         }
+        if (bytes.length != PAYLOAD_BYTES) {
+            throw new IllegalArgumentException("Malformed link payload");
+        }
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        UUID orderId = new UUID(buffer.getLong(), buffer.getLong());
+        UUID accessToken = new UUID(buffer.getLong(), buffer.getLong());
+        return new UUID[]{orderId, accessToken};
     }
 }
