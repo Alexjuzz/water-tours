@@ -65,6 +65,8 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(List.of(
                 "http://water-tours.local",
                 "https://water-tours.local",
+                "https://water-tours.ru",
+                "https://www.water-tours.ru",
                 "http://localhost",
                 "http://localhost:3000",
                 "http://localhost:8080"
