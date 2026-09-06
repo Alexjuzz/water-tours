@@ -1,0 +1,137 @@
+.wt-main-button {
+    font-size: 20px;
+    padding: 12px 32px;
+    border-radius: 8px;
+    background: #1976d2;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+}
+
+.wt-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    justify-content: center;
+    align-items: center;
+    z-index: 999999;
+}
+
+.wt-modal.is-open {
+    display: flex;
+}
+
+.wt-modal-content {
+    background: #ffffff;
+    padding: 32px;
+    border-radius: 14px;
+    max-width: 560px;
+    width: 92%;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.wt-close {
+    position: absolute;
+    top: 10px;
+    right: 16px;
+    border: none;
+    background: transparent;
+    font-size: 32px;
+    cursor: pointer;
+    color: #777;
+}
+
+.wt-field {
+    margin-bottom: 16px;
+}
+
+.wt-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.wt-field input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+.wt-ticket-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 16px 0;
+    gap: 12px;
+}
+
+.wt-muted {
+    display: block;
+    color: #777777;
+    font-size: 14px;
+    margin-top: 3px;
+}
+
+.wt-counter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wt-counter button {
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 50%;
+    background: #eeeeee;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.wt-counter span {
+    min-width: 28px;
+    text-align: center;
+    font-size: 18px;
+}
+
+.wt-total {
+    text-align: right;
+    font-weight: 700;
+    font-size: 18px;
+    margin: 22px 0 16px;
+}
+
+.wt-submit {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #1976d2;
+    color: #ffffff;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.wt-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.wt-result {
+    margin-top: 16px;
+    min-height: 22px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.wt-result.error {
+    color: #c62828;
+}
+
+.wt-result.success {
+    color: #2e7d32;
+}
