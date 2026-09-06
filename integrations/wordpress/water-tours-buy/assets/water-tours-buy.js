@@ -129,11 +129,58 @@
     resultEl.append(text, link);
   }
 
+  function showTestPayButton(order) {
+    if (!resultEl || !order || !order.id || !order.accessToken) return;
+    resultEl.textContent = '';
+    var text = document.createElement('p');
+    text.textContent = 'Заказ создан. Оплата ещё не подтверждена.';
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'wt-test-pay';
+    button.textContent = 'Тестовая оплата';
+    button.addEventListener('click', function () { testPay(order, button); });
+    resultEl.append(text, button);
+  }
+
+  function handleTestPaymentResponse(order, payment) {
+    var updated = { id: order.id, accessToken: order.accessToken, status: payment && payment.status };
+    saveOrder(updated);
+    if (payment && (payment.testPaid || payment.status === 'PAID')) showPaidPdfLink(updated);
+    else showTestPayButton(updated);
+  }
+
+  function testPayUrl(order) {
+    return backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/test-pay?accessToken=' + encodeURIComponent(order.accessToken));
+  }
+
+  function testPay(order, button) {
+    if (button) button.disabled = true;
+    fetch(testPayUrl(order), { method: 'POST', credentials: 'omit' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('test-pay');
+        return response.json();
+      })
+      .then(function (payment) { handleTestPaymentResponse(order, payment); })
+      .catch(function () { setResult('Не удалось выполнить тестовую оплату. Попробуйте ещё раз.', true); })
+      .finally(function () { if (button) button.disabled = false; });
+  }
+
+  function fetchTestPayStatus(order) {
+    fetch(testPayUrl(order), { method: 'GET', credentials: 'omit' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('test-pay-status');
+        return response.json();
+      })
+      .then(function (payment) { handleTestPaymentResponse(order, payment); })
+      .catch(function () { showTestPayButton(order); });
+  }
+
   function restoreOrderIfAny() {
     var order = loadOrder();
     if (!order) return;
-    if (order.status === 'PAID') showPaidPdfLink(order);
-    else setResult('Заказ создан. Оплата ещё не подтверждена. Билет появится после оплаты.', false);
+    if (order.status === 'PAID') return showPaidPdfLink(order);
+    if (!config.localTestMode) return setResult('Заказ создан. Оплата ещё не подтверждена. Билет появится после оплаты.', false);
+    fetchTestPayStatus(order);
   }
 
   function fetchCatalog() {
@@ -174,6 +221,7 @@
         clearIdempotencyKey();
         saveOrder(order);
         if (order.status === 'PAID') showPaidPdfLink(order);
+        else if (config.localTestMode) showTestPayButton(order);
         else setResult('Заказ создан. Оплата ещё не подтверждена. Билет появится после оплаты.', false);
       })
       .catch(function () { setResult('Не удалось создать заказ. Попробуйте ещё раз.', true); })
