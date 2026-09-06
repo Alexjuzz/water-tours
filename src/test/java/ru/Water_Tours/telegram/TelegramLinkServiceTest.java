@@ -32,6 +32,16 @@ class TelegramLinkServiceTest {
     }
 
     @Test
+    void buildDeepLinkStripsLeadingAtFromConfiguredUsername() {
+        TelegramLinkService withAt = new TelegramLinkService(orderRepository, "@water_tours_bot");
+
+        String link = withAt.buildDeepLink(UUID.randomUUID(), UUID.randomUUID());
+
+        assertThat(link).startsWith("https://t.me/water_tours_bot?start=");
+        assertThat(link).doesNotContain("@");
+    }
+
+    @Test
     void buildDeepLinkReturnsNullWhenUsernameNotConfigured() {
         TelegramLinkService noUsername = new TelegramLinkService(orderRepository, "");
 

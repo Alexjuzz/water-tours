@@ -22,7 +22,10 @@ public class TelegramLinkService {
     public TelegramLinkService(OrderRepository orderRepository,
                                 @Value("${telegram.bot-username:}") String botUsername) {
         this.orderRepository = orderRepository;
-        this.botUsername = botUsername;
+        // Telegram usernames are conventionally written with a leading "@"; t.me links need it stripped.
+        this.botUsername = botUsername != null && botUsername.startsWith("@")
+                ? botUsername.substring(1)
+                : botUsername;
     }
 
     /**
