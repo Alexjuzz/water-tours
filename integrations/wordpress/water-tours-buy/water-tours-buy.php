@@ -57,18 +57,21 @@ function water_tours_buy_ticket_prices() {
 }
 
 function water_tours_buy_enqueue_assets() {
+    $style_version = (string) filemtime(plugin_dir_path(__FILE__) . 'assets/water-tours-buy.css');
+    $script_version = (string) filemtime(plugin_dir_path(__FILE__) . 'assets/water-tours-buy.js');
+
     wp_enqueue_style(
         'water-tours-buy-css',
         plugin_dir_url(__FILE__) . 'assets/water-tours-buy.css',
         array(),
-        '0.1.0'
+        $style_version
     );
 
     wp_enqueue_script(
         'water-tours-buy-js',
         plugin_dir_url(__FILE__) . 'assets/water-tours-buy.js',
         array(),
-        '0.1.0',
+        $script_version,
         true
     );
 
