@@ -4,7 +4,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+
 import ru.Water_Tours.enums.OrderStatus;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.repository.OrderRepository;
@@ -32,7 +32,7 @@ public class OrderExpirationJob {
     }
 
     @Scheduled(fixedDelayString = "${order.expiration-check-interval:300000}") // по умолчанию каждые 5 минут
-    @Transactional
+
     public void expirePendingOrders() {
         Instant cutoff = Instant.now().minus(expirationTimeout);
 
@@ -47,8 +47,9 @@ public class OrderExpirationJob {
 
         for (Order order : expiredCandidates) {
             try {
-                orderService.changeOrderStatus(order, OrderStatus.EXPIRED);
-                log.info("Order {} marked as EXPIRED", order.getId());
+                if (orderService.expireIfPending(order.getId(), cutoff)) {
+                    log.info("Order {} marked as EXPIRED", order.getId());
+                }
             } catch (Exception e) {
                 log.error("Failed to expire order {}", order.getId(), e);
             }

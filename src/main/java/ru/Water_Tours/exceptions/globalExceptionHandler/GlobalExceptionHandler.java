@@ -144,6 +144,15 @@ public class GlobalExceptionHandler {
                 Instant.now(), HttpStatus.BAD_REQUEST.value(), "Missing parameter",
                 "Required parameter is missing: " + e.getParameterName(), request.getRequestURI()));
     }
+    @ExceptionHandler(ru.Water_Tours.ticket.service.PaymentProviderException.class)
+    public ResponseEntity<ExceptionResponse> handlePaymentProvider(
+            ru.Water_Tours.ticket.service.PaymentProviderException e, HttpServletRequest request) {
+        log.warn("Payment provider operation failed on {}: {}", request.getRequestURI(), e.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After", "60")
+                .body(new ExceptionResponse(Instant.now(), 503, "Payment verification unavailable",
+                        "Payment is not confirmed yet. Please retry later.", request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ExceptionResponse> handleGeneralException(Exception e, HttpServletRequest request) {
         // Полный стектрейс только в логи

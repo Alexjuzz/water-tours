@@ -85,13 +85,8 @@ public class Web {
 
     @PostMapping("/api/v1/payments/webhook")
     public ResponseEntity<Void> webhook(@RequestBody WebhookRequestDTO request) {
-        try {
-            paymentService.handleWebhook(request);
-        } catch (Exception e) {
-            // Даже при любой ошибке отвечаем 200, иначе ЮKassa будет бесконечно ретраить
-            // (ошибки уже залогированы внутри сервиса)
-        }
-        return ResponseEntity.ok().build(); // всегда 200 OK
+        paymentService.handleWebhook(request);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/api/v1/orders/{orderId}/tickets/issue")

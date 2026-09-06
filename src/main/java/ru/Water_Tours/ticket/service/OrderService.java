@@ -49,6 +49,14 @@ public class OrderService {
         return orderRepository.save(newOrder);
     }
 
+    public boolean expireIfPending(UUID id, java.time.Instant cutoff) {
+        Order order = orderRepository.findByIdForUpdate(id).orElseThrow();
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT || !order.getCreatedAt().isBefore(cutoff)) return false;
+        order.setStatus(OrderStatus.EXPIRED);
+        orderRepository.save(order);
+        return true;
+    }
+
     public void changeOrderStatus(Order order, OrderStatus status) {
         order.setStatus(status);
         orderRepository.save(order);

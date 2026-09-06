@@ -1,232 +1,222 @@
 package ru.Water_Tours.ticket.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
-import ru.Water_Tours.enums.OrderStatus;
-import ru.Water_Tours.enums.PaymentProvider;
-import ru.Water_Tours.enums.PaymentStatus;
+import ru.Water_Tours.enums.*;
 import ru.Water_Tours.ticket.model.Webhook.WebhookRequestDTO;
 import ru.Water_Tours.ticket.model.order.Order;
-import ru.Water_Tours.ticket.model.payment.Payment;
-import ru.Water_Tours.ticket.model.payment.PaymentStartResponse;
-import ru.Water_Tours.ticket.repository.OrderRepository;
-import ru.Water_Tours.ticket.repository.PaymentRepository;
-
-import java.math.BigDecimal;
+import ru.Water_Tours.ticket.model.payment.*;
+import ru.Water_Tours.ticket.repository.*;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class PaymentService {
-
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
-
-    private final OrderRepository orderRepository;
-    private final PaymentRepository paymentRepository;
-    private final RestClient yookassaClient;
+    private final OrderRepository orders;
+    private final PaymentRepository payments;
+    private final RestClient client;
+    private final ObjectMapper mapper;
+    private final TransactionTemplate tx;
     private final String baseUrl;
 
-    public PaymentService(OrderRepository orderRepository,
-                          PaymentRepository paymentRepository,
-                          RestClient.Builder clientBuilder,
+    public PaymentService(OrderRepository orders, PaymentRepository payments, @org.springframework.beans.factory.annotation.Qualifier("yookassaRestClientBuilder") RestClient.Builder builder,
+                          PlatformTransactionManager transactions, ObjectMapper mapper,
                           @Value("${yookassa.shopId}") String shopId,
                           @Value("${yookassa.secretKey}") String secretKey,
                           @Value("${app.base-url}") String baseUrl) {
-        this.orderRepository = orderRepository;
-        this.paymentRepository = paymentRepository;
+        this.orders = orders;
+        this.payments = payments;
+        this.mapper = mapper;
         this.baseUrl = baseUrl;
-
-        this.yookassaClient = clientBuilder.clone()
+        tx = new TransactionTemplate(transactions);
+        // The attempt must survive a network failure or rollback in a caller.
+        tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        client = builder.clone()
                 .baseUrl("https://api.yookassa.ru/v3")
-                .defaultHeaders(headers -> headers.setBasicAuth(shopId, secretKey))
-                .build();
+                .defaultHeaders(h -> h.setBasicAuth(shopId, secretKey)).build();
     }
 
-    @Transactional
     public PaymentStartResponse startPayment(UUID orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NoSuchElementException("Order not found: " + orderId));
-
-        if (order.getStatus() != OrderStatus.DRAFT) {
-            throw new IllegalStateException("Order must be in DRAFT to start payment. Current status=" + order.getStatus());
-        }
-
-        // 1. Создаём локальный платёж
-        Payment payment = new Payment();
-        payment.setProvider(PaymentProvider.YOOKASSA);
-        payment.setOrder(order);
-        payment.setAmount(order.getTotalAmount());
-        payment.setStatus(PaymentStatus.PENDING);
-        paymentRepository.save(payment); // получаем id для Idempotence-Key
-
-        // 2. Создаём платёж в ЮKassa
-        try {
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("amount", Map.of(
-                    "value", order.getTotalAmount().setScale(2, RoundingMode.HALF_UP).toPlainString(),
-                    "currency", "RUB"
-            ));
-            requestBody.put("confirmation", Map.of(
-                    "type", "redirect",
-                    "return_url", baseUrl + "/api/v1/orders/" + orderId + "/pay/return"
-            ));
-            requestBody.put("capture", true);
-            requestBody.put("description", "Оплата заказа Water Tours " + orderId);
-            requestBody.put("metadata", Map.of(
-                    "orderId", orderId.toString(),
-                    "paymentId", payment.getId().toString()
-            ));
-
-            Map<String, Object> response = yookassaClient.post()
-                    .uri("/payments")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header("Idempotence-Key", payment.getId().toString())
-                    .body(requestBody)
-                    .retrieve()
-                    .body(Map.class);
-
-            if (response == null || response.get("id") == null) {
-                throw new IllegalStateException("YooKassa returned empty response");
+        Attempt attempt = tx.execute(status -> {
+            Order order = lockOrder(orderId);
+            List<Payment> existing = payments.findAllByOrderId(orderId);
+            if (existing.size() > 1) throw new IllegalStateException("Multiple payments require manual review");
+            if (!existing.isEmpty()) return snapshot(existing.getFirst());
+            if (order.getStatus() != OrderStatus.DRAFT)
+                throw new IllegalStateException("Order must be in DRAFT to start payment");
+            if (order.getTotalAmount() == null || order.getTotalAmount().signum() <= 0)
+                throw new IllegalStateException("Order amount must be positive");
+            Payment payment = new Payment();
+            payment.setOrder(order);
+            payment.setProvider(PaymentProvider.YOOKASSA);
+            payment.setStatus(PaymentStatus.PENDING);
+            payment.setAmount(order.getTotalAmount());
+            payments.saveAndFlush(payment);
+            try {
+                payment.setRequestBody(mapper.writeValueAsString(Map.of(
+                        "amount", Map.of("value", payment.getAmount().setScale(2, RoundingMode.UNNECESSARY).toPlainString(), "currency", "RUB"),
+                        "confirmation", Map.of("type", "redirect", "return_url", baseUrl + "/api/v1/orders/" + orderId + "/pay/return"),
+                        "capture", true,
+                        "description", "Оплата заказа Water Tours " + orderId,
+                        "metadata", Map.of("orderId", orderId.toString(), "paymentId", payment.getId().toString()))));
+            } catch (Exception e) {
+                throw new IllegalStateException("Cannot prepare payment request", e);
             }
-
-            String providerPaymentId = (String) response.get("id");
-            String status = (String) response.get("status");
-
-            payment.setProviderPaymentId(providerPaymentId);
-            payment.setStatus(mapYookassaStatus(status));
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> confirmation = (Map<String, Object>) response.get("confirmation");
-            String paymentUrl = confirmation != null ? (String) confirmation.get("confirmation_url") : null;
-
-            if (paymentUrl == null) {
-                throw new IllegalStateException("YooKassa did not return confirmation_url");
-            }
-
-            paymentRepository.save(payment);
-
+            payment.setNextCheckAt(Instant.now().plusSeconds(60));
             order.setStatus(OrderStatus.PENDING_PAYMENT);
-            orderRepository.save(order);
-
-            return new PaymentStartResponse(
-                    payment.getId(),
-                    order.getId(),
-                    payment.getStatus(),
-                    payment.getAmount(),
-                    paymentUrl
-            );
-
-        } catch (RestClientResponseException e) {
-            log.error("YooKassa create payment failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
-            // Откатываем транзакцию — Payment и Order не должны остаться в PENDING
-            throw new IllegalStateException("Failed to create payment in YooKassa: " + e.getStatusCode());
-        } catch (Exception e) {
-            log.error("Unexpected error while creating YooKassa payment", e);
-            throw new IllegalStateException("Failed to create payment in YooKassa", e);
-        }
+            orders.save(order);
+            payments.save(payment);
+            return snapshot(payment);
+        });
+        if (terminal(attempt.status()) || attempt.url() != null) return response(attempt);
+        Attempt refreshed = refresh(attempt);
+        if (!terminal(refreshed.status()) && refreshed.url() == null)
+            throw new PaymentProviderException("Payment confirmation link is not available yet");
+        return response(refreshed);
     }
 
-    /**
-     * Безопасная обработка webhook.
-     * НИКОГДА не доверяем статусу из тела запроса.
-     * Всегда запрашиваем актуальный статус через API ЮKassa.
-     */
-    @Transactional
-    public Payment handleWebhook(WebhookRequestDTO request) {
-        if (request == null || request.getObject() == null || request.getObject().getId() == null) {
-            log.warn("Webhook received with empty object.id — ignored");
+    public PaymentStartResponse handleWebhook(WebhookRequestDTO request) {
+        if (request == null || request.getObject() == null || request.getObject().getId() == null)
             return null;
+        // Refund notifications carry a refund ID, not a payment ID.
+        if (!Set.of("payment.succeeded", "payment.canceled", "payment.waiting_for_capture").contains(
+                Objects.toString(request.getEvent(), ""))) return null;
+        Attempt attempt = tx.execute(status -> payments.findByProviderPaymentId(request.getObject().getId())
+                .map(this::snapshot).orElse(null));
+        // An early webhook may arrive before create response is committed. Reconciliation recovers it.
+        if (attempt == null) return null;
+        return response(terminal(attempt.status()) ? attempt : refresh(attempt));
+    }
+
+    public void reconcilePendingPayments() {
+        List<UUID> due = tx.execute(status -> payments
+                .findTop50ByStatusAndNextCheckAtBeforeOrderByNextCheckAtAsc(PaymentStatus.PENDING, Instant.now())
+                .stream().map(Payment::getId).toList());
+        for (UUID id : due) {
+            try {
+                Attempt attempt = tx.execute(status -> {
+                    lockOrder(payments.findOrderId(id));
+                    Payment payment = payments.findById(id).orElseThrow();
+                    payment.setNextCheckAt(Instant.now().plusSeconds(60));
+                    payments.save(payment);
+                    return snapshot(payment);
+                });
+                if (!terminal(attempt.status())) refresh(attempt);
+            } catch (Exception e) {
+                log.warn("Payment reconciliation failed for paymentId={}, errorType={}", id, e.getClass().getSimpleName());
+            }
         }
+    }
 
-        String providerPaymentId = request.getObject().getId();
-
-        Payment payment =  paymentRepository.findByProviderPaymentId(providerPaymentId).orElse(null);
-        if (payment == null) {
-            log.warn("Webhook for unknown providerPaymentId={} — ignored", providerPaymentId);
-            return null; // всегда отвечаем 200, ничего не меняем
+    private Attempt refresh(Attempt attempt) {
+        JsonNode provider;
+        if (attempt.providerId() == null) {
+            // Stop before YooKassa's 24-hour deduplication window expires.
+            if (attempt.requestBody() == null || attempt.createdAt().isBefore(Instant.now().minus(Duration.ofHours(23)))) {
+                tx.executeWithoutResult(status -> {
+                    lockOrder(attempt.orderId());
+                    Payment p = payments.findById(attempt.id()).orElseThrow();
+                    p.setNextCheckAt(null);
+                    payments.save(p);
+                });
+                throw new PaymentProviderException("Payment requires manual reconciliation");
+            }
+            try {
+                provider = client.post().uri("/payments").contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotence-Key", attempt.id().toString())
+                        .body(attempt.requestBody()).retrieve().body(JsonNode.class);
+            } catch (Exception e) {
+                throw new PaymentProviderException("Payment provider is temporarily unavailable", e);
+            }
+        } else {
+            try {
+                provider = client.get().uri("/payments/{id}", attempt.providerId()).retrieve().body(JsonNode.class);
+            } catch (Exception e) {
+                throw new PaymentProviderException("Payment provider is temporarily unavailable", e);
+            }
         }
+        validate(attempt, provider);
+        return tx.execute(status -> {
+            Order order = lockOrder(attempt.orderId());
+            Payment payment = payments.findById(attempt.id()).orElseThrow();
+            String providerId = provider.path("id").asText();
+            if (payment.getProviderPaymentId() != null && !payment.getProviderPaymentId().equals(providerId))
+                throw new PaymentProviderException("Provider payment identity mismatch");
+            if (terminal(payment.getStatus())) return snapshot(payment);
+            payment.setProviderPaymentId(providerId);
+            String url = provider.path("confirmation").path("confirmation_url").asText(null);
+            if (url != null) payment.setConfirmationUrl(url);
+            switch (provider.path("status").asText()) {
+                case "succeeded" -> {
+                    payment.setStatus(PaymentStatus.SUCCEEDED);
+                    payment.setSucceededAt(Instant.parse(provider.path("captured_at").asText()));
+                    order.setStatus(OrderStatus.PAID);
+                    order.setPaidAt(payment.getSucceededAt());
+                    payment.setNextCheckAt(null);
+                }
+                case "canceled" -> {
+                    payment.setStatus(PaymentStatus.CANCELED);
+                    if (order.getStatus() != OrderStatus.PAID) order.setStatus(OrderStatus.CANCELLED);
+                    payment.setNextCheckAt(null);
+                }
+                default -> payment.setNextCheckAt(Instant.now().plusSeconds(60));
+            }
+            payments.save(payment);
+            if (terminal(payment.getStatus())) orders.save(order);
+            return snapshot(payment);
+        });
+    }
 
-        // Уже финальный статус — ничего не делаем
-        if (payment.getStatus() == PaymentStatus.SUCCEEDED || payment.getStatus() == PaymentStatus.CANCELED) {
-            return payment;
-        }
-
-        Order order = payment.getOrder();
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
-            return payment;
-        }
-
-        // === Главная защита: запрашиваем реальный статус у ЮKassa ===
-        String realStatus;
+    private void validate(Attempt attempt, JsonNode provider) {
         try {
-            realStatus = fetchPaymentStatusFromProvider(providerPaymentId);
+            if (provider == null || provider.path("id").asText().isBlank()
+                    || (attempt.providerId() != null && !attempt.providerId().equals(provider.path("id").asText()))
+                    || !provider.path("amount").path("currency").asText().equals("RUB")
+                    || new java.math.BigDecimal(provider.path("amount").path("value").asText()).compareTo(attempt.amount()) != 0
+                    || !provider.path("metadata").path("orderId").asText().equals(attempt.orderId().toString())
+                    || !provider.path("metadata").path("paymentId").asText().equals(attempt.id().toString()))
+                throw new IllegalArgumentException("Payment identity or amount mismatch");
+            String status = provider.path("status").asText();
+            if (!Set.of("pending", "waiting_for_capture", "succeeded", "canceled").contains(status))
+                throw new IllegalArgumentException("Unknown payment status");
+            if (status.equals("succeeded")) {
+                if (!provider.path("paid").asBoolean()) throw new IllegalArgumentException("Payment is not paid");
+                Instant.parse(provider.path("captured_at").asText());
+            }
         } catch (Exception e) {
-            log.error("Failed to fetch payment status from YooKassa for providerPaymentId={}", providerPaymentId, e);
-            // Не меняем ничего, просто логируем. ЮKassa потом ретрайнет webhook.
-            return payment;
+            throw new PaymentProviderException("Provider response failed validation", e);
         }
-
-        PaymentStatus newStatus = mapYookassaStatus(realStatus);
-
-        switch (newStatus) {
-            case SUCCEEDED -> {
-                payment.setSucceededAt(Instant.now());
-                payment.setStatus(PaymentStatus.SUCCEEDED);
-                order.setStatus(OrderStatus.PAID);
-                order.setPaidAt(Instant.now());
-                log.info("Payment SUCCEEDED via webhook. orderId={}, paymentId={}, providerPaymentId={}",
-                        order.getId(), payment.getId(), providerPaymentId);
-            }
-            case CANCELED -> {
-                payment.setStatus(PaymentStatus.CANCELED);
-                order.setStatus(OrderStatus.CANCELLED);
-                log.info("Payment CANCELED via webhook. orderId={}, paymentId={}, providerPaymentId={}",
-                        order.getId(), payment.getId(), providerPaymentId);
-            }
-            default -> {
-                // pending / waiting_for_capture — ничего не делаем
-                log.debug("Webhook received non-final status={} for providerPaymentId={}", realStatus, providerPaymentId);
-                return payment;
-            }
-        }
-
-        paymentRepository.save(payment);
-        orderRepository.save(order);
-        return payment;
     }
 
-    /**
-     * Синхронный запрос актуального статуса платежа в ЮKassa.
-     */
-    private String fetchPaymentStatusFromProvider(String providerPaymentId) {
-        Map<String, Object> response = yookassaClient.get()
-                .uri("/payments/{id}", providerPaymentId)
-                .retrieve()
-                .body(Map.class);
-
-        if (response == null || response.get("status") == null) {
-            throw new IllegalStateException("Empty response from YooKassa for payment " + providerPaymentId);
-        }
-        return (String) response.get("status");
+    private Order lockOrder(UUID id) {
+        return orders.findByIdForUpdate(id).orElseThrow(() -> new NoSuchElementException("Order not found"));
     }
 
-    private PaymentStatus mapYookassaStatus(String yookassaStatus) {
-        if (yookassaStatus == null) return PaymentStatus.PENDING;
-        return switch (yookassaStatus.toLowerCase()) {
-            case "succeeded" -> PaymentStatus.SUCCEEDED;
-            case "canceled" -> PaymentStatus.CANCELED;
-            case "pending", "waiting_for_capture" -> PaymentStatus.PENDING;
-            default -> PaymentStatus.PENDING;
-        };
+    private boolean terminal(PaymentStatus status) {
+        return status == PaymentStatus.SUCCEEDED || status == PaymentStatus.CANCELED;
     }
+
+    private Attempt snapshot(Payment p) {
+        return new Attempt(p.getId(), p.getOrder().getId(), p.getAmount(), p.getStatus(),
+                p.getProviderPaymentId(), p.getConfirmationUrl(), p.getRequestBody(), p.getCreatedAt());
+    }
+
+    private PaymentStartResponse response(Attempt a) {
+        return new PaymentStartResponse(a.id(), a.orderId(), a.status(), a.amount(), a.url());
+    }
+
+    private record Attempt(UUID id, UUID orderId, java.math.BigDecimal amount, PaymentStatus status,
+                           String providerId, String url, String requestBody, Instant createdAt) {}
 }

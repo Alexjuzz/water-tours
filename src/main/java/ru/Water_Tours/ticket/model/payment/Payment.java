@@ -37,6 +37,13 @@ public class Payment {
     @Column(name = "succeeded_at")
     private Instant succeededAt;
 
+    @Column(name = "request_body", columnDefinition = "text")
+    private String requestBody;
+    @Column(name = "confirmation_url", columnDefinition = "text")
+    private String confirmationUrl;
+    @Column(name = "next_check_at")
+    private Instant nextCheckAt;
+
     @PrePersist
     void  prePersist(){
         if(status == null) status = PaymentStatus.NEW;
