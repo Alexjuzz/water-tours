@@ -15,7 +15,8 @@ public record OrderResponse(
         BigDecimal totalAmount,
         Instant paidAt,
         String phone,
-        UUID accessToken
+        UUID accessToken,
+        String telegramDeepLink
 ) {
 
 

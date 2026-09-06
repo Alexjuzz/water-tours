@@ -31,6 +31,8 @@ public class Order {
     private Instant ticketsEmailedAt;
     @Column(name = "access_token", unique = true, nullable = false)
     private UUID accessToken;
+    @Column(name = "telegram_chat_id")
+    private Long telegramChatId;
 
 
     @Column(name = "email")

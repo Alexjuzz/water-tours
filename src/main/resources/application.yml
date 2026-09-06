@@ -34,6 +34,11 @@ yookassa:
   shopId: ${YOOKASSA_SHOP_ID}
   secretKey: ${YOOKASSA_SECRET_KEY}
 
+telegram:
+  bot-token: ${TELEGRAM_BOT_TOKEN:}
+  bot-username: ${TELEGRAM_BOT_USERNAME:}
+  poll-interval: 500
+
 idempotency:
   value-ttl: 10m
   lock-ttl: 45s

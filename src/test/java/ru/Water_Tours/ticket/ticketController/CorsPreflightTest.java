@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import ru.Water_Tours.security.SecurityConfig;
 import ru.Water_Tours.ticket.idempotency.IdempotencyService;
 import ru.Water_Tours.ticket.service.*;
+import ru.Water_Tours.telegram.TelegramLinkService;
 
 import java.util.UUID;
 
@@ -30,6 +31,7 @@ class CorsPreflightTest {
     @MockitoBean PdfTicketService pdf;
     @MockitoBean TicketEmailService mail;
     @MockitoBean IdempotencyService<UUID> idempotency;
+    @MockitoBean TelegramLinkService telegramLinkService;
 
     @Test
     void preflightForOrdersCreationAllowsWordpressOriginAndIdempotencyKey() throws Exception {

@@ -14,6 +14,7 @@ import ru.Water_Tours.ticket.model.order.OrderResponse;
 import ru.Water_Tours.ticket.model.payment.PaymentStartResponse;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
 import ru.Water_Tours.ticket.service.*;
+import ru.Water_Tours.telegram.TelegramLinkService;
 import org.springframework.beans.factory.annotation.Value;
 import java.util.List;
 import java.util.UUID;
@@ -28,6 +29,7 @@ public class Web {
     private final PdfTicketService pdfTicketService;
     private final String baseUrl;
     private final TicketEmailService ticketEmailService;
+    private final TelegramLinkService telegramLinkService;
 
 
     public Web(OrderService orderService,
@@ -36,6 +38,7 @@ public class Web {
                TicketService ticketService,
                PdfTicketService pdfTicketService,
                TicketEmailService ticketEmailService,
+               TelegramLinkService telegramLinkService,
                @Value("${app.base-url}") String baseUrl) {
         this.orderService = orderService;
         this.idempotencyService = idempotencyService;
@@ -44,6 +47,7 @@ public class Web {
         this.pdfTicketService = pdfTicketService;
         this.baseUrl = baseUrl;
         this.ticketEmailService = ticketEmailService;
+        this.telegramLinkService = telegramLinkService;
     }
 
     @PostMapping("/api/v1/orders")
@@ -63,7 +67,10 @@ public class Web {
         UUID orderId = resolve.value();
         boolean reused = resolve.reused();
 
-        OrderResponse response = orderService.getOrderResponse(orderId, idempotenceKey);
+        OrderResponse base = orderService.getOrderResponse(orderId, idempotenceKey);
+        String telegramDeepLink = telegramLinkService.buildDeepLink(orderId, base.accessToken());
+        OrderResponse response = new OrderResponse(base.id(), base.idempotencyKey(), base.email(), base.createdAt(),
+                base.status(), base.totalAmount(), base.paidAt(), base.phone(), base.accessToken(), telegramDeepLink);
 
         if (reused) {
             return ResponseEntity.ok(response);

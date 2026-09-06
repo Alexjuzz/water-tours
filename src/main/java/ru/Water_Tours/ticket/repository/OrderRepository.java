@@ -28,4 +28,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<UUID> findOrderIdsAwaitingTicketEmail();
 
     List<Order> findAllByStatusAndCreatedAtBefore(OrderStatus status, Instant cutoff);
+
+    Optional<Order> findByTelegramChatId(Long telegramChatId);
 }
