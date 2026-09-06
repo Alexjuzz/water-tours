@@ -8,6 +8,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import ru.Water_Tours.enums.OrderStatus;
 import ru.Water_Tours.security.SecurityConfig;
 import ru.Water_Tours.ticket.model.order.Order;
@@ -25,7 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(value = LocalCheckoutController.class, properties = {
-        "staff.username=test", "staff.password=test-only", "staff.remember-me-key=test-only-key"
+        "staff.username=test", "staff.password=test-only", "staff.remember-me-key=test-only-key",
+        "local-checkout.trusted-remote-addresses=172.28.0.1"
 })
 @ActiveProfiles("local-checkout")
 @Import(SecurityConfig.class)
@@ -94,6 +96,43 @@ class LocalCheckoutControllerTest {
         }
         verify(checkoutService, times(2)).confirmTestPayment(id, token);
         verify(ticketService, times(2)).issueTickets(id);
+    }
+
+    private static RequestPostProcessor remoteAddr(String ip) {
+        return request -> {
+            request.setRemoteAddr(ip);
+            return request;
+        };
+    }
+
+    @Test
+    void untrustedRemoteAddressIsRejected() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+
+        mvc.perform(post("/api/v1/orders/{id}/test-pay", id)
+                        .param("accessToken", token.toString())
+                        .with(remoteAddr("203.0.113.5")))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(checkoutService, ticketService);
+    }
+
+    @Test
+    void configuredDockerGatewayAddressIsTrusted() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        Instant paidAt = Instant.parse("2026-01-01T00:00:00Z");
+        Order order = testPaidOrder(id, paidAt);
+
+        when(checkoutService.confirmTestPayment(id, token)).thenReturn(order);
+        when(checkoutService.getOwnedOrder(id, token)).thenReturn(order);
+        when(ticketService.issueTickets(id)).thenReturn(List.of());
+
+        mvc.perform(post("/api/v1/orders/{id}/test-pay", id)
+                        .param("accessToken", token.toString())
+                        .with(remoteAddr("172.28.0.1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID"));
     }
 
     @Test

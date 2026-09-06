@@ -19,11 +19,13 @@ import ru.Water_Tours.ticket.service.TicketService;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @Profile("local-checkout")
@@ -33,10 +35,21 @@ public class LocalCheckoutController {
 
     private final LocalCheckoutService checkoutService;
     private final TicketService ticketService;
+    /**
+     * Explicit allowlist for non-loopback callers, e.g. the Docker Desktop bridge gateway
+     * address when this backend runs in a container and the WordPress bridge calls it via
+     * the published host port. Empty by default; only takes effect under local-checkout.
+     */
+    private final Set<String> trustedRemoteAddresses;
 
-    public LocalCheckoutController(LocalCheckoutService checkoutService, TicketService ticketService) {
+    public LocalCheckoutController(LocalCheckoutService checkoutService, TicketService ticketService,
+            @Value("${local-checkout.trusted-remote-addresses:}") String trustedRemoteAddresses) {
         this.checkoutService = checkoutService;
         this.ticketService = ticketService;
+        this.trustedRemoteAddresses = Arrays.stream(trustedRemoteAddresses.split(","))
+                .map(String::trim)
+                .filter(address -> !address.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     @GetMapping(value = "/checkout.html", produces = MediaType.TEXT_HTML_VALUE)
@@ -92,7 +105,7 @@ public class LocalCheckoutController {
 
     private void requireLoopback(HttpServletRequest request) {
         String remoteAddr = request.getRemoteAddr();
-        if (!LOOPBACK_ADDRESSES.contains(remoteAddr)) {
+        if (!LOOPBACK_ADDRESSES.contains(remoteAddr) && !trustedRemoteAddresses.contains(remoteAddr)) {
             throw new AccessDeniedException("Test payment is only allowed from localhost");
         }
     }

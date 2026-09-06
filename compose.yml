@@ -38,7 +38,10 @@ services:
       dockerfile: Dockerfile
     container_name: tickets_app
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    networks:
+      default:
+        ipv4_address: 172.28.0.10
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/appdb
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
@@ -54,12 +57,22 @@ services:
       STAFF_USERNAME: ${STAFF_USERNAME}
       STAFF_PASSWORD: ${STAFF_PASSWORD}
       STAFF_REMEMBER_ME_KEY: ${STAFF_REMEMBER_ME_KEY}
+      # Docker Desktop's host-to-container port forwarding arrives from this fixed bridge
+      # gateway address rather than loopback; only relevant when local-checkout is active.
+      LOCAL_CHECKOUT_TRUSTED_REMOTE_ADDRESSES: 172.28.0.1
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+          gateway: 172.28.0.1
 
 volumes:
   pgdata:
