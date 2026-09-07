@@ -63,15 +63,20 @@ public class TicketEmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(mailFrom);
             helper.setTo(to);
-            helper.setSubject("Your Water Tours Tickets");
+            helper.setSubject("Ваши билеты Water Tours — оплата подтверждена");
             helper.setText("""
-                    Hello!
+                    Здравствуйте!
 
-                    Your Water Tours tickets are attached to this email.
+                    Спасибо за покупку билетов Water Tours — оплата прошла успешно.
 
-                    Please show the QR code before boarding.
+                    Ваши билеты во вложении (PDF с QR-кодом на каждый билет). Срок действия
+                    и время указаны прямо на билете. Перед посадкой покажите QR-код персоналу
+                    для прохода — билет одноразовый.
 
-                    Thank you!
+                    Если у вас возникнут вопросы по заказу, просто ответьте на это письмо.
+
+                    Хорошей прогулки!
+                    Water Tours
                     """);
             helper.addAttachment("tickets-" + orderId  + ".pdf", new ByteArrayResource(pdfBytes));
             mailSender.send(message);
