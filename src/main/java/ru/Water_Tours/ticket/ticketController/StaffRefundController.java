@@ -1,6 +1,8 @@
 package ru.Water_Tours.ticket.ticketController;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +23,8 @@ import java.util.UUID;
 @Controller
 @RequestMapping("/staff/refund")
 public class StaffRefundController {
+
+    private static final Logger log = LoggerFactory.getLogger(StaffRefundController.class);
 
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
@@ -92,9 +96,11 @@ public class StaffRefundController {
             return "redirect:/staff/refund" + redirectQuery + sep + "msg="
                     + java.net.URLEncoder.encode("Возврат выполнен: " + result.amount() + " ₽, refundId=" + result.providerRefundId(), java.nio.charset.StandardCharsets.UTF_8);
         } catch (IllegalStateException | java.util.NoSuchElementException e) {
+            log.warn("Staff refund rejected for orderId={}, reason={}", orderId, e.getMessage());
             return "redirect:/staff/refund" + redirectQuery + sep + "error="
                     + java.net.URLEncoder.encode(e.getMessage(), java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {
+            log.warn("Staff refund failed for orderId={}, errorType={}, message={}", orderId, e.getClass().getSimpleName(), e.getMessage());
             return "redirect:/staff/refund" + redirectQuery + sep + "error="
                     + java.net.URLEncoder.encode("Возврат не выполнен: провайдер платежей недоступен или отклонил запрос.", java.nio.charset.StandardCharsets.UTF_8);
         }
