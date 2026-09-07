@@ -44,6 +44,13 @@ public class Payment {
     @Column(name = "next_check_at")
     private Instant nextCheckAt;
 
+    @Column(name = "provider_refund_id")
+    private String providerRefundId;
+    @Column(name = "refunded_amount", precision = 12, scale = 2)
+    private BigDecimal refundedAmount;
+    @Column(name = "refunded_at")
+    private Instant refundedAt;
+
     @PrePersist
     void  prePersist(){
         if(status == null) status = PaymentStatus.NEW;

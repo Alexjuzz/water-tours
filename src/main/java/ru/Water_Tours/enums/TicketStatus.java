@@ -4,5 +4,6 @@ public enum TicketStatus {
 
     ISSUED,
     USED,
-    EXPIRED
+    EXPIRED,
+    REVOKED
 }

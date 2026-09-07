@@ -172,6 +172,7 @@ public class TelegramUpdateHandler {
             case ISSUED -> "действителен";
             case USED -> "использован";
             case EXPIRED -> "истёк";
+            case REVOKED -> "возвращён (аннулирован)";
         };
     }
 }

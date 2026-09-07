@@ -30,4 +30,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findAllByStatusAndCreatedAtBefore(OrderStatus status, Instant cutoff);
 
     List<Order> findAllByTelegramChatIdOrderByCreatedAtDesc(Long telegramChatId);
+
+    List<Order> findAllByEmailIgnoreCaseOrderByCreatedAtDesc(String email);
 }

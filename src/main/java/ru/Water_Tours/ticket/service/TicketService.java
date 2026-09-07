@@ -177,6 +177,16 @@ public class TicketService {
                 return sb.toString();
             }
 
+            if (t.getTicketStatus() == TicketStatus.REVOKED) {
+                sb.append("<html><body>");
+                sb.append("<div style=\"color:red\">{{errorMessage}}</div>");
+                sb.append("<h1>Ticket with code: ").append(safeCode).append(" was refunded and is no longer valid</h1>");
+                sb.append("<p>Purchase email: ").append(safeEmail).append("</p>");
+                sb.append("<p>Ticket status: ").append(safeStatus).append("</p>");
+                sb.append("</body></html>");
+                return sb.toString();
+            }
+
             if (t.getTicketStatus() == TicketStatus.EXPIRED || !now.isBefore(t.getValidTo()) || t.getValidFrom().isAfter(now)) {
                 sb.append("<html><body>");
                 sb.append("<div style=\"color:red\">{{errorMessage}}</div>");

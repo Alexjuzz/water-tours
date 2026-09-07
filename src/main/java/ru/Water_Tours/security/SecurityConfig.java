@@ -44,6 +44,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/t/**").hasRole("STAFF")
+                        .requestMatchers("/staff/**").hasRole("STAFF")
                         .requestMatchers(HttpMethod.POST, "/api/v1/tickets/*/redeem").hasRole("STAFF")
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/**").hasRole("STAFF") // остальные actuator только staff
