@@ -106,10 +106,10 @@ function water_tours_buy_shortcode() {
         </button>
 
         <div id="wt-modal" class="wt-modal">
-            <div class="wt-modal-content">
-                <button id="wt-close-modal" class="wt-close" type="button">&times;</button>
+            <div class="wt-modal-content" role="dialog" aria-modal="true" aria-labelledby="wt-modal-title">
+                <button id="wt-close-modal" class="wt-close" type="button" aria-label="Закрыть">&times;</button>
 
-                <h2>Купить билет</h2>
+                <h2 id="wt-modal-title">Купить билет</h2>
 
                 <form id="wt-ticket-form">
                     <?php wp_nonce_field('water_tours_buy_submit', 'wt_nonce'); ?>

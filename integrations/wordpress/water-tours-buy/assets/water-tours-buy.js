@@ -50,12 +50,48 @@
     if (submitBtn) submitBtn.disabled = !enabled;
   }
 
+  var lastFocusedElement = null;
+
+  function getFocusableElements() {
+    if (!modal) return [];
+    return Array.prototype.slice.call(
+      modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')
+    ).filter(function (el) { return el.offsetParent !== null; });
+  }
+
+  function trapFocus(event) {
+    if (event.key === 'Escape') {
+      closeModal();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    var focusable = getFocusableElements();
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   function openModal() {
-    if (modal) modal.classList.add('is-open');
+    if (!modal) return;
+    lastFocusedElement = document.activeElement;
+    modal.classList.add('is-open');
+    document.addEventListener('keydown', trapFocus);
+    var focusable = getFocusableElements();
+    if (focusable.length) focusable[0].focus();
   }
 
   function closeModal() {
-    if (modal) modal.classList.remove('is-open');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    document.removeEventListener('keydown', trapFocus);
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
   }
 
   function validateEmail(email) {
