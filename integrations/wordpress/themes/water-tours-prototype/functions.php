@@ -31,6 +31,12 @@ function water_tours_prototype_enqueue_assets() {
 add_action('wp_enqueue_scripts', 'water_tours_prototype_enqueue_assets');
 
 add_action('after_setup_theme', function () { add_theme_support('title-tag'); });
+
+// The core XML sitemap otherwise publishes /wp-sitemap-users-1.xml, listing admin usernames
+// (e.g. /author/wtadmin/) - no SEO value here and needless account-enumeration surface.
+add_filter('wp_sitemaps_add_provider', function ($provider, $name) {
+    return $name === 'users' ? false : $provider;
+}, 10, 2);
 add_filter('pre_get_document_title', function ($title) {
     return is_front_page() ? 'Речные прогулки — электронные билеты | Water Tours' : $title;
 });
