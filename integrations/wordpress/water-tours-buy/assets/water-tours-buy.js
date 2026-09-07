@@ -211,12 +211,79 @@
       .catch(function () { showTestPayButton(order); });
   }
 
+  function payUrl(order) {
+    return backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/pay?accessToken=' + encodeURIComponent(order.accessToken));
+  }
+
+  function startRealPayment(order) {
+    setResult('Переходим к оплате...', false);
+    fetch(payUrl(order), { method: 'POST', credentials: 'omit' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('pay');
+        return response.json();
+      })
+      .then(function (payment) {
+        if (payment && payment.paymentUrl) {
+          window.location.href = payment.paymentUrl;
+          return;
+        }
+        throw new Error('no-payment-url');
+      })
+      .catch(function () {
+        setResult('Не удалось перейти к оплате. Попробуйте ещё раз или напишите нам.', true);
+      });
+  }
+
+  // The ticket-issuance job runs on an interval (up to ~30s after payment), so a customer
+  // freshly back from YooKassa may not have a ticket yet even though payment succeeded.
+  // Poll a few times before telling them to check back rather than reporting a false negative.
+  function pollForIssuedTicket(order, attemptsLeft) {
+    fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets?accessToken=' + encodeURIComponent(order.accessToken)),
+      { method: 'GET', credentials: 'omit' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('tickets');
+        return response.json();
+      })
+      .then(function (tickets) {
+        if (tickets && tickets.length) {
+          saveOrder({ id: order.id, accessToken: order.accessToken, status: 'PAID' });
+          showPaidPdfLink(order);
+          return;
+        }
+        if (attemptsLeft > 0) {
+          setResult('Оплата обрабатывается, подождите...', false);
+          setTimeout(function () { pollForIssuedTicket(order, attemptsLeft - 1); }, 5000);
+        } else {
+          showPaymentPendingWithRetry(order);
+        }
+      })
+      .catch(function () {
+        setResult('Не удалось проверить статус оплаты. Обновите страницу.', true);
+      });
+  }
+
+  function showPaymentPendingWithRetry(order) {
+    if (!resultEl) return;
+    resultEl.textContent = '';
+    var text = document.createElement('p');
+    text.textContent = 'Оплата ещё не подтверждена. Если вы уже платили, обновите страницу через минуту. Если платёж не начинали или он не прошёл — попробуйте снова:';
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'wt-test-pay';
+    button.textContent = 'Оплатить';
+    button.addEventListener('click', function () { startRealPayment(order); });
+    resultEl.append(text, button);
+  }
+
   function restoreOrderIfAny() {
     var order = loadOrder();
     if (!order) return;
+    openModal();
     if (order.status === 'PAID') return showPaidPdfLink(order);
-    if (!config.localTestMode) return setResult('Заказ создан. Оплата ещё не подтверждена. Билет появится после оплаты.', false);
-    fetchTestPayStatus(order);
+    if (config.localTestMode) return fetchTestPayStatus(order);
+    // Real payment: the customer may be returning from YooKassa right now, so always
+    // re-check with the backend instead of trusting the pre-payment status we cached.
+    pollForIssuedTicket(order, 6);
   }
 
   function fetchCatalog() {
@@ -256,9 +323,9 @@
         if (!order || !order.id || !order.accessToken) throw new Error('order');
         clearIdempotencyKey();
         saveOrder(order);
-        if (order.status === 'PAID') showPaidPdfLink(order);
-        else if (config.localTestMode) showTestPayButton(order);
-        else setResult('Заказ создан. Оплата ещё не подтверждена. Билет появится после оплаты.', false);
+        if (order.status === 'PAID') { showPaidPdfLink(order); return; }
+        if (config.localTestMode) { showTestPayButton(order); return; }
+        startRealPayment(order);
       })
       .catch(function () { setResult('Не удалось создать заказ. Попробуйте ещё раз.', true); })
       .finally(function () { setSubmitEnabled(true); });

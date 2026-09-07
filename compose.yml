@@ -60,6 +60,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       STAFF_TELEGRAM_CHAT_IDS: ${STAFF_TELEGRAM_CHAT_IDS}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
       # Docker Desktop's host-to-container port forwarding arrives from this fixed bridge
       # gateway address rather than loopback; only relevant when local-checkout is active.
       LOCAL_CHECKOUT_TRUSTED_REMOTE_ADDRESSES: 172.28.0.1

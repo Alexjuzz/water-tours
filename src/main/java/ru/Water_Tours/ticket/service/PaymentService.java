@@ -67,7 +67,9 @@ public class PaymentService {
             try {
                 payment.setRequestBody(mapper.writeValueAsString(Map.of(
                         "amount", Map.of("value", payment.getAmount().setScale(2, RoundingMode.UNNECESSARY).toPlainString(), "currency", "RUB"),
-                        "confirmation", Map.of("type", "redirect", "return_url", baseUrl + "/api/v1/orders/" + orderId + "/pay/return"),
+                        // No backend page exists at a REST path; send the customer back to the
+                        // WordPress purchase section, which restores order status from sessionStorage.
+                        "confirmation", Map.of("type", "redirect", "return_url", baseUrl + "/#buy"),
                         "capture", true,
                         "description", "Оплата заказа Water Tours " + orderId,
                         "metadata", Map.of("orderId", orderId.toString(), "paymentId", payment.getId().toString()))));
