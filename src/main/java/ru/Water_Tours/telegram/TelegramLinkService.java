@@ -9,14 +9,16 @@ import ru.Water_Tours.ticket.repository.OrderRepository;
 
 import java.nio.ByteBuffer;
 import java.util.Base64;
+import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class TelegramLinkService {
 
     private static final int PAYLOAD_BYTES = 32; // two UUIDs, 16 bytes each
+    // Bot replies with one message per order; keep it to a screenful even for a repeat customer.
+    private static final int MAX_LINKED_ORDERS = 5;
 
     private final OrderRepository orderRepository;
     private final String botUsername;
@@ -63,8 +65,13 @@ public class TelegramLinkService {
         return orderRepository.save(order);
     }
 
-    public Optional<Order> findLinkedOrder(long chatId) {
-        return orderRepository.findByTelegramChatId(chatId);
+    /**
+     * A chat can accumulate more than one linked order (a repeat customer opening a new deep
+     * link). Returns the most recent orders first, bounded so the bot's reply stays readable.
+     */
+    public List<Order> findLinkedOrders(long chatId) {
+        List<Order> orders = orderRepository.findAllByTelegramChatIdOrderByCreatedAtDesc(chatId);
+        return orders.size() > MAX_LINKED_ORDERS ? orders.subList(0, MAX_LINKED_ORDERS) : orders;
     }
 
     private UUID[] decode(String payload) {

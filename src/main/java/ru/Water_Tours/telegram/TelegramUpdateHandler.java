@@ -13,15 +13,18 @@ import ru.Water_Tours.ticket.service.TicketService;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
 public class TelegramUpdateHandler {
     private static final Logger log = LoggerFactory.getLogger(TelegramUpdateHandler.class);
     private static final String START_COMMAND = "/start";
+    private static final DateTimeFormatter ORDER_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+            .withZone(ZoneOffset.UTC);
 
     private final TelegramLinkService linkService;
     private final TicketService ticketService;
@@ -70,22 +73,28 @@ public class TelegramUpdateHandler {
     }
 
     private void handleStatus(long chatId) {
-        Optional<Order> linked = linkService.findLinkedOrder(chatId);
-        if (linked.isEmpty()) {
+        List<Order> orders = linkService.findLinkedOrders(chatId);
+        if (orders.isEmpty()) {
             sender.sendMessage(chatId, "Билет ещё не привязан. Откройте ссылку с сайта после покупки.");
             return;
         }
-        Order order = linked.get();
+        String message = orders.stream()
+                .map(this::describeOrder)
+                .collect(Collectors.joining("\n\n"));
+        sender.sendMessage(chatId, message);
+    }
+
+    private String describeOrder(Order order) {
+        String label = "Заказ от " + ORDER_DATE.format(order.getCreatedAt()) + ":";
         List<TicketResponse> tickets = ticketService.getTickets(order.getId());
         if (tickets.isEmpty()) {
-            sender.sendMessage(chatId, "Билеты ещё не выпущены. Попробуйте позже.");
-            return;
+            return label + " билеты ещё не выпущены.";
         }
         String summary = tickets.stream()
                 .map(t -> t.ticketType() + ": " + statusText(t.ticketStatus()))
                 .collect(Collectors.joining("\n"));
         String pdfUrl = baseUrl + "/api/v1/orders/" + order.getId() + "/tickets/pdf?accessToken=" + order.getAccessToken();
-        sender.sendMessage(chatId, summary + "\n\nСкачать билет: " + pdfUrl);
+        return label + "\n" + summary + "\nСкачать билет: " + pdfUrl;
     }
 
     /**

@@ -15,7 +15,6 @@ import java.io.ByteArrayOutputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,6 +40,14 @@ class TelegramUpdateHandlerTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(image, "png", out);
         return out.toByteArray();
+    }
+
+    private Order orderWithDate(String createdAt) {
+        Order order = new Order();
+        order.setId(UUID.randomUUID());
+        order.setAccessToken(UUID.randomUUID());
+        order.setCreatedAt(Instant.parse(createdAt));
+        return order;
     }
 
     @Test
@@ -72,7 +79,7 @@ class TelegramUpdateHandlerTest {
 
     @Test
     void statusForUnlinkedChatAsksToLinkFirst() {
-        when(linkService.findLinkedOrder(CUSTOMER_CHAT_ID)).thenReturn(Optional.empty());
+        when(linkService.findLinkedOrders(CUSTOMER_CHAT_ID)).thenReturn(List.of());
 
         handler.handle(CUSTOMER_CHAT_ID, "/tickets");
 
@@ -82,10 +89,8 @@ class TelegramUpdateHandlerTest {
 
     @Test
     void statusForLinkedChatSendsTicketSummaryAndPdfLink() {
-        Order order = new Order();
-        order.setId(UUID.randomUUID());
-        order.setAccessToken(UUID.randomUUID());
-        when(linkService.findLinkedOrder(CUSTOMER_CHAT_ID)).thenReturn(Optional.of(order));
+        Order order = orderWithDate("2026-01-10T10:00:00Z");
+        when(linkService.findLinkedOrders(CUSTOMER_CHAT_ID)).thenReturn(List.of(order));
         TicketResponse ticket = new TicketResponse(UUID.randomUUID(), "code", "a@a.com",
                 Instant.now(), Instant.now(), Instant.now(), TicketType.ADULT, TicketStatus.ISSUED);
         when(ticketService.getTickets(order.getId())).thenReturn(List.of(ticket));
@@ -97,6 +102,27 @@ class TelegramUpdateHandlerTest {
         assertThat(captor.getValue())
                 .contains("действителен")
                 .contains("http://localhost:8080/api/v1/orders/" + order.getId() + "/tickets/pdf?accessToken=" + order.getAccessToken());
+    }
+
+    @Test
+    void statusForChatWithMultipleOrdersDescribesEachOne() {
+        Order older = orderWithDate("2026-01-01T10:00:00Z");
+        Order newer = orderWithDate("2026-01-05T10:00:00Z");
+        when(linkService.findLinkedOrders(CUSTOMER_CHAT_ID)).thenReturn(List.of(newer, older));
+        TicketResponse newerTicket = new TicketResponse(UUID.randomUUID(), "code-new", "a@a.com",
+                Instant.now(), Instant.now(), Instant.now(), TicketType.ADULT, TicketStatus.ISSUED);
+        when(ticketService.getTickets(newer.getId())).thenReturn(List.of(newerTicket));
+        when(ticketService.getTickets(older.getId())).thenReturn(List.of());
+
+        handler.handle(CUSTOMER_CHAT_ID, "/tickets");
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), captor.capture());
+        assertThat(captor.getValue())
+                .contains("05.01.2026")
+                .contains("01.01.2026")
+                .contains("действителен")
+                .contains("билеты ещё не выпущены");
     }
 
     @Test
@@ -151,7 +177,7 @@ class TelegramUpdateHandlerTest {
 
     @Test
     void nonStaffChatIsUnaffectedByStaffRedeemLogic() {
-        when(linkService.findLinkedOrder(CUSTOMER_CHAT_ID)).thenReturn(Optional.empty());
+        when(linkService.findLinkedOrders(CUSTOMER_CHAT_ID)).thenReturn(List.of());
 
         handler.handle(CUSTOMER_CHAT_ID, "abc-123");
 

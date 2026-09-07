@@ -7,6 +7,7 @@ import ru.Water_Tours.ticket.repository.OrderRepository;
 
 import java.nio.ByteBuffer;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -89,11 +90,35 @@ class TelegramLinkServiceTest {
     }
 
     @Test
-    void findLinkedOrderDelegatesToRepository() {
+    void findLinkedOrdersDelegatesToRepository() {
         Order order = new Order();
-        when(orderRepository.findByTelegramChatId(555L)).thenReturn(Optional.of(order));
+        when(orderRepository.findAllByTelegramChatIdOrderByCreatedAtDesc(555L)).thenReturn(List.of(order));
 
-        assertThat(service.findLinkedOrder(555L)).contains(order);
+        assertThat(service.findLinkedOrders(555L)).containsExactly(order);
+    }
+
+    @Test
+    void findLinkedOrdersReturnsEmptyListWhenNoneLinked() {
+        when(orderRepository.findAllByTelegramChatIdOrderByCreatedAtDesc(555L)).thenReturn(List.of());
+
+        assertThat(service.findLinkedOrders(555L)).isEmpty();
+    }
+
+    @Test
+    void findLinkedOrdersReturnsAllOrdersForARepeatCustomer() {
+        Order first = new Order();
+        Order second = new Order();
+        when(orderRepository.findAllByTelegramChatIdOrderByCreatedAtDesc(555L)).thenReturn(List.of(second, first));
+
+        assertThat(service.findLinkedOrders(555L)).containsExactly(second, first);
+    }
+
+    @Test
+    void findLinkedOrdersIsBoundedToAReadableCount() {
+        List<Order> many = java.util.stream.IntStream.range(0, 10).mapToObj(i -> new Order()).toList();
+        when(orderRepository.findAllByTelegramChatIdOrderByCreatedAtDesc(555L)).thenReturn(many);
+
+        assertThat(service.findLinkedOrders(555L)).hasSizeLessThan(10);
     }
 
     @Test
