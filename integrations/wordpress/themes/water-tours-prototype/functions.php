@@ -15,9 +15,9 @@ function water_tours_prototype_enqueue_assets() {
 
     wp_enqueue_style(
         'water-tours-prototype-theme',
-        get_template_directory_uri() . '/assets/theme.css',
+        get_template_directory_uri() . '/assets/modern.css',
         array('water-tours-prototype-style'),
-        $theme_version
+        (string) filemtime(__DIR__ . '/assets/modern.css')
     );
 
     wp_enqueue_script(
@@ -29,3 +29,21 @@ function water_tours_prototype_enqueue_assets() {
     );
 }
 add_action('wp_enqueue_scripts', 'water_tours_prototype_enqueue_assets');
+
+add_action('after_setup_theme', function () { add_theme_support('title-tag'); });
+add_filter('pre_get_document_title', function ($title) {
+    return is_front_page() ? 'Речные прогулки — электронные билеты | Water Tours' : $title;
+});
+function water_tours_home_faq() {
+    return array(
+        'С какого момента действуют 72 часа?' => 'С момента подтверждения оплаты. Оформление неоплаченного заказа не запускает срок действия. Точные даты начала и окончания указаны в билете.',
+        'Нужно ли выбирать конкретный рейс?' => 'Билет не закрепляет рейс или место. Выберите отправление по расписанию в пределах срока действия. Условия посадки и наличие мест уточняйте перед прогулкой.',
+        'Где получить электронный билет?' => 'После подтверждения оплаты в форме заказа появляется ссылка для скачивания PDF с QR-кодом. Сохраните файл, чтобы показать его сотруднику при посадке.',
+        'Можно ли пройти по билету повторно?' => 'Нет. Один билет даёт право на один проход. После погашения сотрудником повторное использование невозможно.',
+        'Где посмотреть причал и расписание?' => 'Маршрут, причал и расписание пока уточняются. Перед покупкой проверьте информацию об отправлении: срок действия билета не означает гарантированную посадку на любой рейс.'
+    );
+}
+add_action('wp_head', function () {
+    if (!is_front_page() || defined('WPSEO_VERSION') || defined('RANK_MATH_VERSION')) { return; }
+    echo '<meta name="description" content="Билеты на речные прогулки Water Tours. Один проход, 72 часа с момента подтверждения оплаты. Выберите билеты и сохраните PDF с QR-кодом.">';
+});
