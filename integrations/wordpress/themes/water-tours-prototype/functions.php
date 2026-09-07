@@ -51,5 +51,35 @@ function water_tours_home_faq() {
 }
 add_action('wp_head', function () {
     if (!is_front_page() || defined('WPSEO_VERSION') || defined('RANK_MATH_VERSION')) { return; }
-    echo '<meta name="description" content="Билеты на речные прогулки Water Tours. Один проход, 72 часа с момента подтверждения оплаты. Выберите билеты и сохраните PDF с QR-кодом.">';
+    $description = 'Билеты на речные прогулки Water Tours. Один проход, 72 часа с момента подтверждения оплаты. Выберите билеты и сохраните PDF с QR-кодом.';
+    $title = 'Речные прогулки — электронные билеты | Water Tours';
+    $url = home_url('/');
+    echo '<meta name="description" content="' . esc_attr($description) . '">' . "\n";
+    // No og:image: no real photo exists yet, and a placeholder would misrepresent the product.
+    echo '<meta property="og:type" content="website">' . "\n";
+    echo '<meta property="og:site_name" content="Water Tours">' . "\n";
+    echo '<meta property="og:title" content="' . esc_attr($title) . '">' . "\n";
+    echo '<meta property="og:description" content="' . esc_attr($description) . '">' . "\n";
+    echo '<meta property="og:url" content="' . esc_url($url) . '">' . "\n";
+    echo '<meta name="twitter:card" content="summary">' . "\n";
+    echo '<meta name="twitter:title" content="' . esc_attr($title) . '">' . "\n";
+    echo '<meta name="twitter:description" content="' . esc_attr($description) . '">' . "\n";
+
+    $faq_entities = array();
+    foreach (water_tours_home_faq() as $question => $answer) {
+        $faq_entities[] = array(
+            '@type' => 'Question',
+            'name' => $question,
+            'acceptedAnswer' => array(
+                '@type' => 'Answer',
+                'text' => $answer,
+            ),
+        );
+    }
+    $faq_schema = array(
+        '@context' => 'https://schema.org',
+        '@type' => 'FAQPage',
+        'mainEntity' => $faq_entities,
+    );
+    echo '<script type="application/ld+json">' . wp_json_encode($faq_schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>' . "\n";
 });
