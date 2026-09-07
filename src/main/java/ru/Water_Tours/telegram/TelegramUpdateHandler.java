@@ -7,7 +7,9 @@ import org.springframework.stereotype.Component;
 import ru.Water_Tours.enums.TicketStatus;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
+import ru.Water_Tours.ticket.repository.OrderRepository;
 import ru.Water_Tours.ticket.service.QrService;
+import ru.Water_Tours.ticket.service.RefundService;
 import ru.Water_Tours.ticket.service.TicketService;
 
 import javax.imageio.ImageIO;
@@ -17,12 +19,14 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
 public class TelegramUpdateHandler {
     private static final Logger log = LoggerFactory.getLogger(TelegramUpdateHandler.class);
     private static final String START_COMMAND = "/start";
+    private static final String REFUND_COMMAND = "/refund";
     private static final DateTimeFormatter ORDER_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy")
             .withZone(ZoneOffset.UTC);
 
@@ -31,16 +35,21 @@ public class TelegramUpdateHandler {
     private final TelegramSender sender;
     private final StaffTelegramAuthorization staffAuthorization;
     private final QrService qrService;
+    private final OrderRepository orderRepository;
+    private final RefundService refundService;
     private final String baseUrl;
 
     public TelegramUpdateHandler(TelegramLinkService linkService, TicketService ticketService,
                                   TelegramSender sender, StaffTelegramAuthorization staffAuthorization,
-                                  QrService qrService, @Value("${app.base-url}") String baseUrl) {
+                                  QrService qrService, OrderRepository orderRepository, RefundService refundService,
+                                  @Value("${app.base-url}") String baseUrl) {
         this.linkService = linkService;
         this.ticketService = ticketService;
         this.sender = sender;
         this.staffAuthorization = staffAuthorization;
         this.qrService = qrService;
+        this.orderRepository = orderRepository;
+        this.refundService = refundService;
         this.baseUrl = baseUrl;
     }
 
@@ -52,10 +61,12 @@ public class TelegramUpdateHandler {
         if (trimmed.equals(START_COMMAND) || trimmed.startsWith(START_COMMAND + " ")) {
             handleStart(chatId, trimmed.substring(START_COMMAND.length()).trim());
         } else if (staffAuthorization.isStaff(chatId)) {
-            if (isPrivateChat) {
-                handleStaffRedeem(chatId, trimmed);
+            if (!isPrivateChat) {
+                sender.sendMessage(chatId, "Доступно только в личном чате с ботом.");
+            } else if (trimmed.equals(REFUND_COMMAND) || trimmed.startsWith(REFUND_COMMAND + " ")) {
+                handleStaffRefund(chatId, trimmed.substring(REFUND_COMMAND.length()).trim());
             } else {
-                sender.sendMessage(chatId, "Проверка билетов доступна только в личном чате с ботом.");
+                handleStaffRedeem(chatId, trimmed);
             }
         } else {
             handleStatus(chatId);
@@ -152,6 +163,47 @@ public class TelegramUpdateHandler {
             log.warn("Telegram staff redeem failed for chatId={}, errorType={}", chatId, e.getClass().getSimpleName());
             sender.sendMessage(chatId, "Произошла ошибка при проверке билета.");
         }
+    }
+
+    /**
+     * /refund <order UUID> executes the refund immediately (mirrors StaffRefundController).
+     * /refund <email> only searches and lists matches - never refunds a guessed/first match,
+     * so a mistyped or shared email can't trigger money movement without an explicit order ID.
+     */
+    private void handleStaffRefund(long chatId, String query) {
+        if (query.isEmpty()) {
+            sender.sendMessage(chatId, "Использование: /refund <email клиента или ID заказа>");
+            return;
+        }
+        UUID orderId;
+        try {
+            orderId = UUID.fromString(query);
+        } catch (IllegalArgumentException notAUuid) {
+            listOrdersForRefund(chatId, query);
+            return;
+        }
+        try {
+            RefundService.RefundResult result = refundService.refund(orderId);
+            sender.sendMessage(chatId, "Возврат выполнен: " + result.amount() + " ₽, refundId=" + result.providerRefundId());
+        } catch (IllegalStateException | NoSuchElementException e) {
+            sender.sendMessage(chatId, "Возврат не выполнен: " + e.getMessage());
+        } catch (Exception e) {
+            log.warn("Telegram staff refund failed for chatId={}, orderId={}, errorType={}", chatId, orderId, e.getClass().getSimpleName());
+            sender.sendMessage(chatId, "Возврат не выполнен: провайдер платежей недоступен или отклонил запрос.");
+        }
+    }
+
+    private void listOrdersForRefund(long chatId, String email) {
+        List<Order> orders = orderRepository.findAllByEmailIgnoreCaseOrderByCreatedAtDesc(email);
+        if (orders.isEmpty()) {
+            sender.sendMessage(chatId, "Заказы с email " + email + " не найдены.");
+            return;
+        }
+        String message = orders.stream().limit(10)
+                .map(o -> ORDER_DATE.format(o.getCreatedAt()) + ", " + o.getTotalAmount() + " ₽, " + o.getStatus()
+                        + "\nID: " + o.getId())
+                .collect(Collectors.joining("\n\n"));
+        sender.sendMessage(chatId, message + "\n\nЧтобы вернуть конкретный заказ, отправьте:\n/refund <ID заказа>");
     }
 
     private String extractTicketCode(String text) {

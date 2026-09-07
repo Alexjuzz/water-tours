@@ -6,7 +6,9 @@ import ru.Water_Tours.enums.TicketStatus;
 import ru.Water_Tours.enums.TicketType;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
+import ru.Water_Tours.ticket.repository.OrderRepository;
 import ru.Water_Tours.ticket.service.QrService;
+import ru.Water_Tours.ticket.service.RefundService;
 import ru.Water_Tours.ticket.service.TicketService;
 
 import javax.imageio.ImageIO;
@@ -33,8 +35,10 @@ class TelegramUpdateHandlerTest {
     private final StaffTelegramAuthorization staffAuthorization =
             new StaffTelegramAuthorization(STAFF_CHAT_ID + "," + GROUP_CHAT_ID);
     private final QrService qrService = new QrService();
+    private final OrderRepository orderRepository = mock(OrderRepository.class);
+    private final RefundService refundService = mock(RefundService.class);
     private final TelegramUpdateHandler handler = new TelegramUpdateHandler(
-            linkService, ticketService, sender, staffAuthorization, qrService, "http://localhost:8080");
+            linkService, ticketService, sender, staffAuthorization, qrService, orderRepository, refundService, "http://localhost:8080");
 
     private byte[] qrPngBytes(String content) throws Exception {
         BufferedImage image = qrService.generateQRCodeImage(content, 300);
@@ -231,5 +235,56 @@ class TelegramUpdateHandlerTest {
 
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Не удалось распознать QR"));
         verifyNoInteractions(ticketService);
+    }
+
+    @Test
+    void staffRefundByOrderIdCallsRefundServiceAndConfirms() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        when(refundService.refund(orderId)).thenReturn(
+                new RefundService.RefundResult(orderId, UUID.randomUUID(), "refund-1", new java.math.BigDecimal("1500.00")));
+
+        handler.handle(STAFF_CHAT_ID, "/refund " + orderId, true);
+
+        verify(refundService).refund(orderId);
+        verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("refund-1"));
+    }
+
+    @Test
+    void staffRefundByOrderIdSurfacesRejectionReason() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        when(refundService.refund(orderId)).thenThrow(new IllegalStateException("Only a PAID order can be refunded"));
+
+        handler.handle(STAFF_CHAT_ID, "/refund " + orderId, true);
+
+        verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Only a PAID order can be refunded"));
+    }
+
+    @Test
+    void staffRefundByEmailListsMatchesWithoutRefundingAnything() throws Exception {
+        Order order = orderWithDate("2026-09-01T10:00:00Z");
+        order.setTotalAmount(new java.math.BigDecimal("1500.00"));
+        when(orderRepository.findAllByEmailIgnoreCaseOrderByCreatedAtDesc("a@a.com")).thenReturn(List.of(order));
+
+        handler.handle(STAFF_CHAT_ID, "/refund a@a.com", true);
+
+        verifyNoInteractions(refundService);
+        verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains(order.getId().toString()));
+    }
+
+    @Test
+    void staffRefundByEmailWithNoMatchesRepliesNotFound() throws Exception {
+        when(orderRepository.findAllByEmailIgnoreCaseOrderByCreatedAtDesc("nobody@a.com")).thenReturn(List.of());
+
+        handler.handle(STAFF_CHAT_ID, "/refund nobody@a.com", true);
+
+        verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("не найдены"));
+    }
+
+    @Test
+    void staffListedGroupChatCannotRefund() {
+        handler.handle(GROUP_CHAT_ID, "/refund a@a.com", false);
+
+        verifyNoInteractions(refundService, orderRepository);
+        verify(sender).sendMessage(eq(GROUP_CHAT_ID), contains("личном чате"));
     }
 }
