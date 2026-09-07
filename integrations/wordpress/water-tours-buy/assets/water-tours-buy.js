@@ -3,7 +3,7 @@
 
   var config = window.WaterToursConfig || {};
   var prices = Object.assign({}, config.prices || { ADULT: 1500, CHILD: 800, BENEFIT: 1020 });
-  var counts = { ADULT: 1, CHILD: 0, BENEFIT: 0 };
+  var counts = { ADULT: 0, CHILD: 0, BENEFIT: 0 };
   var idempotencyKey = null;
   var orderStorageKey = 'wt_order';
   var idempotencyStorageKey = 'wt_idempotency_key';

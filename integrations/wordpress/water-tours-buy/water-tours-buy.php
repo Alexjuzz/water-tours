@@ -134,14 +134,14 @@ function water_tours_buy_shortcode() {
                             </div>
                             <div class="wt-counter">
                                 <button type="button" data-type="<?php echo esc_attr($type); ?>" data-delta="-1">−</button>
-                                <span id="wt-count-<?php echo esc_attr($type); ?>"><?php echo $type === 'ADULT' ? '1' : '0'; ?></span>
+                                <span id="wt-count-<?php echo esc_attr($type); ?>">0</span>
                                 <button type="button" data-type="<?php echo esc_attr($type); ?>" data-delta="1">+</button>
                             </div>
                         </div>
                     <?php endforeach; ?>
 
                     <div class="wt-total">
-                        Итого: <span id="wt-total-sum"><?php echo esc_html($prices['ADULT']); ?></span> ₽
+                        Итого: <span id="wt-total-sum">0</span> ₽
                     </div>
 
                     <button id="wt-submit" class="wt-submit" type="submit">
