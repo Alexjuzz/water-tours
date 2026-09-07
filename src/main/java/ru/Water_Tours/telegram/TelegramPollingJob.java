@@ -56,13 +56,14 @@ public class TelegramPollingJob {
                 continue;
             }
             long chatId = message.path("chat").path("id").asLong();
+            boolean isPrivateChat = "private".equals(message.path("chat").path("type").asText(""));
             try {
                 JsonNode photos = message.path("photo");
                 if (photos.isArray() && !photos.isEmpty()) {
                     String fileId = photos.get(photos.size() - 1).path("file_id").asText();
-                    handler.handlePhoto(chatId, downloadFile(fileId));
+                    handler.handlePhoto(chatId, downloadFile(fileId), isPrivateChat);
                 } else {
-                    handler.handle(chatId, message.path("text").asText(null));
+                    handler.handle(chatId, message.path("text").asText(null), isPrivateChat);
                 }
             } catch (Exception e) {
                 log.warn("Telegram update handling failed for chatId={}, errorType={}", chatId, e.getClass().getSimpleName());

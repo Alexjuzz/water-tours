@@ -25,12 +25,13 @@ class TelegramUpdateHandlerTest {
 
     private static final long STAFF_CHAT_ID = 999L;
     private static final long CUSTOMER_CHAT_ID = 123L;
+    private static final long GROUP_CHAT_ID = -1001L;
 
     private final TelegramLinkService linkService = mock(TelegramLinkService.class);
     private final TicketService ticketService = mock(TicketService.class);
     private final TelegramSender sender = mock(TelegramSender.class);
     private final StaffTelegramAuthorization staffAuthorization =
-            new StaffTelegramAuthorization(String.valueOf(STAFF_CHAT_ID));
+            new StaffTelegramAuthorization(STAFF_CHAT_ID + "," + GROUP_CHAT_ID);
     private final QrService qrService = new QrService();
     private final TelegramUpdateHandler handler = new TelegramUpdateHandler(
             linkService, ticketService, sender, staffAuthorization, qrService, "http://localhost:8080");
@@ -54,7 +55,7 @@ class TelegramUpdateHandlerTest {
     void startWithValidPayloadLinksAndConfirmsInRussian() {
         when(linkService.linkChat("payload", CUSTOMER_CHAT_ID)).thenReturn(new Order());
 
-        handler.handle(CUSTOMER_CHAT_ID, "/start payload");
+        handler.handle(CUSTOMER_CHAT_ID, "/start payload", true);
 
         verify(linkService).linkChat("payload", CUSTOMER_CHAT_ID);
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("привязан"));
@@ -62,7 +63,7 @@ class TelegramUpdateHandlerTest {
 
     @Test
     void startWithoutPayloadAsksToOpenLinkFromSite() {
-        handler.handle(CUSTOMER_CHAT_ID, "/start");
+        handler.handle(CUSTOMER_CHAT_ID, "/start", true);
 
         verifyNoInteractions(linkService);
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("ссылку с сайта"));
@@ -72,7 +73,7 @@ class TelegramUpdateHandlerTest {
     void startWithInvalidPayloadRepliesWithRejection() {
         when(linkService.linkChat(any(), anyLong())).thenThrow(new IllegalArgumentException("bad payload"));
 
-        handler.handle(CUSTOMER_CHAT_ID, "/start bad-payload");
+        handler.handle(CUSTOMER_CHAT_ID, "/start bad-payload", true);
 
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("недействительна"));
     }
@@ -81,7 +82,7 @@ class TelegramUpdateHandlerTest {
     void statusForUnlinkedChatAsksToLinkFirst() {
         when(linkService.findLinkedOrders(CUSTOMER_CHAT_ID)).thenReturn(List.of());
 
-        handler.handle(CUSTOMER_CHAT_ID, "/tickets");
+        handler.handle(CUSTOMER_CHAT_ID, "/tickets", true);
 
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("не привязан"));
         verifyNoInteractions(ticketService);
@@ -95,7 +96,7 @@ class TelegramUpdateHandlerTest {
                 Instant.now(), Instant.now(), Instant.now(), TicketType.ADULT, TicketStatus.ISSUED);
         when(ticketService.getTickets(order.getId())).thenReturn(List.of(ticket));
 
-        handler.handle(CUSTOMER_CHAT_ID, "hello");
+        handler.handle(CUSTOMER_CHAT_ID, "hello", true);
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), captor.capture());
@@ -114,7 +115,7 @@ class TelegramUpdateHandlerTest {
         when(ticketService.getTickets(newer.getId())).thenReturn(List.of(newerTicket));
         when(ticketService.getTickets(older.getId())).thenReturn(List.of());
 
-        handler.handle(CUSTOMER_CHAT_ID, "/tickets");
+        handler.handle(CUSTOMER_CHAT_ID, "/tickets", true);
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), captor.capture());
@@ -131,7 +132,7 @@ class TelegramUpdateHandlerTest {
                 Instant.now(), Instant.now(), Instant.now(), TicketType.ADULT, TicketStatus.USED);
         when(ticketService.redeemByCode("abc-123")).thenReturn(redeemed);
 
-        handler.handle(STAFF_CHAT_ID, "abc-123");
+        handler.handle(STAFF_CHAT_ID, "abc-123", true);
 
         verify(ticketService).redeemByCode("abc-123");
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Погашён"));
@@ -144,7 +145,7 @@ class TelegramUpdateHandlerTest {
                 Instant.now(), Instant.now(), Instant.now(), TicketType.ADULT, TicketStatus.USED);
         when(ticketService.redeemByCode("abc-123")).thenReturn(redeemed);
 
-        handler.handle(STAFF_CHAT_ID, "http://localhost:8080/t/abc-123");
+        handler.handle(STAFF_CHAT_ID, "http://localhost:8080/t/abc-123", true);
 
         verify(ticketService).redeemByCode("abc-123");
     }
@@ -153,7 +154,7 @@ class TelegramUpdateHandlerTest {
     void staffChatOnAlreadyUsedTicketRepliesInRussian() {
         when(ticketService.redeemByCode("abc-123")).thenThrow(new IllegalArgumentException("used"));
 
-        handler.handle(STAFF_CHAT_ID, "abc-123");
+        handler.handle(STAFF_CHAT_ID, "abc-123", true);
 
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("уже был использован"));
     }
@@ -162,14 +163,14 @@ class TelegramUpdateHandlerTest {
     void staffChatOnUnknownCodeRepliesNotFound() {
         when(ticketService.redeemByCode("abc-123")).thenThrow(new NoSuchElementException("missing"));
 
-        handler.handle(STAFF_CHAT_ID, "abc-123");
+        handler.handle(STAFF_CHAT_ID, "abc-123", true);
 
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("не найден"));
     }
 
     @Test
     void staffChatWithUnrecognizableTextAsksForCodeWithoutCallingTicketService() {
-        handler.handle(STAFF_CHAT_ID, "привет, как дела?");
+        handler.handle(STAFF_CHAT_ID, "привет, как дела?", true);
 
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Не удалось распознать"));
         verifyNoInteractions(ticketService);
@@ -179,10 +180,28 @@ class TelegramUpdateHandlerTest {
     void nonStaffChatIsUnaffectedByStaffRedeemLogic() {
         when(linkService.findLinkedOrders(CUSTOMER_CHAT_ID)).thenReturn(List.of());
 
-        handler.handle(CUSTOMER_CHAT_ID, "abc-123");
+        handler.handle(CUSTOMER_CHAT_ID, "abc-123", true);
 
         verifyNoInteractions(ticketService);
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("не привязан"));
+    }
+
+    @Test
+    void staffListedGroupChatCannotRedeemByText() {
+        handler.handle(GROUP_CHAT_ID, "abc-123", false);
+
+        verifyNoInteractions(ticketService);
+        verify(sender).sendMessage(eq(GROUP_CHAT_ID), contains("личном чате"));
+    }
+
+    @Test
+    void staffListedGroupChatCannotRedeemByPhoto() throws Exception {
+        byte[] photo = qrPngBytes("http://localhost:8080/t/abc-123");
+
+        handler.handlePhoto(GROUP_CHAT_ID, photo, false);
+
+        verifyNoInteractions(ticketService);
+        verify(sender).sendMessage(eq(GROUP_CHAT_ID), contains("личном чате"));
     }
 
     @Test
@@ -192,7 +211,7 @@ class TelegramUpdateHandlerTest {
         when(ticketService.redeemByCode("abc-123")).thenReturn(redeemed);
         byte[] photo = qrPngBytes("http://localhost:8080/t/abc-123");
 
-        handler.handlePhoto(STAFF_CHAT_ID, photo);
+        handler.handlePhoto(STAFF_CHAT_ID, photo, true);
 
         verify(ticketService).redeemByCode("abc-123");
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Погашён"));
@@ -200,7 +219,7 @@ class TelegramUpdateHandlerTest {
 
     @Test
     void nonStaffPhotoIsRejectedWithoutDecoding() {
-        handler.handlePhoto(CUSTOMER_CHAT_ID, new byte[]{1, 2, 3});
+        handler.handlePhoto(CUSTOMER_CHAT_ID, new byte[]{1, 2, 3}, true);
 
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("только персонал"));
         verifyNoInteractions(ticketService);
@@ -208,7 +227,7 @@ class TelegramUpdateHandlerTest {
 
     @Test
     void staffPhotoWithNoDecodableQrRepliesWithFailure() {
-        handler.handlePhoto(STAFF_CHAT_ID, new byte[]{1, 2, 3, 4, 5});
+        handler.handlePhoto(STAFF_CHAT_ID, new byte[]{1, 2, 3, 4, 5}, true);
 
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Не удалось распознать QR"));
         verifyNoInteractions(ticketService);

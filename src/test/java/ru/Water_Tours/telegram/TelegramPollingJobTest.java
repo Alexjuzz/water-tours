@@ -24,12 +24,12 @@ class TelegramPollingJobTest {
         server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
                 .andExpect(queryParam("offset", "0"))
                 .andRespond(withSuccess("""
-                        {"ok":true,"result":[{"update_id":42,"message":{"chat":{"id":123},"text":"/tickets"}}]}
+                        {"ok":true,"result":[{"update_id":42,"message":{"chat":{"id":123,"type":"private"},"text":"/tickets"}}]}
                         """, MediaType.APPLICATION_JSON));
 
         job.poll();
 
-        verify(handler).handle(123L, "/tickets");
+        verify(handler).handle(123L, "/tickets", true);
         server.verify();
 
         server.reset();
@@ -52,7 +52,7 @@ class TelegramPollingJobTest {
 
         server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
                 .andRespond(withSuccess("""
-                        {"ok":true,"result":[{"update_id":7,"message":{"chat":{"id":999},
+                        {"ok":true,"result":[{"update_id":7,"message":{"chat":{"id":999,"type":"private"},
                         "photo":[{"file_id":"small"},{"file_id":"large"}]}}]}
                         """, MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://api.telegram.org/bottest-token/getFile?file_id=large"))
@@ -65,7 +65,26 @@ class TelegramPollingJobTest {
 
         job.poll();
 
-        verify(handler).handlePhoto(999L, imageBytes);
+        verify(handler).handlePhoto(999L, imageBytes, true);
+        server.verify();
+    }
+
+    @Test
+    void pollMarksGroupChatMessagesAsNonPrivate() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org/bottest-token");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        RestClient client = builder.build();
+        TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token");
+
+        server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
+                .andRespond(withSuccess("""
+                        {"ok":true,"result":[{"update_id":1,"message":{"chat":{"id":-500,"type":"group"},"text":"abc-123"}}]}
+                        """, MediaType.APPLICATION_JSON));
+
+        job.poll();
+
+        verify(handler).handle(-500L, "abc-123", false);
         server.verify();
     }
 

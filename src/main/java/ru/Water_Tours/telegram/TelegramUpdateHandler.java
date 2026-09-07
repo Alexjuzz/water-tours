@@ -44,7 +44,7 @@ public class TelegramUpdateHandler {
         this.baseUrl = baseUrl;
     }
 
-    public void handle(long chatId, String text) {
+    public void handle(long chatId, String text, boolean isPrivateChat) {
         if (text == null || text.isBlank()) {
             return;
         }
@@ -52,7 +52,11 @@ public class TelegramUpdateHandler {
         if (trimmed.equals(START_COMMAND) || trimmed.startsWith(START_COMMAND + " ")) {
             handleStart(chatId, trimmed.substring(START_COMMAND.length()).trim());
         } else if (staffAuthorization.isStaff(chatId)) {
-            handleStaffRedeem(chatId, trimmed);
+            if (isPrivateChat) {
+                handleStaffRedeem(chatId, trimmed);
+            } else {
+                sender.sendMessage(chatId, "Проверка билетов доступна только в личном чате с ботом.");
+            }
         } else {
             handleStatus(chatId);
         }
@@ -101,9 +105,13 @@ public class TelegramUpdateHandler {
      * Staff can send a photo of the printed/screen QR instead of typing the code. Decodes with
      * the same ZXing pipeline used to generate the ticket's QR, then reuses handleStaffRedeem.
      */
-    public void handlePhoto(long chatId, byte[] imageBytes) {
+    public void handlePhoto(long chatId, byte[] imageBytes, boolean isPrivateChat) {
         if (!staffAuthorization.isStaff(chatId)) {
             sender.sendMessage(chatId, "Фото билета принимает только персонал.");
+            return;
+        }
+        if (!isPrivateChat) {
+            sender.sendMessage(chatId, "Проверка билетов доступна только в личном чате с ботом.");
             return;
         }
         String decoded;
