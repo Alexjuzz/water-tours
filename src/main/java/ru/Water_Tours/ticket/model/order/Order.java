@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import ru.Water_Tours.enums.OrderStatus;
+import ru.Water_Tours.enums.OrderType;
+import ru.Water_Tours.enums.BoatRouteType;
 import ru.Water_Tours.ticket.model.OrderItem.OrderItem;
 import ru.Water_Tours.ticket.model.ticket.Ticket;
 
@@ -33,6 +35,23 @@ public class Order {
     private UUID accessToken;
     @Column(name = "telegram_chat_id")
     private Long telegramChatId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_type")
+    private OrderType orderType;
+
+    @Column(name = "boat_duration_minutes")
+    private Integer boatDurationMinutes;
+
+    @Column(name = "boat_guest_count")
+    private Integer boatGuestCount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "boat_route_type")
+    private BoatRouteType boatRouteType;
+
+    @Column(name = "boat_route_note", length = 300)
+    private String boatRouteNote;
 
 
     @Column(name = "email")
@@ -66,6 +85,11 @@ public class Order {
         if (status == null) status = OrderStatus.DRAFT;
         if(accessToken  == null) accessToken = UUID.randomUUID();
         if(testPaid == null) testPaid = false;
+        if(orderType == null) orderType = OrderType.PASSENGER;
+    }
+
+    public boolean isPrivateBoatRental() {
+        return orderType == OrderType.PRIVATE_BOAT;
     }
 
 }

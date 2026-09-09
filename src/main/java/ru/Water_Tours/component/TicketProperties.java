@@ -28,6 +28,7 @@ public class TicketProperties {
             case ADULT -> priceAdult.multiply(BigDecimal.ONE.subtract(discountAdult)) ;
             case CHILD -> priceChild.multiply(BigDecimal.ONE.subtract(discountChild));
             case BENEFIT -> priceBenefit.multiply(BigDecimal.ONE.subtract(discountBenefit));
+            case PRIVATE_BOAT -> throw new IllegalArgumentException("Private boat price depends on rental duration");
         };
     }
 

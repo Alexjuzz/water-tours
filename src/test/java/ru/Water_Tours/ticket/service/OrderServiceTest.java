@@ -6,7 +6,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
+import ru.Water_Tours.enums.BoatRouteType;
+import ru.Water_Tours.enums.OrderType;
 import ru.Water_Tours.enums.TicketType;
+import ru.Water_Tours.ticket.model.order.BoatRentalRequestDTO;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.order.OrderRequestDTO;
 import ru.Water_Tours.ticket.repository.OrderRepository;
@@ -19,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -48,6 +52,67 @@ class OrderServiceTest {
 
         assertThat(result.getOrderItems()).hasSize(3);
         assertThat(result.getTotalAmount()).isEqualByComparingTo(new BigDecimal("6160.00"));
+    }
+
+    @Test
+    void createPrivateBoatOrder_usesOnlyFixedDurationPrices() {
+        Map<Integer, BigDecimal> prices = Map.of(
+                30, new BigDecimal("3500.00"),
+                60, new BigDecimal("6000.00"),
+                90, new BigDecimal("9000.00"),
+                120, new BigDecimal("11000.00"));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        prices.forEach((minutes, expected) -> {
+            OrderRequestDTO dto = new OrderRequestDTO("user@example.com", "+10000000000", null,
+                    new BoatRentalRequestDTO(minutes, 6, BoatRouteType.CUSTOM, "Мой маршрут"));
+
+            Order result = orderService.createOrder(dto, null);
+
+            assertThat(result.getOrderType()).isEqualTo(OrderType.PRIVATE_BOAT);
+            assertThat(result.getTotalAmount()).isEqualByComparingTo(expected);
+            assertThat(result.getOrderItems()).singleElement().satisfies(item -> {
+                assertThat(item.getType()).isEqualTo(TicketType.PRIVATE_BOAT);
+                assertThat(item.getQuantity()).isEqualTo(1);
+            });
+        });
+    }
+
+    @Test
+    void createPrivateBoatOrder_rejectsUnsupportedDuration() {
+        OrderRequestDTO dto = new OrderRequestDTO("user@example.com", null, null,
+                new BoatRentalRequestDTO(45, 2, BoatRouteType.ASSISTED, null));
+
+        assertThatThrownBy(() -> orderService.createOrder(dto, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("30, 60, 90, 120");
+    }
+
+    @Test
+    void createPrivateBoatOrder_acceptsOnlyOneToSixGuests() {
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        for (int guests = 1; guests <= 6; guests++) {
+            Order result = orderService.createOrder(new OrderRequestDTO("user@example.com", null, null,
+                    new BoatRentalRequestDTO(30, guests, BoatRouteType.ASSISTED, null)), null);
+            assertThat(result.getBoatGuestCount()).isEqualTo(guests);
+        }
+        for (int guests : new int[]{0, 7}) {
+            OrderRequestDTO invalid = new OrderRequestDTO("user@example.com", null, null,
+                    new BoatRentalRequestDTO(30, guests, BoatRouteType.ASSISTED, null));
+            assertThatThrownBy(() -> orderService.createOrder(invalid, null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("between 1 and 6");
+        }
+    }
+
+    @Test
+    void createOrder_rejectsMixingPassengerTicketsWithPrivateBoat() {
+        OrderRequestDTO dto = new OrderRequestDTO("user@example.com", null, Map.of(TicketType.ADULT, 1),
+                new BoatRentalRequestDTO(60, 4, BoatRouteType.CUSTOM, null));
+
+        assertThatThrownBy(() -> orderService.createOrder(dto, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot be combined");
     }
 
     @Test

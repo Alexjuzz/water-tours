@@ -61,6 +61,7 @@ public class LocalCheckoutController {
     public Map<TicketType, BigDecimal> catalog() {
         Map<TicketType, BigDecimal> catalog = new LinkedHashMap<>();
         for (TicketType type : TicketType.values()) {
+            if (type == TicketType.PRIVATE_BOAT) continue;
             catalog.put(type, TicketProperties.getPriceByType(type));
         }
         return catalog;

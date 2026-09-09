@@ -37,6 +37,9 @@ public class TicketService {
 
 
     public List<Ticket> createTicketsFromItem(Order order) {
+        if (order.isPrivateBoatRental()) {
+            return List.of(createTicketByType(order, TicketType.PRIVATE_BOAT));
+        }
         List<Ticket> resultList = new ArrayList<>();
 
         for (OrderItem orderItem : order.getOrderItems()) {

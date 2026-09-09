@@ -9,6 +9,9 @@ import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import ru.Water_Tours.ticket.repository.TicketRepository;
 import ru.Water_Tours.ticket.model.ticket.Ticket;
+import ru.Water_Tours.ticket.model.order.Order;
+import ru.Water_Tours.enums.BoatRouteType;
+import ru.Water_Tours.enums.OrderType;
 import ru.Water_Tours.enums.TicketType;
 import java.time.Instant;
 import java.util.*;
@@ -49,5 +52,35 @@ class PdfTicketServiceTest {
         UUID id = UUID.randomUUID();
         when(repository.findAllByOrderId(id)).thenReturn(List.of());
         assertThrows(NoSuchElementException.class,()->new PdfTicketService(repository,new QrService()).buildTicketsPdfByOrderId(id,"https://water-tours.ru"));
+    }
+    @Test void privateBoatPdfContainsBookingDetails() throws Exception {
+        var repository = mock(TicketRepository.class);
+        UUID orderId = UUID.randomUUID();
+        Order order = new Order();
+        order.setOrderType(OrderType.PRIVATE_BOAT);
+        order.setBoatDurationMinutes(90);
+        order.setBoatGuestCount(5);
+        order.setBoatRouteType(BoatRouteType.CUSTOM);
+        order.setBoatRouteNote("Вдоль набережной");
+        Ticket ticket = new Ticket();
+        ticket.setTicketType(TicketType.PRIVATE_BOAT);
+        ticket.setCode(UUID.randomUUID().toString());
+        ticket.setPurchaseEmail("boat@example.com");
+        ticket.setValidFrom(Instant.parse("2026-09-06T10:15:00Z"));
+        ticket.setValidTo(Instant.parse("2026-09-09T10:15:00Z"));
+        ticket.setOrder(order);
+        when(repository.findAllByOrderId(orderId)).thenReturn(List.of(ticket));
+
+        byte[] bytes = new PdfTicketService(repository, new QrService())
+                .buildTicketsPdfByOrderId(orderId, "https://water-tours.ru");
+
+        try (PDDocument doc = PDDocument.load(bytes)) {
+            String text = new PDFTextStripper().getText(doc);
+            assertTrue(text.contains("Аренда катера до 6 гостей"));
+            assertTrue(text.contains("Продолжительность: 90 минут"));
+            assertTrue(text.contains("Гостей: 5"));
+            assertTrue(text.contains("Маршрут: свой маршрут"));
+            assertTrue(text.contains("Пожелания: Вдоль набережной"));
+        }
     }
 }

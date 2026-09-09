@@ -2,6 +2,7 @@ package ru.Water_Tours.ticket.service;
 
 import org.junit.jupiter.api.Test;
 import ru.Water_Tours.enums.OrderStatus;
+import ru.Water_Tours.enums.OrderType;
 import ru.Water_Tours.enums.TicketStatus;
 import ru.Water_Tours.enums.TicketType;
 import ru.Water_Tours.ticket.model.OrderItem.OrderItem;
@@ -83,6 +84,29 @@ class TicketServiceTest {
         assertThat(ticket.purchasedAt()).isEqualTo(paidAt);
         assertThat(ticket.validFrom()).isEqualTo(paidAt);
         assertThat(ticket.validTo()).isEqualTo(paidAt.plus(Duration.ofHours(72)));
+    }
+
+    @Test
+    void issueTickets_forPrivateBoat_createsOneGroupTicketForSixGuests() {
+        Instant paidAt = Instant.parse("2026-01-10T10:00:00Z");
+        Order order = paidOrder(paidAt, TicketType.PRIVATE_BOAT, 6);
+        order.setOrderType(OrderType.PRIVATE_BOAT);
+        order.setBoatGuestCount(6);
+        order.setBoatDurationMinutes(120);
+        TicketService service = serviceWithClock(paidAt.plusSeconds(10), Duration.ofHours(72));
+
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(ticketRepository.findAllByOrderId(order.getId())).thenReturn(new ArrayList<>());
+        when(ticketRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<TicketResponse> tickets = service.issueTickets(order.getId());
+
+        assertThat(tickets).singleElement().satisfies(ticket -> {
+            assertThat(ticket.ticketType()).isEqualTo(TicketType.PRIVATE_BOAT);
+            assertThat(ticket.validFrom()).isEqualTo(paidAt);
+            assertThat(ticket.validTo()).isEqualTo(paidAt.plus(Duration.ofHours(72)));
+        });
     }
 
     @Test
