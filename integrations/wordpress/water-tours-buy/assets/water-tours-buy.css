@@ -53,12 +53,21 @@
     font-weight: 600;
 }
 
-.wt-field input {
+.wt-field input,
+.wt-field select,
+.wt-field textarea {
     width: 100%;
     padding: 10px;
     border: 1px solid #cccccc;
     border-radius: 8px;
     box-sizing: border-box;
+    background: #ffffff;
+    color: #17212b;
+    font: inherit;
+}
+
+.wt-field textarea {
+    resize: vertical;
 }
 
 .wt-ticket-row {
@@ -134,4 +143,81 @@
 
 .wt-result.success {
     color: #2e7d32;
+}
+
+.wt-boat-main-button {
+    background: #083f4c;
+}
+
+.wt-boat-modal-content {
+    max-height: min(90vh, 760px);
+    overflow-y: auto;
+}
+
+.wt-boat-kicker {
+    margin: 0 0 6px;
+    color: #1976d2;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.wt-boat-modal-content h2 {
+    margin-top: 0;
+}
+
+.wt-boat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.wt-route-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin: 0 0 16px;
+    padding: 0;
+    border: 0;
+}
+
+.wt-route-choice legend {
+    width: 100%;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.wt-route-choice label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+}
+
+.wt-route-choice input {
+    width: auto;
+    margin: 0;
+}
+
+.wt-muted-inline {
+    color: #777777;
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.wt-boat-total {
+    padding-top: 14px;
+    border-top: 1px solid #e6eaed;
+}
+
+@media (max-width: 520px) {
+    .wt-modal-content {
+        padding: 26px 20px;
+    }
+
+    .wt-boat-grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
 }

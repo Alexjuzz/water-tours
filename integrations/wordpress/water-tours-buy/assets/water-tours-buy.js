@@ -136,6 +136,7 @@
   function saveOrder(order) {
     try {
       sessionStorage.setItem(orderStorageKey, JSON.stringify({ id: order.id, accessToken: order.accessToken, status: order.status }));
+      sessionStorage.setItem('wt_last_order_kind', 'ticket');
     } catch (e) {}
   }
 
@@ -276,6 +277,9 @@
   }
 
   function restoreOrderIfAny() {
+    try {
+      if (sessionStorage.getItem('wt_last_order_kind') === 'boat') return;
+    } catch (e) {}
     var order = loadOrder();
     if (!order) return;
     openModal();
@@ -331,21 +335,318 @@
       .finally(function () { setSubmitEnabled(true); });
   }
 
+  var boatPrices = { 30: 3500, 60: 6000, 90: 9000, 120: 11000 };
+  var boatOrderStorageKey = 'wt_boat_order';
+  var boatIdempotencyStorageKey = 'wt_boat_idempotency_key';
+  var boatIdempotencyKey = null;
+  var boatModal = document.getElementById('wt-boat-modal');
+  var boatOpenBtn = document.getElementById('wt-boat-open-modal');
+  var boatCloseBtn = document.getElementById('wt-boat-close-modal');
+  var boatForm = document.getElementById('wt-boat-form');
+  var boatEmailInput = document.getElementById('wt-boat-email');
+  var boatPhoneInput = document.getElementById('wt-boat-phone');
+  var boatGuestsInput = document.getElementById('wt-boat-guests');
+  var boatDurationInput = document.getElementById('wt-boat-duration');
+  var boatRouteNoteInput = document.getElementById('wt-boat-route-note');
+  var boatSubmitBtn = document.getElementById('wt-boat-submit');
+  var boatResultEl = document.getElementById('wt-boat-result');
+  var boatTotalEl = document.getElementById('wt-boat-total-sum');
+  var boatLastFocusedElement = null;
+
+  function setBoatResult(text, isError) {
+    if (!boatResultEl) return;
+    boatResultEl.textContent = text || '';
+    boatResultEl.style.color = isError ? '#c00' : '';
+  }
+
+  function getBoatFocusableElements() {
+    if (!boatModal) return [];
+    return Array.prototype.slice.call(
+      boatModal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    ).filter(function (el) { return el.offsetParent !== null; });
+  }
+
+  function trapBoatFocus(event) {
+    if (event.key === 'Escape') {
+      closeBoatModal();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    var focusable = getBoatFocusableElements();
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function openBoatModal() {
+    if (!boatModal) return;
+    boatLastFocusedElement = document.activeElement;
+    boatModal.classList.add('is-open');
+    boatModal.setAttribute('aria-hidden', 'false');
+    document.addEventListener('keydown', trapBoatFocus);
+    var focusable = getBoatFocusableElements();
+    if (focusable.length) focusable[0].focus();
+  }
+
+  function closeBoatModal() {
+    if (!boatModal) return;
+    boatModal.classList.remove('is-open');
+    boatModal.setAttribute('aria-hidden', 'true');
+    document.removeEventListener('keydown', trapBoatFocus);
+    if (boatLastFocusedElement && typeof boatLastFocusedElement.focus === 'function') boatLastFocusedElement.focus();
+  }
+
+  function formatBoatPrice(value) {
+    return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function updateBoatTotal() {
+    var duration = Number(boatDurationInput ? boatDurationInput.value : 30);
+    if (boatTotalEl) boatTotalEl.textContent = formatBoatPrice(boatPrices[duration] || 0);
+  }
+
+  function getOrCreateBoatIdempotencyKey() {
+    try {
+      var stored = sessionStorage.getItem(boatIdempotencyStorageKey);
+      if (stored) return stored;
+      var key = generateUUID();
+      sessionStorage.setItem(boatIdempotencyStorageKey, key);
+      return key;
+    } catch (e) {
+      boatIdempotencyKey = boatIdempotencyKey || generateUUID();
+      return boatIdempotencyKey;
+    }
+  }
+
+  function clearBoatIdempotencyKey() {
+    boatIdempotencyKey = null;
+    try { sessionStorage.removeItem(boatIdempotencyStorageKey); } catch (e) {}
+  }
+
+  function saveBoatOrder(order) {
+    try {
+      sessionStorage.setItem(boatOrderStorageKey, JSON.stringify({ id: order.id, accessToken: order.accessToken, status: order.status }));
+      sessionStorage.setItem('wt_last_order_kind', 'boat');
+    } catch (e) {}
+  }
+
+  function loadBoatOrder() {
+    try {
+      var raw = sessionStorage.getItem(boatOrderStorageKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function showBoatPaidPdfLink(order) {
+    if (!boatResultEl || !order || !order.id || !order.accessToken) return;
+    boatResultEl.textContent = '';
+    var text = document.createElement('p');
+    text.textContent = 'Аренда оплачена. Скачать билет:';
+    var link = document.createElement('a');
+    link.href = backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets/pdf?accessToken=' + encodeURIComponent(order.accessToken));
+    link.textContent = 'PDF билета';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    boatResultEl.append(text, link);
+  }
+
+  function showBoatTestPayButton(order) {
+    if (!boatResultEl || !order || !order.id || !order.accessToken) return;
+    boatResultEl.textContent = '';
+    var text = document.createElement('p');
+    text.textContent = 'Заказ создан. Оплата ещё не подтверждена.';
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'wt-test-pay';
+    button.textContent = 'Тестовая оплата';
+    button.addEventListener('click', function () { testPayBoat(order, button); });
+    boatResultEl.append(text, button);
+  }
+
+  function handleBoatTestPaymentResponse(order, payment) {
+    var updated = { id: order.id, accessToken: order.accessToken, status: payment && payment.status };
+    saveBoatOrder(updated);
+    if (payment && (payment.testPaid || payment.status === 'PAID')) showBoatPaidPdfLink(updated);
+    else showBoatTestPayButton(updated);
+  }
+
+  function testPayBoat(order, button) {
+    if (button) button.disabled = true;
+    fetch(testPayUrl(order), { method: 'POST', credentials: 'omit' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('test-pay');
+        return response.json();
+      })
+      .then(function (payment) { handleBoatTestPaymentResponse(order, payment); })
+      .catch(function () { setBoatResult('Не удалось выполнить тестовую оплату. Попробуйте ещё раз.', true); })
+      .finally(function () { if (button) button.disabled = false; });
+  }
+
+  function fetchBoatTestPayStatus(order) {
+    fetch(testPayUrl(order), { method: 'GET', credentials: 'omit' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('test-pay-status');
+        return response.json();
+      })
+      .then(function (payment) { handleBoatTestPaymentResponse(order, payment); })
+      .catch(function () { showBoatTestPayButton(order); });
+  }
+
+  function startBoatRealPayment(order) {
+    setBoatResult('Переходим к оплате...', false);
+    fetch(payUrl(order), { method: 'POST', credentials: 'omit' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('pay');
+        return response.json();
+      })
+      .then(function (payment) {
+        if (payment && payment.paymentUrl) {
+          window.location.href = payment.paymentUrl;
+          return;
+        }
+        throw new Error('no-payment-url');
+      })
+      .catch(function () { setBoatResult('Не удалось перейти к оплате. Попробуйте ещё раз или напишите нам.', true); });
+  }
+
+  function showBoatPaymentPendingWithRetry(order) {
+    if (!boatResultEl) return;
+    boatResultEl.textContent = '';
+    var text = document.createElement('p');
+    text.textContent = 'Оплата ещё не подтверждена. Если вы уже платили, обновите страницу через минуту.';
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'wt-test-pay';
+    button.textContent = 'Оплатить';
+    button.addEventListener('click', function () { startBoatRealPayment(order); });
+    boatResultEl.append(text, button);
+  }
+
+  function pollForBoatTicket(order, attemptsLeft) {
+    fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets?accessToken=' + encodeURIComponent(order.accessToken)),
+      { method: 'GET', credentials: 'omit' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('tickets');
+        return response.json();
+      })
+      .then(function (tickets) {
+        if (tickets && tickets.length) {
+          saveBoatOrder({ id: order.id, accessToken: order.accessToken, status: 'PAID' });
+          showBoatPaidPdfLink(order);
+          return;
+        }
+        if (attemptsLeft > 0) {
+          setBoatResult('Оплата обрабатывается, подождите...', false);
+          setTimeout(function () { pollForBoatTicket(order, attemptsLeft - 1); }, 5000);
+        } else {
+          showBoatPaymentPendingWithRetry(order);
+        }
+      })
+      .catch(function () { setBoatResult('Не удалось проверить статус оплаты. Обновите страницу.', true); });
+  }
+
+  function restoreBoatOrderIfAny() {
+    try {
+      if (sessionStorage.getItem('wt_last_order_kind') !== 'boat') return;
+    } catch (e) { return; }
+    var order = loadBoatOrder();
+    if (!order) return;
+    openBoatModal();
+    if (order.status === 'PAID') return showBoatPaidPdfLink(order);
+    if (config.localTestMode) return fetchBoatTestPayStatus(order);
+    pollForBoatTicket(order, 6);
+  }
+
+  function selectedBoatRouteType() {
+    var selected = boatForm ? boatForm.querySelector('input[name="wt-boat-route"]:checked') : null;
+    return selected ? selected.value : '';
+  }
+
+  function submitBoatOrder(event) {
+    event.preventDefault();
+    var email = boatEmailInput ? boatEmailInput.value.trim() : '';
+    var phone = boatPhoneInput ? boatPhoneInput.value.trim() : '';
+    var guests = Number(boatGuestsInput ? boatGuestsInput.value : 0);
+    var duration = Number(boatDurationInput ? boatDurationInput.value : 0);
+    var routeType = selectedBoatRouteType();
+    var routeNote = boatRouteNoteInput ? boatRouteNoteInput.value.trim() : '';
+
+    if (!validateEmail(email)) return setBoatResult('Укажите корректный email.', true);
+    if (!phone) return setBoatResult('Укажите телефон.', true);
+    if (!Number.isInteger(guests) || guests < 1 || guests > 6) return setBoatResult('Выберите от 1 до 6 гостей.', true);
+    if (!Object.prototype.hasOwnProperty.call(boatPrices, duration)) return setBoatResult('Выберите доступную продолжительность.', true);
+    if (routeType !== 'CUSTOM' && routeType !== 'ASSISTED') return setBoatResult('Выберите вариант маршрута.', true);
+    if (routeNote.length > 300) return setBoatResult('Пожелания к маршруту должны быть короче 300 символов.', true);
+
+    if (boatSubmitBtn) boatSubmitBtn.disabled = true;
+    fetch(backendUrl(config.ordersPath || '/api/v1/orders'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': getOrCreateBoatIdempotencyKey() },
+      body: JSON.stringify({
+        email: email,
+        phoneNumber: phone,
+        boatRental: {
+          durationMinutes: duration,
+          guestCount: guests,
+          routeType: routeType,
+          routeNote: routeNote
+        }
+      }),
+      credentials: 'omit'
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error('order');
+        return response.json();
+      })
+      .then(function (order) {
+        if (!order || !order.id || !order.accessToken) throw new Error('order');
+        clearBoatIdempotencyKey();
+        saveBoatOrder(order);
+        if (order.status === 'PAID') { showBoatPaidPdfLink(order); return; }
+        if (config.localTestMode) { showBoatTestPayButton(order); return; }
+        startBoatRealPayment(order);
+      })
+      .catch(function () { setBoatResult('Не удалось создать заказ. Проверьте данные и попробуйте ещё раз.', true); })
+      .finally(function () { if (boatSubmitBtn) boatSubmitBtn.disabled = false; });
+  }
+
+  function initBoat() {
+    if (!boatForm) return;
+    if (boatOpenBtn) boatOpenBtn.addEventListener('click', openBoatModal);
+    if (boatCloseBtn) boatCloseBtn.addEventListener('click', closeBoatModal);
+    if (boatModal) boatModal.addEventListener('click', function (event) { if (event.target === boatModal) closeBoatModal(); });
+    if (boatDurationInput) boatDurationInput.addEventListener('change', updateBoatTotal);
+    boatForm.addEventListener('submit', submitBoatOrder);
+    updateBoatTotal();
+    restoreBoatOrderIfAny();
+  }
+
   function init() {
-    if (!form) return;
-    if (openBtn) openBtn.addEventListener('click', openModal);
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-    if (modal) modal.addEventListener('click', function (event) { if (event.target === modal) closeModal(); });
-    document.addEventListener('click', function (event) {
-      var button = event.target.closest('[data-type][data-delta]');
-      if (!button || !counts.hasOwnProperty(button.dataset.type)) return;
-      counts[button.dataset.type] = Math.max(0, counts[button.dataset.type] + Number(button.dataset.delta));
+    if (form) {
+      if (openBtn) openBtn.addEventListener('click', openModal);
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (modal) modal.addEventListener('click', function (event) { if (event.target === modal) closeModal(); });
+      document.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-type][data-delta]');
+        if (!button || !counts.hasOwnProperty(button.dataset.type)) return;
+        counts[button.dataset.type] = Math.max(0, counts[button.dataset.type] + Number(button.dataset.delta));
+        updateDisplay();
+      });
+      form.addEventListener('submit', submitOrder);
       updateDisplay();
-    });
-    form.addEventListener('submit', submitOrder);
-    updateDisplay();
-    fetchCatalog();
-    restoreOrderIfAny();
+      fetchCatalog();
+      restoreOrderIfAny();
+    }
+    initBoat();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

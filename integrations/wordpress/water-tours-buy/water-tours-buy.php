@@ -157,3 +157,80 @@ function water_tours_buy_shortcode() {
     return ob_get_clean();
 }
 add_shortcode('water_tours_buy', 'water_tours_buy_shortcode');
+
+function water_tours_boat_shortcode() {
+    ob_start();
+    ?>
+    <div class="wt-buy wt-boat-buy">
+        <button id="wt-boat-open-modal" class="wt-main-button wt-boat-main-button" type="button">
+            Арендовать катер
+        </button>
+
+        <div id="wt-boat-modal" class="wt-modal" aria-hidden="true">
+            <div class="wt-modal-content wt-boat-modal-content" role="dialog" aria-modal="true" aria-labelledby="wt-boat-modal-title" aria-describedby="wt-boat-modal-description">
+                <button id="wt-boat-close-modal" class="wt-close" type="button" aria-label="Закрыть">&times;</button>
+
+                <p class="wt-boat-kicker">Катер целиком · до 6 гостей</p>
+                <h2 id="wt-boat-modal-title">Аренда катера</h2>
+                <p id="wt-boat-modal-description" class="wt-muted">Один электронный билет действует 72 часа после оплаты. Маршрут можно предложить свой или выбрать вместе с нами.</p>
+
+                <form id="wt-boat-form">
+                    <?php wp_nonce_field('water_tours_buy_submit', 'wt_boat_nonce'); ?>
+
+                    <div class="wt-field">
+                        <label for="wt-boat-email">Email</label>
+                        <input id="wt-boat-email" type="email" autocomplete="email" required placeholder="example@mail.ru">
+                    </div>
+
+                    <div class="wt-field">
+                        <label for="wt-boat-phone">Телефон</label>
+                        <input id="wt-boat-phone" type="tel" autocomplete="tel" required placeholder="+79990000000">
+                    </div>
+
+                    <div class="wt-boat-grid">
+                        <div class="wt-field">
+                            <label for="wt-boat-guests">Количество гостей</label>
+                            <select id="wt-boat-guests" required>
+                                <?php for ($guests = 1; $guests <= 6; $guests++) : ?>
+                                    <option value="<?php echo esc_attr($guests); ?>"><?php echo esc_html($guests); ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+
+                        <div class="wt-field">
+                            <label for="wt-boat-duration">Продолжительность</label>
+                            <select id="wt-boat-duration" required>
+                                <option value="30" data-price="3500">30 минут — 3 500 ₽</option>
+                                <option value="60" data-price="6000">60 минут — 6 000 ₽</option>
+                                <option value="90" data-price="9000">90 минут — 9 000 ₽</option>
+                                <option value="120" data-price="11000">120 минут — 11 000 ₽</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <fieldset class="wt-route-choice">
+                        <legend>Маршрут</legend>
+                        <label><input type="radio" name="wt-boat-route" value="CUSTOM" checked> Предложу свой</label>
+                        <label><input type="radio" name="wt-boat-route" value="ASSISTED"> Помогите выбрать</label>
+                    </fieldset>
+
+                    <div class="wt-field">
+                        <label for="wt-boat-route-note">Пожелания к маршруту <span class="wt-muted-inline">(необязательно)</span></label>
+                        <textarea id="wt-boat-route-note" maxlength="300" rows="3" placeholder="Например: спокойная прогулка без остановок"></textarea>
+                    </div>
+
+                    <div class="wt-total wt-boat-total" aria-live="polite">
+                        Итого за катер: <span id="wt-boat-total-sum">3 500</span> ₽
+                    </div>
+
+                    <button id="wt-boat-submit" class="wt-submit" type="submit">Оформить аренду</button>
+                </form>
+
+                <div id="wt-boat-result" class="wt-result" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('water_tours_boat', 'water_tours_boat_shortcode');
