@@ -1,110 +1,19 @@
+/**
+ * Purchase flow for both products: passenger tickets and a whole-boat rental.
+ *
+ * The two flows differ only in what the order body contains and what the screens are called, so
+ * they share one state machine here. Everything a customer can see after submitting - paid,
+ * still processing, not paid, cancelled, refunded, or a failed request - is driven by one
+ * token-protected read of GET /api/v1/orders/{id}/status. Guessing "paid" from whether a ticket
+ * list happens to be empty reads a cancelled payment as a slow one, which is what this replaces.
+ */
 (function () {
   'use strict';
 
   var config = window.WaterToursConfig || {};
-  var prices = Object.assign({}, config.prices || { ADULT: 1500, CHILD: 800, BENEFIT: 1020 });
-  var counts = { ADULT: 0, CHILD: 0, BENEFIT: 0 };
-  var idempotencyKey = null;
-  var orderStorageKey = 'wt_order';
-  var idempotencyStorageKey = 'wt_idempotency_key';
 
-  var modal = document.getElementById('wt-modal');
-  var openBtn = document.getElementById('wt-open-modal');
-  var closeBtn = document.getElementById('wt-close-modal');
-  var form = document.getElementById('wt-ticket-form');
-  var emailInput = document.getElementById('wt-email');
-  var phoneInput = document.getElementById('wt-phone');
-  var submitBtn = document.getElementById('wt-submit');
-  var resultEl = document.getElementById('wt-result');
-  var totalSumEl = document.getElementById('wt-total-sum');
-
-  function getCountEl(type) {
-    return document.getElementById('wt-count-' + type);
-  }
-
-  function getPriceEl(type) {
-    return document.getElementById('wt-price-' + type);
-  }
-
-  function updateDisplay() {
-    var types = ['ADULT', 'CHILD', 'BENEFIT'];
-    var total = 0;
-    for (var i = 0; i < types.length; i++) {
-      var t = types[i];
-      var countEl = getCountEl(t);
-      var priceEl = getPriceEl(t);
-      if (countEl) countEl.textContent = String(counts[t]);
-      if (priceEl) priceEl.textContent = String(prices[t]);
-      total += counts[t] * (prices[t] || 0);
-    }
-    if (totalSumEl) totalSumEl.textContent = String(total);
-  }
-
-  function setResult(text, isError) {
-    if (!resultEl) return;
-    resultEl.textContent = text || '';
-    resultEl.style.color = isError ? '#c00' : '';
-  }
-
-  function setSubmitEnabled(enabled) {
-    if (submitBtn) submitBtn.disabled = !enabled;
-  }
-
-  var lastFocusedElement = null;
-
-  function getFocusableElements() {
-    if (!modal) return [];
-    return Array.prototype.slice.call(
-      modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')
-    ).filter(function (el) { return el.offsetParent !== null; });
-  }
-
-  function trapFocus(event) {
-    if (event.key === 'Escape') {
-      closeModal();
-      return;
-    }
-    if (event.key !== 'Tab') return;
-    var focusable = getFocusableElements();
-    if (!focusable.length) return;
-    var first = focusable[0];
-    var last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
-  function openModal() {
-    if (!modal) return;
-    lastFocusedElement = document.activeElement;
-    modal.classList.add('is-open');
-    document.addEventListener('keydown', trapFocus);
-    var focusable = getFocusableElements();
-    if (focusable.length) focusable[0].focus();
-  }
-
-  function closeModal() {
-    if (!modal) return;
-    modal.classList.remove('is-open');
-    document.removeEventListener('keydown', trapFocus);
-    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
-  }
-
-  function validateEmail(email) {
-    return !!email && typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  }
-
-  function getTicketCounts() {
-    var tickets = {};
-    var types = ['ADULT', 'CHILD', 'BENEFIT'];
-    for (var i = 0; i < types.length; i++) {
-      if (counts[types[i]] > 0) tickets[types[i]] = counts[types[i]];
-    }
-    return Object.keys(tickets).length ? tickets : null;
+  function backendUrl(path) {
+    return (config.backendUrl || '').replace(/\/$/, '') + path;
   }
 
   function generateUUID() {
@@ -115,455 +24,570 @@
     });
   }
 
-  function getOrCreateIdempotencyKey() {
-    try {
-      var stored = sessionStorage.getItem(idempotencyStorageKey);
+  function validateEmail(email) {
+    return !!email && typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  }
+
+  function formatMoney(value) {
+    return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function readSession(key) {
+    try { return sessionStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  function writeSession(key, value) {
+    try { sessionStorage.setItem(key, value); } catch (e) {}
+  }
+
+  function removeSession(key) {
+    try { sessionStorage.removeItem(key); } catch (e) {}
+  }
+
+  /** Server error bodies carry a human message; fall back to a generic line when they do not. */
+  function readErrorMessage(response, fallback) {
+    return response.json()
+      .then(function (body) { return (body && body.message) ? body.message : fallback; })
+      .catch(function () { return fallback; });
+  }
+
+  function createCheckout(options) {
+    var modal = document.getElementById(options.modalId);
+    var openBtn = document.getElementById(options.openBtnId);
+    var closeBtn = document.getElementById(options.closeBtnId);
+    var form = document.getElementById(options.formId);
+    var resultEl = document.getElementById(options.resultId);
+    var submitBtn = document.getElementById(options.submitId);
+    var lastFocusedElement = null;
+    var fallbackIdempotencyKey = null;
+    var pollTimer = null;
+
+    // ---------------------------------------------------------------- modal
+
+    function focusableElements() {
+      if (!modal) return [];
+      return Array.prototype.slice.call(modal.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(function (el) { return el.offsetParent !== null; });
+    }
+
+    function trapFocus(event) {
+      if (event.key === 'Escape') return closeModal();
+      if (event.key !== 'Tab') return;
+      var focusable = focusableElements();
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    function openModal() {
+      if (!modal) return;
+      lastFocusedElement = document.activeElement;
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.addEventListener('keydown', trapFocus);
+      var focusable = focusableElements();
+      if (focusable.length) focusable[0].focus();
+    }
+
+    function closeModal() {
+      if (!modal) return;
+      stopPolling();
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.removeEventListener('keydown', trapFocus);
+      if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
+    }
+
+    // ------------------------------------------------------------- storage
+
+    function saveOrder(order) {
+      writeSession(options.storageKey, JSON.stringify({ id: order.id, accessToken: order.accessToken }));
+      writeSession('wt_last_order_kind', options.kind);
+    }
+
+    function loadOrder() {
+      var raw = readSession(options.storageKey);
+      if (!raw) return null;
+      try {
+        var order = JSON.parse(raw);
+        return (order && order.id && order.accessToken) ? order : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function forgetOrder() {
+      removeSession(options.storageKey);
+      if (readSession('wt_last_order_kind') === options.kind) removeSession('wt_last_order_kind');
+    }
+
+    function idempotencyKey() {
+      var stored = readSession(options.idempotencyKey);
       if (stored) return stored;
-      var key = generateUUID();
-      sessionStorage.setItem(idempotencyStorageKey, key);
-      return key;
-    } catch (e) {
-      idempotencyKey = idempotencyKey || generateUUID();
-      return idempotencyKey;
+      // Private-mode browsers can refuse sessionStorage; keep the key in memory so a retry in
+      // this tab still reuses it and cannot create a second order.
+      fallbackIdempotencyKey = fallbackIdempotencyKey || generateUUID();
+      writeSession(options.idempotencyKey, fallbackIdempotencyKey);
+      return fallbackIdempotencyKey;
     }
-  }
 
-  function clearIdempotencyKey() {
-    idempotencyKey = null;
-    try { sessionStorage.removeItem(idempotencyStorageKey); } catch (e) {}
-  }
-
-  function saveOrder(order) {
-    try {
-      sessionStorage.setItem(orderStorageKey, JSON.stringify({ id: order.id, accessToken: order.accessToken, status: order.status }));
-      sessionStorage.setItem('wt_last_order_kind', 'ticket');
-    } catch (e) {}
-  }
-
-  function loadOrder() {
-    try {
-      var raw = sessionStorage.getItem(orderStorageKey);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
+    function clearIdempotencyKey() {
+      fallbackIdempotencyKey = null;
+      removeSession(options.idempotencyKey);
     }
-  }
 
-  function backendUrl(path) {
-    return (config.backendUrl || '').replace(/\/$/, '') + path;
-  }
+    // --------------------------------------------------------------- screens
 
-  function showPaidPdfLink(order) {
-    if (!resultEl || !order || !order.id || !order.accessToken) return;
-    resultEl.textContent = '';
-    var text = document.createElement('p');
-    text.textContent = 'Заказ оплачен. Скачать билет:';
-    var link = document.createElement('a');
-    link.href = backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets/pdf?accessToken=' + encodeURIComponent(order.accessToken));
-    link.textContent = 'PDF билета';
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    resultEl.append(text, link);
-  }
+    function stopPolling() {
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+    }
 
-  function showTestPayButton(order) {
-    if (!resultEl || !order || !order.id || !order.accessToken) return;
-    resultEl.textContent = '';
-    var text = document.createElement('p');
-    text.textContent = 'Заказ создан. Оплата ещё не подтверждена.';
-    var button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'wt-test-pay';
-    button.textContent = 'Тестовая оплата';
-    button.addEventListener('click', function () { testPay(order, button); });
-    resultEl.append(text, button);
-  }
+    function clearResult() {
+      if (!resultEl) return;
+      stopPolling();
+      resultEl.textContent = '';
+      resultEl.className = 'wt-result';
+    }
 
-  function handleTestPaymentResponse(order, payment) {
-    var updated = { id: order.id, accessToken: order.accessToken, status: payment && payment.status };
-    saveOrder(updated);
-    if (payment && (payment.testPaid || payment.status === 'PAID')) showPaidPdfLink(updated);
-    else showTestPayButton(updated);
-  }
+    /** One screen shape for every outcome: a title, an explanation, and the actions that apply. */
+    function screen(tone, title, description, actions) {
+      if (!resultEl) return null;
+      clearResult();
+      resultEl.className = 'wt-result wt-status wt-status-' + tone;
+      var panel = document.createElement('div');
+      panel.className = 'wt-status-panel';
 
-  function testPayUrl(order) {
-    return backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/test-pay?accessToken=' + encodeURIComponent(order.accessToken));
-  }
+      var heading = document.createElement('p');
+      heading.className = 'wt-status-title';
+      heading.textContent = title;
+      panel.appendChild(heading);
 
-  function testPay(order, button) {
-    if (button) button.disabled = true;
-    fetch(testPayUrl(order), { method: 'POST', credentials: 'omit' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('test-pay');
-        return response.json();
+      if (description) {
+        var text = document.createElement('p');
+        text.className = 'wt-status-text';
+        text.textContent = description;
+        panel.appendChild(text);
+      }
+
+      if (actions && actions.length) {
+        var row = document.createElement('div');
+        row.className = 'wt-status-actions';
+        actions.forEach(function (action) { if (action) row.appendChild(action); });
+        panel.appendChild(row);
+      }
+
+      resultEl.appendChild(panel);
+      // The panel renders below a long form, so on a phone the outcome would otherwise land
+      // off-screen and read as "nothing happened".
+      if (typeof panel.scrollIntoView === 'function') {
+        panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+      return panel;
+    }
+
+    function actionButton(label, variant, onClick) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'wt-status-button' + (variant ? ' wt-status-button-' + variant : '');
+      button.textContent = label;
+      button.addEventListener('click', function () { onClick(button); });
+      return button;
+    }
+
+    function pdfLink(order, snapshot) {
+      var link = document.createElement('a');
+      link.className = 'wt-status-button wt-status-button-primary';
+      link.href = backendUrl(snapshot && snapshot.pdfUrl
+        ? snapshot.pdfUrl
+        : '/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets/pdf?accessToken=' + encodeURIComponent(order.accessToken));
+      link.textContent = options.labels.download;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      return link;
+    }
+
+    function message(tone, text) {
+      if (!resultEl) return;
+      clearResult();
+      resultEl.className = 'wt-result wt-status-' + tone;
+      resultEl.textContent = text;
+    }
+
+    // ------------------------------------------------------- status handling
+
+    function fetchStatus(order) {
+      return fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
+        + '/status?accessToken=' + encodeURIComponent(order.accessToken)), { method: 'GET', credentials: 'omit' })
+        .then(function (response) {
+          if (response.status === 403 || response.status === 404) throw new Error('gone');
+          if (!response.ok) throw new Error('status');
+          return response.json();
+        });
+    }
+
+    /**
+     * @param attemptsLeft how many more times to re-check on a non-final state. The ticket
+     *        issuance job runs on an interval, and a card payment confirmed at the provider can
+     *        take a few seconds to reach us, so a fresh return from checkout is never final yet.
+     */
+    function refreshStatus(order, attemptsLeft) {
+      fetchStatus(order)
+        .then(function (snapshot) { applyStatus(order, snapshot, attemptsLeft); })
+        .catch(function (error) {
+          if (error && error.message === 'gone') {
+            forgetOrder();
+            return showCancelled(null, options.labels.orderGone);
+          }
+          showConnectionError(order);
+        });
+    }
+
+    function applyStatus(order, snapshot, attemptsLeft) {
+      var status = snapshot && snapshot.status;
+
+      if (snapshot && snapshot.refundInProgress) return showRefundPending();
+      if (status === 'REFUNDED') return showRefunded();
+      if (status === 'CANCELLED' || status === 'EXPIRED') return showCancelled(order, null);
+
+      if (status === 'PAID' && snapshot.ticketsIssued) return showPaid(order, snapshot);
+      // DRAFT means payment was never started, so there is nothing to wait for.
+      if (status === 'DRAFT') return showUnpaid(order);
+
+      // PAID but no ticket yet, or still waiting for the payment to be confirmed.
+      if (attemptsLeft > 0) {
+        showProcessing(order, status === 'PAID');
+        pollTimer = setTimeout(function () { refreshStatus(order, attemptsLeft - 1); }, 4000);
+        return;
+      }
+      if (status === 'PAID') return showProcessing(order, true);
+      return showUnpaid(order);
+    }
+
+    function showPaid(order, snapshot) {
+      var actions = [pdfLink(order, snapshot)];
+      if (snapshot && snapshot.emailResendAvailable) {
+        actions.push(actionButton(options.labels.resend, 'ghost', function (button) {
+          resendEmail(order, button);
+        }));
+      }
+      var panel = screen('success', options.labels.paidTitle, options.labels.paidText, actions);
+      if (panel && snapshot && snapshot.ticketsEmailedAt) {
+        var note = document.createElement('p');
+        note.className = 'wt-status-note';
+        note.textContent = options.labels.emailedNote;
+        panel.appendChild(note);
+      }
+    }
+
+    function showProcessing(order, paid) {
+      screen('info', options.labels.processingTitle,
+        paid ? options.labels.processingPaidText : options.labels.processingText,
+        [actionButton(options.labels.recheck, 'ghost', function () { refreshStatus(order, 3); })]);
+    }
+
+    function showUnpaid(order) {
+      screen('warn', options.labels.unpaidTitle, options.labels.unpaidText, [
+        actionButton(config.localTestMode ? options.labels.testPay : options.labels.pay, 'primary', function (button) {
+          button.disabled = true;
+          if (config.localTestMode) testPay(order, button);
+          else startPayment(order);
+        }),
+        actionButton(options.labels.startOver, 'ghost', function () { startOver(); })
+      ]);
+    }
+
+    function showCancelled(order, customText) {
+      screen('warn', options.labels.cancelledTitle, customText || options.labels.cancelledText, [
+        actionButton(options.labels.startOver, 'primary', function () { startOver(); })
+      ]);
+    }
+
+    function showRefunded() {
+      screen('info', options.labels.refundedTitle, options.labels.refundedText, [
+        actionButton(options.labels.startOver, 'ghost', function () { startOver(); })
+      ]);
+    }
+
+    function showRefundPending() {
+      screen('info', options.labels.refundPendingTitle, options.labels.refundPendingText, []);
+    }
+
+    function showConnectionError(order) {
+      screen('error', options.labels.connectionTitle, options.labels.connectionText, [
+        actionButton(options.labels.recheck, 'primary', function () { refreshStatus(order, 2); })
+      ]);
+    }
+
+    function startOver() {
+      forgetOrder();
+      clearIdempotencyKey();
+      clearResult();
+      if (form) form.reset();
+      if (options.onReset) options.onReset();
+    }
+
+    // --------------------------------------------------------------- actions
+
+    function resendEmail(order, button) {
+      button.disabled = true;
+      var previous = button.textContent;
+      button.textContent = options.labels.resending;
+      fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
+        + '/tickets/email?accessToken=' + encodeURIComponent(order.accessToken)), { method: 'POST', credentials: 'omit' })
+        .then(function (response) {
+          if (response.ok) {
+            button.textContent = options.labels.resent;
+            return null;
+          }
+          return readErrorMessage(response, options.labels.resendFailed).then(function (text) {
+            button.disabled = false;
+            button.textContent = previous;
+            var note = document.createElement('p');
+            note.className = 'wt-status-note wt-status-note-error';
+            note.textContent = text;
+            var panel = resultEl.querySelector('.wt-status-panel');
+            var existing = panel ? panel.querySelector('.wt-status-note-error') : null;
+            if (existing) existing.remove();
+            if (panel) panel.appendChild(note);
+          });
+        })
+        .catch(function () {
+          button.disabled = false;
+          button.textContent = previous;
+          message('error', options.labels.resendFailed);
+        });
+    }
+
+    function startPayment(order) {
+      message('info', options.labels.redirecting);
+      fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
+        + '/pay?accessToken=' + encodeURIComponent(order.accessToken)), { method: 'POST', credentials: 'omit' })
+        .then(function (response) {
+          if (!response.ok) throw new Error('pay');
+          return response.json();
+        })
+        .then(function (payment) {
+          if (payment && payment.paymentUrl) {
+            window.location.href = payment.paymentUrl;
+            return;
+          }
+          throw new Error('no-payment-url');
+        })
+        .catch(function () {
+          screen('error', options.labels.payFailedTitle, options.labels.payFailedText, [
+            actionButton(options.labels.pay, 'primary', function () { startPayment(order); })
+          ]);
+        });
+    }
+
+    function testPay(order, button) {
+      fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
+        + '/test-pay?accessToken=' + encodeURIComponent(order.accessToken)), { method: 'POST', credentials: 'omit' })
+        .then(function (response) {
+          if (!response.ok) throw new Error('test-pay');
+          return response.json();
+        })
+        .then(function () { refreshStatus(order, 3); })
+        .catch(function () {
+          if (button) button.disabled = false;
+          message('error', options.labels.testPayFailed);
+        });
+    }
+
+    function submitOrder(event) {
+      event.preventDefault();
+      var payload = options.collect();
+      if (payload.error) return message('error', payload.error);
+
+      if (submitBtn) submitBtn.disabled = true;
+      message('info', options.labels.creating);
+      fetch(backendUrl(config.ordersPath || '/api/v1/orders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey() },
+        body: JSON.stringify(payload.body),
+        credentials: 'omit'
       })
-      .then(function (payment) { handleTestPaymentResponse(order, payment); })
-      .catch(function () { setResult('Не удалось выполнить тестовую оплату. Попробуйте ещё раз.', true); })
-      .finally(function () { if (button) button.disabled = false; });
+        .then(function (response) {
+          if (!response.ok) {
+            return readErrorMessage(response, options.labels.createFailed).then(function (text) {
+              throw new Error(text);
+            });
+          }
+          return response.json();
+        })
+        .then(function (order) {
+          if (!order || !order.id || !order.accessToken) throw new Error(options.labels.createFailed);
+          clearIdempotencyKey();
+          saveOrder(order);
+          if (config.localTestMode) return showUnpaid(order);
+          startPayment(order);
+        })
+        .catch(function (error) {
+          message('error', (error && error.message) ? error.message : options.labels.createFailed);
+        })
+        .finally(function () { if (submitBtn) submitBtn.disabled = false; });
+    }
+
+    function restore() {
+      if (readSession('wt_last_order_kind') !== options.kind) return;
+      var order = loadOrder();
+      if (!order) return;
+      openModal();
+      message('info', options.labels.checking);
+      // A reload or a return from the payment page lands here: never trust a cached status.
+      refreshStatus(order, 6);
+    }
+
+    function init() {
+      if (!form) return;
+      if (openBtn) openBtn.addEventListener('click', openModal);
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (modal) modal.addEventListener('click', function (event) { if (event.target === modal) closeModal(); });
+      form.addEventListener('submit', submitOrder);
+      if (options.onInit) options.onInit();
+      restore();
+    }
+
+    return { init: init };
   }
 
-  function fetchTestPayStatus(order) {
-    fetch(testPayUrl(order), { method: 'GET', credentials: 'omit' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('test-pay-status');
-        return response.json();
-      })
-      .then(function (payment) { handleTestPaymentResponse(order, payment); })
-      .catch(function () { showTestPayButton(order); });
-  }
+  // ------------------------------------------------------------- passenger tickets
 
-  function payUrl(order) {
-    return backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/pay?accessToken=' + encodeURIComponent(order.accessToken));
-  }
+  var ticketPrices = Object.assign({}, config.prices || { ADULT: 1500, CHILD: 800, BENEFIT: 1020 });
+  var ticketCounts = { ADULT: 0, CHILD: 0, BENEFIT: 0 };
+  var ticketTypes = ['ADULT', 'CHILD', 'BENEFIT'];
+  var totalSumEl = document.getElementById('wt-total-sum');
+  var emailInput = document.getElementById('wt-email');
+  var phoneInput = document.getElementById('wt-phone');
 
-  function startRealPayment(order) {
-    setResult('Переходим к оплате...', false);
-    fetch(payUrl(order), { method: 'POST', credentials: 'omit' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('pay');
-        return response.json();
-      })
-      .then(function (payment) {
-        if (payment && payment.paymentUrl) {
-          window.location.href = payment.paymentUrl;
-          return;
-        }
-        throw new Error('no-payment-url');
-      })
-      .catch(function () {
-        setResult('Не удалось перейти к оплате. Попробуйте ещё раз или напишите нам.', true);
-      });
-  }
-
-  // The ticket-issuance job runs on an interval (up to ~30s after payment), so a customer
-  // freshly back from YooKassa may not have a ticket yet even though payment succeeded.
-  // Poll a few times before telling them to check back rather than reporting a false negative.
-  function pollForIssuedTicket(order, attemptsLeft) {
-    fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets?accessToken=' + encodeURIComponent(order.accessToken)),
-      { method: 'GET', credentials: 'omit' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('tickets');
-        return response.json();
-      })
-      .then(function (tickets) {
-        if (tickets && tickets.length) {
-          saveOrder({ id: order.id, accessToken: order.accessToken, status: 'PAID' });
-          showPaidPdfLink(order);
-          return;
-        }
-        if (attemptsLeft > 0) {
-          setResult('Оплата обрабатывается, подождите...', false);
-          setTimeout(function () { pollForIssuedTicket(order, attemptsLeft - 1); }, 5000);
-        } else {
-          showPaymentPendingWithRetry(order);
-        }
-      })
-      .catch(function () {
-        setResult('Не удалось проверить статус оплаты. Обновите страницу.', true);
-      });
-  }
-
-  function showPaymentPendingWithRetry(order) {
-    if (!resultEl) return;
-    resultEl.textContent = '';
-    var text = document.createElement('p');
-    text.textContent = 'Оплата ещё не подтверждена. Если вы уже платили, обновите страницу через минуту. Если платёж не начинали или он не прошёл — попробуйте снова:';
-    var button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'wt-test-pay';
-    button.textContent = 'Оплатить';
-    button.addEventListener('click', function () { startRealPayment(order); });
-    resultEl.append(text, button);
-  }
-
-  function restoreOrderIfAny() {
-    try {
-      if (sessionStorage.getItem('wt_last_order_kind') === 'boat') return;
-    } catch (e) {}
-    var order = loadOrder();
-    if (!order) return;
-    openModal();
-    if (order.status === 'PAID') return showPaidPdfLink(order);
-    if (config.localTestMode) return fetchTestPayStatus(order);
-    // Real payment: the customer may be returning from YooKassa right now, so always
-    // re-check with the backend instead of trusting the pre-payment status we cached.
-    pollForIssuedTicket(order, 6);
+  function updateTicketDisplay() {
+    var total = 0;
+    ticketTypes.forEach(function (type) {
+      var countEl = document.getElementById('wt-count-' + type);
+      var priceEl = document.getElementById('wt-price-' + type);
+      if (countEl) countEl.textContent = String(ticketCounts[type]);
+      if (priceEl) priceEl.textContent = formatMoney(ticketPrices[type]) + ' ₽';
+      total += ticketCounts[type] * (ticketPrices[type] || 0);
+    });
+    if (totalSumEl) totalSumEl.textContent = formatMoney(total);
   }
 
   function fetchCatalog() {
-    if (!config.localTestMode || !config.catalogPath) return updateDisplay();
+    if (!config.localTestMode || !config.catalogPath) return updateTicketDisplay();
     fetch(backendUrl(config.catalogPath), { method: 'GET', credentials: 'omit' })
       .then(function (response) {
         if (!response.ok) throw new Error('catalog');
         return response.json();
       })
       .then(function (catalog) {
-        ['ADULT', 'CHILD', 'BENEFIT'].forEach(function (type) {
-          if (catalog && Number(catalog[type]) >= 0) prices[type] = Number(catalog[type]);
+        ticketTypes.forEach(function (type) {
+          if (catalog && Number(catalog[type]) >= 0) ticketPrices[type] = Number(catalog[type]);
         });
-        updateDisplay();
+        updateTicketDisplay();
       })
-      .catch(updateDisplay);
+      .catch(updateTicketDisplay);
   }
 
-  function submitOrder(event) {
-    event.preventDefault();
-    var email = emailInput ? emailInput.value.trim() : '';
-    if (!validateEmail(email)) return setResult('Укажите корректный email.', true);
-    var tickets = getTicketCounts();
-    if (!tickets) return setResult('Выберите хотя бы один билет.', true);
-    setSubmitEnabled(false);
-    fetch(backendUrl(config.ordersPath || '/api/v1/orders'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': getOrCreateIdempotencyKey() },
-      body: JSON.stringify({ email: email, phoneNumber: phoneInput ? phoneInput.value.trim() : '', tickets: tickets }),
-      credentials: 'omit'
-    })
-      .then(function (response) {
-        if (!response.ok) throw new Error('order');
-        return response.json();
-      })
-      .then(function (order) {
-        if (!order || !order.id || !order.accessToken) throw new Error('order');
-        clearIdempotencyKey();
-        saveOrder(order);
-        if (order.status === 'PAID') { showPaidPdfLink(order); return; }
-        if (config.localTestMode) { showTestPayButton(order); return; }
-        startRealPayment(order);
-      })
-      .catch(function () { setResult('Не удалось создать заказ. Попробуйте ещё раз.', true); })
-      .finally(function () { setSubmitEnabled(true); });
-  }
+  var ticketCheckout = createCheckout({
+    kind: 'ticket',
+    modalId: 'wt-modal',
+    openBtnId: 'wt-open-modal',
+    closeBtnId: 'wt-close-modal',
+    formId: 'wt-ticket-form',
+    submitId: 'wt-submit',
+    resultId: 'wt-result',
+    storageKey: 'wt_order',
+    idempotencyKey: 'wt_idempotency_key',
+    labels: {
+      download: 'Скачать PDF билета',
+      resend: 'Отправить на email ещё раз',
+      resending: 'Отправляем...',
+      resent: 'Письмо отправлено',
+      resendFailed: 'Письмо отправить не удалось. Билет доступен по ссылке выше.',
+      paidTitle: 'Оплата прошла. Билеты готовы.',
+      paidText: 'Скачайте PDF с QR-кодом и покажите его сотруднику при посадке. Билет действует 72 часа с момента подтверждения оплаты.',
+      emailedNote: 'Письмо с билетами уже отправлено на указанный email.',
+      processingTitle: 'Оплата обрабатывается',
+      processingText: 'Проверяем платёж. Это занимает до минуты — не закрывайте страницу.',
+      processingPaidText: 'Оплата подтверждена, готовим билеты. Обычно это занимает меньше минуты.',
+      recheck: 'Проверить ещё раз',
+      unpaidTitle: 'Оплата не завершена',
+      unpaidText: 'Заказ создан, но оплата не подтверждена. Если вы уже платили, подождите минуту и проверьте статус.',
+      pay: 'Перейти к оплате',
+      testPay: 'Тестовая оплата',
+      testPayFailed: 'Не удалось выполнить тестовую оплату. Попробуйте ещё раз.',
+      startOver: 'Оформить новый заказ',
+      cancelledTitle: 'Оплата отменена',
+      cancelledText: 'Заказ не оплачен и больше недействителен. Деньги не списаны. Можно оформить новый заказ.',
+      orderGone: 'Заказ больше недоступен. Оформите новый заказ.',
+      refundedTitle: 'Заказ возвращён',
+      refundedText: 'По этому заказу выполнен возврат, билеты недействительны.',
+      refundPendingTitle: 'Выполняется возврат',
+      refundPendingText: 'По заказу обрабатывается возврат. Билеты временно недоступны для прохода.',
+      connectionTitle: 'Не удалось проверить статус',
+      connectionText: 'Сервер не ответил. Проверьте соединение и попробуйте ещё раз — заказ не потерян.',
+      payFailedTitle: 'Не удалось перейти к оплате',
+      payFailedText: 'Платёжная страница сейчас недоступна. Попробуйте ещё раз или напишите нам.',
+      creating: 'Оформляем заказ...',
+      createFailed: 'Не удалось создать заказ. Проверьте данные и попробуйте ещё раз.',
+      checking: 'Проверяем статус заказа...',
+      redirecting: 'Переходим к оплате...'
+    },
+    collect: function () {
+      var email = emailInput ? emailInput.value.trim() : '';
+      if (!validateEmail(email)) return { error: 'Укажите корректный email.' };
+      var tickets = {};
+      ticketTypes.forEach(function (type) { if (ticketCounts[type] > 0) tickets[type] = ticketCounts[type]; });
+      if (!Object.keys(tickets).length) return { error: 'Выберите хотя бы один билет.' };
+      return {
+        body: {
+          email: email,
+          phoneNumber: phoneInput ? phoneInput.value.trim() : '',
+          tickets: tickets
+        }
+      };
+    },
+    onReset: function () {
+      ticketTypes.forEach(function (type) { ticketCounts[type] = 0; });
+      updateTicketDisplay();
+    },
+    onInit: function () {
+      document.addEventListener('click', function (event) {
+        var button = event.target.closest ? event.target.closest('[data-type][data-delta]') : null;
+        if (!button || !Object.prototype.hasOwnProperty.call(ticketCounts, button.dataset.type)) return;
+        ticketCounts[button.dataset.type] = Math.max(0, ticketCounts[button.dataset.type] + Number(button.dataset.delta));
+        updateTicketDisplay();
+      });
+      updateTicketDisplay();
+      fetchCatalog();
+    }
+  });
+
+  // ------------------------------------------------------------------ boat rental
 
   var boatPrices = { 30: 3500, 60: 6000, 90: 9000, 120: 11000 };
-  var boatOrderStorageKey = 'wt_boat_order';
-  var boatIdempotencyStorageKey = 'wt_boat_idempotency_key';
-  var boatIdempotencyKey = null;
-  var boatModal = document.getElementById('wt-boat-modal');
-  var boatOpenBtn = document.getElementById('wt-boat-open-modal');
-  var boatCloseBtn = document.getElementById('wt-boat-close-modal');
-  var boatForm = document.getElementById('wt-boat-form');
   var boatEmailInput = document.getElementById('wt-boat-email');
   var boatPhoneInput = document.getElementById('wt-boat-phone');
   var boatGuestsInput = document.getElementById('wt-boat-guests');
   var boatDurationInput = document.getElementById('wt-boat-duration');
   var boatRouteNoteInput = document.getElementById('wt-boat-route-note');
-  var boatSubmitBtn = document.getElementById('wt-boat-submit');
-  var boatResultEl = document.getElementById('wt-boat-result');
+  var boatForm = document.getElementById('wt-boat-form');
   var boatTotalEl = document.getElementById('wt-boat-total-sum');
-  var boatLastFocusedElement = null;
-
-  function setBoatResult(text, isError) {
-    if (!boatResultEl) return;
-    boatResultEl.textContent = text || '';
-    boatResultEl.style.color = isError ? '#c00' : '';
-  }
-
-  function getBoatFocusableElements() {
-    if (!boatModal) return [];
-    return Array.prototype.slice.call(
-      boatModal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
-    ).filter(function (el) { return el.offsetParent !== null; });
-  }
-
-  function trapBoatFocus(event) {
-    if (event.key === 'Escape') {
-      closeBoatModal();
-      return;
-    }
-    if (event.key !== 'Tab') return;
-    var focusable = getBoatFocusableElements();
-    if (!focusable.length) return;
-    var first = focusable[0];
-    var last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
-  function openBoatModal() {
-    if (!boatModal) return;
-    boatLastFocusedElement = document.activeElement;
-    boatModal.classList.add('is-open');
-    boatModal.setAttribute('aria-hidden', 'false');
-    document.addEventListener('keydown', trapBoatFocus);
-    var focusable = getBoatFocusableElements();
-    if (focusable.length) focusable[0].focus();
-  }
-
-  function closeBoatModal() {
-    if (!boatModal) return;
-    boatModal.classList.remove('is-open');
-    boatModal.setAttribute('aria-hidden', 'true');
-    document.removeEventListener('keydown', trapBoatFocus);
-    if (boatLastFocusedElement && typeof boatLastFocusedElement.focus === 'function') boatLastFocusedElement.focus();
-  }
-
-  function formatBoatPrice(value) {
-    return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  }
 
   function updateBoatTotal() {
     var duration = Number(boatDurationInput ? boatDurationInput.value : 30);
-    if (boatTotalEl) boatTotalEl.textContent = formatBoatPrice(boatPrices[duration] || 0);
-  }
-
-  function getOrCreateBoatIdempotencyKey() {
-    try {
-      var stored = sessionStorage.getItem(boatIdempotencyStorageKey);
-      if (stored) return stored;
-      var key = generateUUID();
-      sessionStorage.setItem(boatIdempotencyStorageKey, key);
-      return key;
-    } catch (e) {
-      boatIdempotencyKey = boatIdempotencyKey || generateUUID();
-      return boatIdempotencyKey;
-    }
-  }
-
-  function clearBoatIdempotencyKey() {
-    boatIdempotencyKey = null;
-    try { sessionStorage.removeItem(boatIdempotencyStorageKey); } catch (e) {}
-  }
-
-  function saveBoatOrder(order) {
-    try {
-      sessionStorage.setItem(boatOrderStorageKey, JSON.stringify({ id: order.id, accessToken: order.accessToken, status: order.status }));
-      sessionStorage.setItem('wt_last_order_kind', 'boat');
-    } catch (e) {}
-  }
-
-  function loadBoatOrder() {
-    try {
-      var raw = sessionStorage.getItem(boatOrderStorageKey);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function showBoatPaidPdfLink(order) {
-    if (!boatResultEl || !order || !order.id || !order.accessToken) return;
-    boatResultEl.textContent = '';
-    var text = document.createElement('p');
-    text.textContent = 'Аренда оплачена. Скачать билет:';
-    var link = document.createElement('a');
-    link.href = backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets/pdf?accessToken=' + encodeURIComponent(order.accessToken));
-    link.textContent = 'PDF билета';
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    boatResultEl.append(text, link);
-  }
-
-  function showBoatTestPayButton(order) {
-    if (!boatResultEl || !order || !order.id || !order.accessToken) return;
-    boatResultEl.textContent = '';
-    var text = document.createElement('p');
-    text.textContent = 'Заказ создан. Оплата ещё не подтверждена.';
-    var button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'wt-test-pay';
-    button.textContent = 'Тестовая оплата';
-    button.addEventListener('click', function () { testPayBoat(order, button); });
-    boatResultEl.append(text, button);
-  }
-
-  function handleBoatTestPaymentResponse(order, payment) {
-    var updated = { id: order.id, accessToken: order.accessToken, status: payment && payment.status };
-    saveBoatOrder(updated);
-    if (payment && (payment.testPaid || payment.status === 'PAID')) showBoatPaidPdfLink(updated);
-    else showBoatTestPayButton(updated);
-  }
-
-  function testPayBoat(order, button) {
-    if (button) button.disabled = true;
-    fetch(testPayUrl(order), { method: 'POST', credentials: 'omit' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('test-pay');
-        return response.json();
-      })
-      .then(function (payment) { handleBoatTestPaymentResponse(order, payment); })
-      .catch(function () { setBoatResult('Не удалось выполнить тестовую оплату. Попробуйте ещё раз.', true); })
-      .finally(function () { if (button) button.disabled = false; });
-  }
-
-  function fetchBoatTestPayStatus(order) {
-    fetch(testPayUrl(order), { method: 'GET', credentials: 'omit' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('test-pay-status');
-        return response.json();
-      })
-      .then(function (payment) { handleBoatTestPaymentResponse(order, payment); })
-      .catch(function () { showBoatTestPayButton(order); });
-  }
-
-  function startBoatRealPayment(order) {
-    setBoatResult('Переходим к оплате...', false);
-    fetch(payUrl(order), { method: 'POST', credentials: 'omit' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('pay');
-        return response.json();
-      })
-      .then(function (payment) {
-        if (payment && payment.paymentUrl) {
-          window.location.href = payment.paymentUrl;
-          return;
-        }
-        throw new Error('no-payment-url');
-      })
-      .catch(function () { setBoatResult('Не удалось перейти к оплате. Попробуйте ещё раз или напишите нам.', true); });
-  }
-
-  function showBoatPaymentPendingWithRetry(order) {
-    if (!boatResultEl) return;
-    boatResultEl.textContent = '';
-    var text = document.createElement('p');
-    text.textContent = 'Оплата ещё не подтверждена. Если вы уже платили, обновите страницу через минуту.';
-    var button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'wt-test-pay';
-    button.textContent = 'Оплатить';
-    button.addEventListener('click', function () { startBoatRealPayment(order); });
-    boatResultEl.append(text, button);
-  }
-
-  function pollForBoatTicket(order, attemptsLeft) {
-    fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets?accessToken=' + encodeURIComponent(order.accessToken)),
-      { method: 'GET', credentials: 'omit' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('tickets');
-        return response.json();
-      })
-      .then(function (tickets) {
-        if (tickets && tickets.length) {
-          saveBoatOrder({ id: order.id, accessToken: order.accessToken, status: 'PAID' });
-          showBoatPaidPdfLink(order);
-          return;
-        }
-        if (attemptsLeft > 0) {
-          setBoatResult('Оплата обрабатывается, подождите...', false);
-          setTimeout(function () { pollForBoatTicket(order, attemptsLeft - 1); }, 5000);
-        } else {
-          showBoatPaymentPendingWithRetry(order);
-        }
-      })
-      .catch(function () { setBoatResult('Не удалось проверить статус оплаты. Обновите страницу.', true); });
-  }
-
-  function restoreBoatOrderIfAny() {
-    try {
-      if (sessionStorage.getItem('wt_last_order_kind') !== 'boat') return;
-    } catch (e) { return; }
-    var order = loadBoatOrder();
-    if (!order) return;
-    openBoatModal();
-    if (order.status === 'PAID') return showBoatPaidPdfLink(order);
-    if (config.localTestMode) return fetchBoatTestPayStatus(order);
-    pollForBoatTicket(order, 6);
+    if (boatTotalEl) boatTotalEl.textContent = formatMoney(boatPrices[duration] || 0);
   }
 
   function selectedBoatRouteType() {
@@ -571,82 +595,89 @@
     return selected ? selected.value : '';
   }
 
-  function submitBoatOrder(event) {
-    event.preventDefault();
-    var email = boatEmailInput ? boatEmailInput.value.trim() : '';
-    var phone = boatPhoneInput ? boatPhoneInput.value.trim() : '';
-    var guests = Number(boatGuestsInput ? boatGuestsInput.value : 0);
-    var duration = Number(boatDurationInput ? boatDurationInput.value : 0);
-    var routeType = selectedBoatRouteType();
-    var routeNote = boatRouteNoteInput ? boatRouteNoteInput.value.trim() : '';
+  var boatCheckout = createCheckout({
+    kind: 'boat',
+    modalId: 'wt-boat-modal',
+    openBtnId: 'wt-boat-open-modal',
+    closeBtnId: 'wt-boat-close-modal',
+    formId: 'wt-boat-form',
+    submitId: 'wt-boat-submit',
+    resultId: 'wt-boat-result',
+    storageKey: 'wt_boat_order',
+    idempotencyKey: 'wt_boat_idempotency_key',
+    labels: {
+      download: 'Скачать PDF билета',
+      resend: 'Отправить на email ещё раз',
+      resending: 'Отправляем...',
+      resent: 'Письмо отправлено',
+      resendFailed: 'Письмо отправить не удалось. Билет доступен по ссылке выше.',
+      paidTitle: 'Аренда оплачена. Билет готов.',
+      paidText: 'Скачайте PDF с QR-кодом — он один на всю компанию. Билет действует 72 часа с момента подтверждения оплаты, время выхода согласуется отдельно.',
+      emailedNote: 'Письмо с билетом уже отправлено на указанный email.',
+      processingTitle: 'Оплата обрабатывается',
+      processingText: 'Проверяем платёж. Это занимает до минуты — не закрывайте страницу.',
+      processingPaidText: 'Оплата подтверждена, готовим билет. Обычно это занимает меньше минуты.',
+      recheck: 'Проверить ещё раз',
+      unpaidTitle: 'Оплата не завершена',
+      unpaidText: 'Заявка на аренду создана, но оплата не подтверждена. Если вы уже платили, подождите минуту и проверьте статус.',
+      pay: 'Перейти к оплате',
+      testPay: 'Тестовая оплата',
+      testPayFailed: 'Не удалось выполнить тестовую оплату. Попробуйте ещё раз.',
+      startOver: 'Оформить аренду заново',
+      cancelledTitle: 'Оплата отменена',
+      cancelledText: 'Аренда не оплачена и больше недействительна. Деньги не списаны. Можно оформить заново.',
+      orderGone: 'Заявка больше недоступна. Оформите аренду заново.',
+      refundedTitle: 'Аренда возвращена',
+      refundedText: 'По этой аренде выполнен возврат, билет недействителен.',
+      refundPendingTitle: 'Выполняется возврат',
+      refundPendingText: 'По аренде обрабатывается возврат. Билет временно недоступен для прохода.',
+      connectionTitle: 'Не удалось проверить статус',
+      connectionText: 'Сервер не ответил. Проверьте соединение и попробуйте ещё раз — заявка не потеряна.',
+      payFailedTitle: 'Не удалось перейти к оплате',
+      payFailedText: 'Платёжная страница сейчас недоступна. Попробуйте ещё раз или напишите нам.',
+      creating: 'Оформляем аренду...',
+      createFailed: 'Не удалось оформить аренду. Проверьте данные и попробуйте ещё раз.',
+      checking: 'Проверяем статус аренды...',
+      redirecting: 'Переходим к оплате...'
+    },
+    collect: function () {
+      var email = boatEmailInput ? boatEmailInput.value.trim() : '';
+      var phone = boatPhoneInput ? boatPhoneInput.value.trim() : '';
+      var guests = Number(boatGuestsInput ? boatGuestsInput.value : 0);
+      var duration = Number(boatDurationInput ? boatDurationInput.value : 0);
+      var routeType = selectedBoatRouteType();
+      var routeNote = boatRouteNoteInput ? boatRouteNoteInput.value.trim() : '';
 
-    if (!validateEmail(email)) return setBoatResult('Укажите корректный email.', true);
-    if (!phone) return setBoatResult('Укажите телефон.', true);
-    if (!Number.isInteger(guests) || guests < 1 || guests > 6) return setBoatResult('Выберите от 1 до 6 гостей.', true);
-    if (!Object.prototype.hasOwnProperty.call(boatPrices, duration)) return setBoatResult('Выберите доступную продолжительность.', true);
-    if (routeType !== 'CUSTOM' && routeType !== 'ASSISTED') return setBoatResult('Выберите вариант маршрута.', true);
-    if (routeNote.length > 300) return setBoatResult('Пожелания к маршруту должны быть короче 300 символов.', true);
+      if (!validateEmail(email)) return { error: 'Укажите корректный email.' };
+      if (!phone) return { error: 'Укажите телефон.' };
+      if (!Number.isInteger(guests) || guests < 1 || guests > 6) return { error: 'Выберите от 1 до 6 гостей.' };
+      if (!Object.prototype.hasOwnProperty.call(boatPrices, duration)) return { error: 'Выберите доступную продолжительность.' };
+      if (routeType !== 'CUSTOM' && routeType !== 'ASSISTED') return { error: 'Выберите вариант маршрута.' };
+      if (routeNote.length > 300) return { error: 'Пожелания к маршруту должны быть короче 300 символов.' };
 
-    if (boatSubmitBtn) boatSubmitBtn.disabled = true;
-    fetch(backendUrl(config.ordersPath || '/api/v1/orders'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': getOrCreateBoatIdempotencyKey() },
-      body: JSON.stringify({
-        email: email,
-        phoneNumber: phone,
-        boatRental: {
-          durationMinutes: duration,
-          guestCount: guests,
-          routeType: routeType,
-          routeNote: routeNote
+      return {
+        body: {
+          email: email,
+          phoneNumber: phone,
+          boatRental: {
+            durationMinutes: duration,
+            guestCount: guests,
+            routeType: routeType,
+            routeNote: routeNote
+          }
         }
-      }),
-      credentials: 'omit'
-    })
-      .then(function (response) {
-        if (!response.ok) throw new Error('order');
-        return response.json();
-      })
-      .then(function (order) {
-        if (!order || !order.id || !order.accessToken) throw new Error('order');
-        clearBoatIdempotencyKey();
-        saveBoatOrder(order);
-        if (order.status === 'PAID') { showBoatPaidPdfLink(order); return; }
-        if (config.localTestMode) { showBoatTestPayButton(order); return; }
-        startBoatRealPayment(order);
-      })
-      .catch(function () { setBoatResult('Не удалось создать заказ. Проверьте данные и попробуйте ещё раз.', true); })
-      .finally(function () { if (boatSubmitBtn) boatSubmitBtn.disabled = false; });
-  }
-
-  function initBoat() {
-    if (!boatForm) return;
-    if (boatOpenBtn) boatOpenBtn.addEventListener('click', openBoatModal);
-    if (boatCloseBtn) boatCloseBtn.addEventListener('click', closeBoatModal);
-    if (boatModal) boatModal.addEventListener('click', function (event) { if (event.target === boatModal) closeBoatModal(); });
-    if (boatDurationInput) boatDurationInput.addEventListener('change', updateBoatTotal);
-    boatForm.addEventListener('submit', submitBoatOrder);
-    updateBoatTotal();
-    restoreBoatOrderIfAny();
-  }
+      };
+    },
+    onReset: updateBoatTotal,
+    onInit: function () {
+      if (boatDurationInput) boatDurationInput.addEventListener('change', updateBoatTotal);
+      updateBoatTotal();
+    }
+  });
 
   function init() {
-    if (form) {
-      if (openBtn) openBtn.addEventListener('click', openModal);
-      if (closeBtn) closeBtn.addEventListener('click', closeModal);
-      if (modal) modal.addEventListener('click', function (event) { if (event.target === modal) closeModal(); });
-      document.addEventListener('click', function (event) {
-        var button = event.target.closest('[data-type][data-delta]');
-        if (!button || !counts.hasOwnProperty(button.dataset.type)) return;
-        counts[button.dataset.type] = Math.max(0, counts[button.dataset.type] + Number(button.dataset.delta));
-        updateDisplay();
-      });
-      form.addEventListener('submit', submitOrder);
-      updateDisplay();
-      fetchCatalog();
-      restoreOrderIfAny();
-    }
-    initBoat();
+    ticketCheckout.init();
+    boatCheckout.init();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

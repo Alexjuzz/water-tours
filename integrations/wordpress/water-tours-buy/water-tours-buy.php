@@ -56,6 +56,14 @@ function water_tours_buy_ticket_prices() {
     return $sanitized;
 }
 
+/**
+ * Same grouping the purchase script uses, so the price does not visibly reflow once the
+ * script takes over the element.
+ */
+function water_tours_buy_format_price($amount) {
+    return number_format((float) $amount, 0, ',', ' ');
+}
+
 function water_tours_buy_enqueue_assets() {
     $style_version = (string) filemtime(plugin_dir_path(__FILE__) . 'assets/water-tours-buy.css');
     $script_version = (string) filemtime(plugin_dir_path(__FILE__) . 'assets/water-tours-buy.js');
@@ -129,7 +137,7 @@ function water_tours_buy_shortcode() {
                             <div>
                                 <strong><?php echo esc_html($label); ?></strong>
                                 <span class="wt-muted" id="wt-price-<?php echo esc_attr($type); ?>">
-                                    <?php echo esc_html($prices[$type]); ?> ₽
+                                    <?php echo esc_html(water_tours_buy_format_price($prices[$type])); ?> ₽
                                 </span>
                             </div>
                             <div class="wt-counter">

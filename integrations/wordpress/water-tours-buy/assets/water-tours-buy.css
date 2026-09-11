@@ -137,12 +137,114 @@
     font-weight: 600;
 }
 
-.wt-result.error {
+.wt-result.error,
+.wt-result.wt-status-error {
     color: #c62828;
 }
 
 .wt-result.success {
     color: #2e7d32;
+}
+
+/* Status screens: one panel shape for paid, processing, unpaid, cancelled, refunded and errors. */
+.wt-result.wt-status {
+    text-align: left;
+    font-weight: 400;
+    color: inherit;
+}
+
+.wt-status-panel {
+    border: 1px solid #d9e1e7;
+    border-left-width: 4px;
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: #f8fafb;
+}
+
+.wt-status-success .wt-status-panel {
+    border-left-color: #2e7d32;
+    background: #f3faf4;
+}
+
+.wt-status-info .wt-status-panel {
+    border-left-color: #1976d2;
+    background: #f4f8fd;
+}
+
+.wt-status-warn .wt-status-panel {
+    border-left-color: #ef6c00;
+    background: #fff8f1;
+}
+
+.wt-status-error .wt-status-panel {
+    border-left-color: #c62828;
+    background: #fdf4f4;
+}
+
+.wt-status-title {
+    margin: 0 0 6px;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #17212b;
+}
+
+.wt-status-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #4a5b67;
+}
+
+.wt-status-note {
+    margin: 12px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #6b7a86;
+}
+
+.wt-status-note-error {
+    color: #c62828;
+}
+
+.wt-status-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.wt-status-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 44px keeps every action a comfortable touch target on a phone. */
+    min-height: 44px;
+    padding: 11px 18px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.wt-status-button-primary {
+    background: #1976d2;
+    border-color: #1976d2;
+    color: #ffffff;
+}
+
+.wt-status-button-ghost {
+    background: #ffffff;
+    border-color: #c3cfd8;
+    color: #17212b;
+}
+
+.wt-status-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
 }
 
 .wt-boat-main-button {
@@ -212,12 +314,68 @@
 }
 
 @media (max-width: 520px) {
+    .wt-modal {
+        /* Full-height sheet on a phone: a centred card gets cut off once the keyboard opens.
+           The overlay does the scrolling, because the sheet itself is as tall as its content. */
+        align-items: flex-start;
+        padding: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
     .wt-modal-content {
-        padding: 26px 20px;
+        width: 100%;
+        max-width: none;
+        min-height: 100%;
+        height: auto;
+        border-radius: 0;
+        padding: 26px 18px 40px;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .wt-boat-modal-content {
+        max-height: none;
+        overflow: visible;
     }
 
     .wt-boat-grid {
         grid-template-columns: 1fr;
         gap: 0;
+    }
+
+    .wt-close {
+        top: 6px;
+        right: 10px;
+        width: 44px;
+        height: 44px;
+        line-height: 1;
+    }
+
+    .wt-field input,
+    .wt-field select,
+    .wt-field textarea {
+        /* 16px is the threshold below which iOS Safari zooms the page on focus. */
+        font-size: 16px;
+        min-height: 44px;
+    }
+
+    .wt-counter button {
+        width: 44px;
+        height: 44px;
+    }
+
+    .wt-main-button,
+    .wt-submit {
+        min-height: 48px;
+    }
+
+    .wt-status-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wt-status-button {
+        width: 100%;
     }
 }
