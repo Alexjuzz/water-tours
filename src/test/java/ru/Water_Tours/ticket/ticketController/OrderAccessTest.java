@@ -98,4 +98,79 @@ class OrderAccessTest {
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(expected));
-    }}
+    }
+
+    @Test
+    void orderStatusRequiresAValidToken() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        String url = "/api/v1/orders/" + id + "/status";
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url))
+                .andExpect(status().isBadRequest());
+        when(orders.getOrderStatus(id, token)).thenThrow(new AccessDeniedException("invalid"));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url)
+                        .param("accessToken", token.toString()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void orderStatusReturnsTheSnapshotWithoutCaching() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        when(orders.getOrderStatus(id, token)).thenReturn(new ru.Water_Tours.ticket.model.order.OrderStatusResponse(
+                id, ru.Water_Tours.enums.OrderStatus.PAID, ru.Water_Tours.enums.OrderType.PRIVATE_BOAT,
+                new java.math.BigDecimal("9000.00"), java.time.Instant.parse("2026-09-11T10:00:00Z"),
+                true, 1, true, false, null, true,
+                "/api/v1/orders/" + id + "/tickets/pdf?accessToken=" + token));
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/orders/" + id + "/status")
+                        .param("accessToken", token.toString()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Cache-Control", "no-store"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.status").value("PAID"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.pdfAvailable").value(true));
+    }
+
+    @Test
+    void ticketEmailResendIsTokenProtectedAndGoesThroughTheResendPath() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        String url = "/api/v1/orders/" + id + "/tickets/email";
+        mvc.perform(post(url)).andExpect(status().isBadRequest());
+
+        doThrow(new AccessDeniedException("invalid")).when(orders).checkAccess(id, token);
+        mvc.perform(post(url).param("accessToken", token.toString())).andExpect(status().isForbidden());
+        verifyNoInteractions(mail);
+
+        doNothing().when(orders).checkAccess(id, token);
+        mvc.perform(post(url).param("accessToken", token.toString())).andExpect(status().isNoContent());
+        verify(mail).resendTicketsPdf(id);
+    }
+
+    @Test
+    void resendRefusedByTheCooldownIsReportedAsAConflict() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        doThrow(new IllegalStateException("Повторная отправка будет доступна через 2 мин."))
+                .when(mail).resendTicketsPdf(id);
+
+        mvc.perform(post("/api/v1/orders/" + id + "/tickets/email").param("accessToken", token.toString()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void resendThatTheMailServerRejectsIsRetryable() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        doThrow(new ru.Water_Tours.ticket.service.TicketEmailException("smtp down", new RuntimeException()))
+                .when(mail).resendTicketsPdf(id);
+
+        mvc.perform(post("/api/v1/orders/" + id + "/tickets/email").param("accessToken", token.toString()))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Retry-After", "120"));
+    }
+}

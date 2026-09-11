@@ -21,9 +21,12 @@ import java.util.*;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final ru.Water_Tours.ticket.repository.TicketRepository ticketRepository;
 
-    public OrderService(OrderRepository orderRepository) {
+    public OrderService(OrderRepository orderRepository,
+                        ru.Water_Tours.ticket.repository.TicketRepository ticketRepository) {
         this.orderRepository = orderRepository;
+        this.ticketRepository = ticketRepository;
     }
 
     public Order createOrder(OrderRequestDTO order, String idempotencyKey) {
@@ -137,6 +140,37 @@ public class OrderService {
         }
         return result;
     }
+    /**
+     * Token-protected snapshot for the purchase screen. Read-only: it never issues tickets or
+     * touches payment state, so the site can poll it while the customer waits.
+     */
+    @Transactional(readOnly = true)
+    public ru.Water_Tours.ticket.model.order.OrderStatusResponse getOrderStatus(UUID orderId, UUID accessToken) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NoSuchElementException("Order not found: " + orderId));
+        if (order.getAccessToken() == null || !order.getAccessToken().equals(accessToken)) {
+            throw new org.springframework.security.access.AccessDeniedException("Invalid access token");
+        }
+        long ticketCount = ticketRepository.countByOrderId(orderId);
+        boolean issued = order.getTicketIssuedAt() != null && ticketCount > 0;
+        boolean paid = order.getStatus() == OrderStatus.PAID;
+        return new ru.Water_Tours.ticket.model.order.OrderStatusResponse(
+                order.getId(),
+                order.getStatus(),
+                order.getOrderType(),
+                order.getTotalAmount(),
+                order.getPaidAt(),
+                issued,
+                (int) ticketCount,
+                paid && issued,
+                order.getRefundPendingAt() != null,
+                order.getTicketsEmailedAt(),
+                paid && issued && order.getEmail() != null && !order.getEmail().isBlank(),
+                paid && issued
+                        ? "/api/v1/orders/" + orderId + "/tickets/pdf?accessToken=" + accessToken
+                        : null);
+    }
+
     public void checkAccess(UUID orderId, UUID accessToken) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new NoSuchElementException("Order not found: " + orderId));

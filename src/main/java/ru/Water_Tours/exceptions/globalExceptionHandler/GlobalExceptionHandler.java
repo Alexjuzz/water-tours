@@ -153,6 +153,17 @@ public class GlobalExceptionHandler {
                         "Payment is not confirmed yet. Please retry later.", request.getRequestURI()));
     }
 
+    @ExceptionHandler(ru.Water_Tours.ticket.service.TicketEmailException.class)
+    public ResponseEntity<ExceptionResponse> handleTicketEmail(
+            ru.Water_Tours.ticket.service.TicketEmailException e, HttpServletRequest request) {
+        log.warn("Ticket email delivery failed on {}: {}", request.getRequestURI(), e.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After", "120")
+                .body(new ExceptionResponse(Instant.now(), HttpStatus.SERVICE_UNAVAILABLE.value(),
+                        "Mail delivery unavailable",
+                        "Письмо отправить не удалось. Билет доступен по ссылке, попробуйте отправку позже.",
+                        request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ExceptionResponse> handleGeneralException(Exception e, HttpServletRequest request) {
         // Полный стектрейс только в логи

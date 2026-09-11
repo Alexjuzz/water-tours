@@ -49,7 +49,10 @@ public class PdfTicketService {
                     text(c, font, 16, 48, 652, type + " - один проход");
                     if (t.getTicketType() == ru.Water_Tours.enums.TicketType.PRIVATE_BOAT) {
                         var order = t.getOrder();
-                        text(c, font, 11, 48, 631, "Продолжительность: " + order.getBoatDurationMinutes() + " минут");
+                        // The rental price belongs to the duration, so it rides on the same line
+                        // instead of costing the page another row above the QR code.
+                        text(c, font, 11, 48, 631, "Продолжительность: " + order.getBoatDurationMinutes()
+                                + " минут — " + money(priceFor(t)));
                         text(c, font, 11, 48, 610, "Гостей: " + order.getBoatGuestCount());
                         String route = order.getBoatRouteType() == ru.Water_Tours.enums.BoatRouteType.CUSTOM
                                 ? "свой маршрут" : "маршрут с помощью команды";
@@ -59,6 +62,7 @@ public class PdfTicketService {
                         }
                     }
                     boolean privateBoat = t.getTicketType() == ru.Water_Tours.enums.TicketType.PRIVATE_BOAT;
+                    if (!privateBoat) text(c, font, 11, 48, 631, "Стоимость: " + money(priceFor(t)));
                     float validityY = privateBoat ? 530 : 617;
                     text(c, font, 11, 48, validityY, "Действует с: " + TIME.format(t.getValidFrom()));
                     text(c, font, 11, 48, validityY - 21, "Действует до: " + TIME.format(t.getValidTo()));
@@ -83,6 +87,34 @@ public class PdfTicketService {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to build tickets PDF", e);
         }
+    }
+
+    /** Price actually charged for this ticket, taken from the order line it was issued from. */
+    private static java.math.BigDecimal priceFor(Ticket t) {
+        var order = t.getOrder();
+        if (order == null || order.getOrderItems() == null) return null;
+        return order.getOrderItems().stream()
+                .filter(item -> item.getType() == t.getTicketType())
+                .map(item -> item.getPrice())
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(order.getTotalAmount());
+    }
+
+    /** 1500.00 -> "1 500 ₽": thin groups, no trailing kopecks when there are none. */
+    private static String money(java.math.BigDecimal value) {
+        if (value == null) return "—";
+        java.math.BigDecimal normalized = value.stripTrailingZeros();
+        String plain = normalized.scale() > 0 ? normalized.toPlainString() : normalized.toBigInteger().toString();
+        int dot = plain.indexOf('.');
+        String whole = dot < 0 ? plain : plain.substring(0, dot);
+        String fraction = dot < 0 ? "" : "," + plain.substring(dot + 1);
+        StringBuilder grouped = new StringBuilder();
+        for (int i = 0; i < whole.length(); i++) {
+            if (i > 0 && (whole.length() - i) % 3 == 0) grouped.append(' ');
+            grouped.append(whole.charAt(i));
+        }
+        return grouped + fraction + " ₽";
     }
 
     private static void text(PDPageContentStream c, PDType0Font font, float size, float x, float y, String value) throws IOException {

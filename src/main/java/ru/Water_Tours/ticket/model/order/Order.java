@@ -74,6 +74,19 @@ public class Order {
     @Column(name = "refund_pending_at")
     private Instant refundPendingAt;
 
+    // Ticket email delivery attempts: the last attempt drives the resend cooldown, the counter
+    // caps how often one order can ask the mail server to try again.
+    @Column(name = "tickets_email_attempt_at")
+    private Instant ticketsEmailAttemptAt;
+    @Column(name = "tickets_email_attempts")
+    private Integer ticketsEmailAttempts;
+
+    // Claim held while a message is actually being handed to the mail server. It replaces the
+    // row lock that used to be held for the whole SMTP round trip, so two delivery runs still
+    // cannot both send the same order's tickets.
+    @Column(name = "tickets_email_claimed_at")
+    private Instant ticketsEmailClaimedAt;
+
 
     @Column(name = "test_paid", nullable = false, columnDefinition = "boolean default false")
     private Boolean testPaid = false;

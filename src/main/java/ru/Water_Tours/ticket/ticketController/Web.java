@@ -113,6 +113,16 @@ public class Web {
     }
 
 
+    @GetMapping("/api/v1/orders/{orderId}/status")
+    public ResponseEntity<ru.Water_Tours.ticket.model.order.OrderStatusResponse> orderStatus(
+            @PathVariable UUID orderId,
+            @RequestParam UUID accessToken) {
+
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(orderService.getOrderStatus(orderId, accessToken));
+    }
+
     @GetMapping("/api/v1/orders/{orderId}/tickets")
     public ResponseEntity<List<TicketResponse>> getTickets(
             @PathVariable UUID orderId,
@@ -145,8 +155,9 @@ public class Web {
             @RequestParam UUID accessToken) {
 
         orderService.checkAccess(orderId, accessToken);
-        // TODO: rate-limit (не чаще 1 раза в минуту) — можно добавить позже
-        ticketEmailService.sendTicketsPdf(orderId);
+        // The access token is the customer's authorization here; the cooldown and the attempt cap
+        // live in the service, so a repeated click or a reload cannot fan out into extra mail.
+        ticketEmailService.resendTicketsPdf(orderId);
         return ResponseEntity.noContent().build();
     }
 }
