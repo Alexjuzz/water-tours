@@ -99,14 +99,23 @@ public class StaffRefundController {
             log.warn("Staff refund rejected for orderId={}, reason={}", orderId, e.getMessage());
             return "redirect:/staff/refund" + redirectQuery + sep + "error="
                     + java.net.URLEncoder.encode(e.getMessage(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (ru.Water_Tours.ticket.service.PaymentProviderException e) {
+            log.warn("Staff refund unresolved for orderId={}, message={}", orderId, e.getMessage());
+            boolean unknown = e.getMessage() != null && e.getMessage().contains("unknown");
+            String text = unknown
+                    ? "Результат возврата пока неизвестен. Заказ и билеты заблокированы, статус уточняется автоматически."
+                    : "Возврат не выполнен: провайдер платежей отклонил запрос или недоступен.";
+            return "redirect:/staff/refund" + redirectQuery + sep + "error="
+                    + java.net.URLEncoder.encode(text, java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {
             log.warn("Staff refund failed for orderId={}, errorType={}, message={}", orderId, e.getClass().getSimpleName(), e.getMessage());
             return "redirect:/staff/refund" + redirectQuery + sep + "error="
-                    + java.net.URLEncoder.encode("Возврат не выполнен: провайдер платежей недоступен или отклонил запрос.", java.nio.charset.StandardCharsets.UTF_8);
+                    + java.net.URLEncoder.encode("Возврат не выполнен: внутренняя ошибка. Проверьте статус заказа.", java.nio.charset.StandardCharsets.UTF_8);
         }
     }
 
     private String actionCell(Order order, String csrfName, String csrfValue) {
+        if (order.getRefundPendingAt() != null) return "возврат выполняется — результат уточняется";
         if (order.getStatus() != OrderStatus.PAID) return "—";
         boolean alreadyRefunded = paymentRepository.findAllByOrderId(order.getId()).stream()
                 .noneMatch(p -> p.getStatus() == ru.Water_Tours.enums.PaymentStatus.SUCCEEDED);

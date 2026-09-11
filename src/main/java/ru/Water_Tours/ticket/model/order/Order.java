@@ -68,6 +68,13 @@ public class Order {
     @Column(name = "tickets_issued_at")
     private Instant ticketIssuedAt;
 
+    // Set while a refund is in flight for this order and cleared when the outcome is known.
+    // Redemption refuses to burn a ticket in that window, so money cannot be returned for a
+    // walk that was boarded in the same seconds.
+    @Column(name = "refund_pending_at")
+    private Instant refundPendingAt;
+
+
     @Column(name = "test_paid", nullable = false, columnDefinition = "boolean default false")
     private Boolean testPaid = false;
 

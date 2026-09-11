@@ -39,6 +39,7 @@ public class CheckController {
             switch (error) {
                 case "USED" -> checkPage = checkPage.replace("{{errorMessage}}", "Этот билет уже был использован.");
                 case "NOT_VALID" -> checkPage = checkPage.replace("{{errorMessage}}", "Этот билет недействителен.");
+                case "REFUND_HOLD" -> checkPage = checkPage.replace("{{errorMessage}}", "По этому заказу выполняется возврат. Посадка по билету недоступна.");
                 case "NOT_FOUND" -> checkPage = checkPage.replace("{{errorMessage}}", "Билет не найден.");
                 default -> checkPage = checkPage.replace("{{errorMessage}}", "Произошла неизвестная ошибка.");
             }
@@ -61,7 +62,8 @@ public class CheckController {
         } catch (IllegalArgumentException e) {
             return "redirect:/t/" + code + "?error=USED";
         } catch (IllegalStateException e) {
-            return "redirect:/t/" + code + "?error=NOT_VALID";
+            boolean refundHold = e.getMessage() != null && e.getMessage().contains("refund is being processed");
+            return "redirect:/t/" + code + (refundHold ? "?error=REFUND_HOLD" : "?error=NOT_VALID");
         } catch (NoSuchElementException e) {
             return "redirect:/t/" + code + "?error=NOT_FOUND";
         } catch (Exception e) {

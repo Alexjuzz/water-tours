@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -21,7 +22,9 @@ import ru.Water_Tours.ticket.repository.PaymentRepository;
 import ru.Water_Tours.ticket.repository.TicketRepository;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -32,9 +35,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class RefundServiceTest {
+    static final Instant NOW = Instant.parse("2026-09-11T09:00:00Z");
+
     final OrderRepository orders = mock(OrderRepository.class);
     final PaymentRepository payments = mock(PaymentRepository.class);
     final TicketRepository tickets = mock(TicketRepository.class);
@@ -44,6 +49,7 @@ class RefundServiceTest {
     RefundService service;
     Order order;
     Payment payment;
+    Ticket ticket;
 
     @BeforeEach
     void setup() {
@@ -51,7 +57,7 @@ class RefundServiceTest {
         server = MockRestServiceServer.bindTo(builder).build();
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         service = new RefundService(orders, payments, tickets, builder, transactionManager, mapper,
-                "test-shop", "test-secret");
+                Clock.fixed(NOW, ZoneOffset.UTC), "test-shop", "test-secret");
 
         order = new Order();
         order.setId(UUID.randomUUID());
@@ -71,7 +77,9 @@ class RefundServiceTest {
         when(payments.findById(payment.getId())).thenAnswer(i -> Optional.of(payment));
         when(payments.save(any(Payment.class))).thenAnswer(i -> i.getArgument(0));
 
-        when(tickets.findAllByOrderId(order.getId())).thenAnswer(i -> new ArrayList<>(List.of(issuedTicket())));
+        ticket = issuedTicket();
+        when(tickets.findAllByOrderId(order.getId())).thenAnswer(i -> new ArrayList<>(List.of(ticket)));
+        when(tickets.findAllByOrderIdForUpdate(order.getId())).thenAnswer(i -> new ArrayList<>(List.of(ticket)));
         when(tickets.saveAll(any())).thenAnswer(i -> i.getArgument(0));
     }
 
@@ -83,6 +91,19 @@ class RefundServiceTest {
         t.setTicketStatus(TicketStatus.ISSUED);
         t.setCode(UUID.randomUUID().toString());
         return t;
+    }
+
+    private void expectRefundPost(org.springframework.test.web.client.ResponseCreator response) {
+        server.expect(requestTo("https://api.yookassa.ru/v3/refunds"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("Idempotence-Key", "refund:" + payment.getId()))
+                .andRespond(response);
+    }
+
+    private void expectRefundLookup(String body) {
+        server.expect(requestTo("https://api.yookassa.ru/v3/refunds?payment_id=provider-payment-1&limit=100"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
     }
 
     @Test
@@ -100,24 +121,37 @@ class RefundServiceTest {
 
         assertThat(result.providerRefundId()).isEqualTo("refund-1");
         assertThat(order.getStatus()).isEqualTo(OrderStatus.REFUNDED);
+        assertThat(order.getRefundPendingAt()).isNull();
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
         assertThat(payment.getProviderRefundId()).isEqualTo("refund-1");
         assertThat(payment.getRefundedAmount()).isEqualByComparingTo("1500.00");
-        assertThat(payment.getRefundedAt()).isNotNull();
+        assertThat(payment.getRefundedAt()).isEqualTo(NOW);
+        assertThat(payment.getRefundNextCheckAt()).isNull();
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.REVOKED);
+        server.verify();
+    }
+
+    @Test
+    void refundLocksEveryTicketOfTheOrderBeforeDeciding() {
+        expectRefundPost(withSuccess("{\"id\":\"refund-1\",\"payment_id\":\"provider-payment-1\",\"status\":\"succeeded\"}",
+                MediaType.APPLICATION_JSON));
+
+        service.refund(order.getId());
+
+        verify(tickets, atLeastOnce()).findAllByOrderIdForUpdate(order.getId());
         server.verify();
     }
 
     @Test
     void refundIsRejectedWhenATicketAlreadyUsedAndMakesNoHttpCall() {
-        Ticket used = issuedTicket();
-        used.setTicketStatus(TicketStatus.USED);
-        when(tickets.findAllByOrderId(order.getId())).thenReturn(List.of(used));
+        ticket.setTicketStatus(TicketStatus.USED);
 
         assertThatThrownBy(() -> service.refund(order.getId()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("already been used");
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getRefundPendingAt()).isNull();
         server.verify();
     }
 
@@ -142,16 +176,130 @@ class RefundServiceTest {
     }
 
     @Test
-    void providerRejectingRefundLeavesOrderAndPaymentUntouched() {
-        server.expect(requestTo("https://api.yookassa.ru/v3/refunds"))
-                .andRespond(withSuccess("{\"id\":\"refund-2\",\"payment_id\":\"provider-payment-1\",\"status\":\"canceled\"}",
-                        MediaType.APPLICATION_JSON));
+    void secondRefundWhileOneIsInFlightIsRejectedWithoutCallingTheProvider() {
+        payment.setRefundRequestedAt(NOW.minusSeconds(30));
+
+        assertThatThrownBy(() -> service.refund(order.getId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already in progress");
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        server.verify();
+    }
+
+    @Test
+    void providerRejectingRefundReleasesTheOrderOnlyAfterConfirmingNoRefundExists() {
+        expectRefundPost(withStatus(HttpStatus.BAD_REQUEST).body("{\"type\":\"error\"}").contentType(MediaType.APPLICATION_JSON));
+        expectRefundLookup("{\"type\":\"list\",\"items\":[]}");
+
+        assertThatThrownBy(() -> service.refund(order.getId()))
+                .isInstanceOf(PaymentProviderException.class)
+                .hasMessageContaining("rejected");
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getRefundPendingAt()).isNull();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+        assertThat(payment.getRefundFailedAt()).isEqualTo(NOW);
+        assertThat(payment.getRefundNextCheckAt()).isNull();
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.ISSUED);
+        server.verify();
+    }
+
+    @Test
+    void providerRejectionThatActuallyRefundedIsAppliedLocallyInsteadOfReleasingTheOrder() {
+        expectRefundPost(withStatus(HttpStatus.BAD_REQUEST).body("{\"type\":\"error\"}").contentType(MediaType.APPLICATION_JSON));
+        expectRefundLookup("{\"type\":\"list\",\"items\":[{\"id\":\"refund-9\",\"payment_id\":\"provider-payment-1\",\"status\":\"succeeded\"}]}");
 
         assertThatThrownBy(() -> service.refund(order.getId()))
                 .isInstanceOf(PaymentProviderException.class);
 
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.REFUNDED);
+        assertThat(payment.getProviderRefundId()).isEqualTo("refund-9");
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.REVOKED);
+        server.verify();
+    }
+
+    @Test
+    void unreachableProviderLeavesTheOrderOnHoldForReconciliation() {
+        expectRefundPost(withException(new java.io.IOException("connection reset")));
+
+        assertThatThrownBy(() -> service.refund(order.getId()))
+                .isInstanceOf(PaymentProviderException.class)
+                .hasMessageContaining("unknown");
+
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getRefundPendingAt()).isEqualTo(NOW);
+        assertThat(payment.getRefundRequestedAt()).isEqualTo(NOW);
+        assertThat(payment.getRefundFailedAt()).isNull();
+        assertThat(payment.getRefundNextCheckAt()).isNotNull();
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.ISSUED);
+        server.verify();
+    }
+
+    @Test
+    void reconciliationCompletesARefundThatSucceededAtTheProviderButWasNeverStoredLocally() {
+        // State left behind by a crash between the provider call and the local commit.
+        payment.setRefundRequestedAt(NOW.minusSeconds(300));
+        payment.setRefundNextCheckAt(NOW.minusSeconds(60));
+        order.setRefundPendingAt(NOW.minusSeconds(300));
+        when(payments.findRefundIdsAwaitingReconciliation(NOW)).thenReturn(List.of(payment.getId()));
+        expectRefundLookup("{\"type\":\"list\",\"items\":[{\"id\":\"refund-7\",\"payment_id\":\"provider-payment-1\",\"status\":\"succeeded\"}]}");
+
+        service.reconcilePendingRefunds();
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(payment.getProviderRefundId()).isEqualTo("refund-7");
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.REFUNDED);
+        assertThat(order.getRefundPendingAt()).isNull();
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.REVOKED);
+        server.verify();
+    }
+
+    @Test
+    void reconciliationReleasesTheOrderWhenTheProviderKnowsOfNoRefund() {
+        payment.setRefundRequestedAt(NOW.minusSeconds(300));
+        payment.setRefundNextCheckAt(NOW.minusSeconds(60));
+        order.setRefundPendingAt(NOW.minusSeconds(300));
+        when(payments.findRefundIdsAwaitingReconciliation(NOW)).thenReturn(List.of(payment.getId()));
+        expectRefundLookup("{\"type\":\"list\",\"items\":[]}");
+
+        service.reconcilePendingRefunds();
+
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+        assertThat(payment.getRefundFailedAt()).isEqualTo(NOW);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getRefundPendingAt()).isNull();
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.ISSUED);
+        server.verify();
+    }
+
+    @Test
+    void reconciliationKeepsTheHoldWhenTheProviderCannotBeReached() {
+        payment.setRefundRequestedAt(NOW.minusSeconds(300));
+        payment.setRefundNextCheckAt(NOW.minusSeconds(60));
+        order.setRefundPendingAt(NOW.minusSeconds(300));
+        when(payments.findRefundIdsAwaitingReconciliation(NOW)).thenReturn(List.of(payment.getId()));
+        server.expect(requestTo("https://api.yookassa.ru/v3/refunds?payment_id=provider-payment-1&limit=100"))
+                .andRespond(withException(new java.io.IOException("connection reset")));
+
+        service.reconcilePendingRefunds();
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+        assertThat(payment.getRefundFailedAt()).isNull();
+        assertThat(payment.getRefundCheckAttempts()).isEqualTo(1);
+        assertThat(payment.getRefundNextCheckAt()).isAfter(NOW);
+        assertThat(order.getRefundPendingAt()).isNotNull();
+        server.verify();
+    }
+
+    @Test
+    void reconciliationSkipsARefundThatWasAlreadyResolved() {
+        payment.setRefundRequestedAt(NOW.minusSeconds(300));
+        payment.setRefundedAt(NOW.minusSeconds(200));
+        when(payments.findRefundIdsAwaitingReconciliation(NOW)).thenReturn(List.of(payment.getId()));
+
+        service.reconcilePendingRefunds();
+
         server.verify();
     }
 }

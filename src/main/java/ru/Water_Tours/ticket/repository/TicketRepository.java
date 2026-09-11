@@ -19,10 +19,18 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
 
     List<Ticket> findAllByOrderId(UUID orderId);
 
+    long countByOrderId(UUID orderId);
+
     Optional<Ticket> findByCode(String code);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from Ticket t where t.code = :code")
     Optional<Ticket> findByCodeForUpdate(@Param("code") String code);
+
+    // Locks every ticket of the order so a refund decision and a redemption cannot both
+    // believe they won: whichever transaction gets the rows first makes the other wait.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Ticket t where t.order.id = :orderId")
+    List<Ticket> findAllByOrderIdForUpdate(@Param("orderId") UUID orderId);
 
 }

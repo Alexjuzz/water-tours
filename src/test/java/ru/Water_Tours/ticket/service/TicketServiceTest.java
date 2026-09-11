@@ -62,7 +62,48 @@ class TicketServiceTest {
         ticket.setPurchaseDate(order.getPaidAt());
         ticket.setValidFrom(validFrom);
         ticket.setValidTo(validTo);
+        // Redemption re-reads the owning order after locking the ticket row.
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         return ticket;
+    }
+
+    @Test
+    void redeemByCode_whileARefundIsInFlight_isRejectedAndTicketStaysIssued() {
+        Instant validFrom = Instant.parse("2026-01-10T10:00:00Z");
+        Instant validTo = validFrom.plus(Duration.ofHours(72));
+        Order order = paidOrder(validFrom, TicketType.ADULT, 1);
+        Ticket ticket = existingTicket(order, validFrom, validTo, TicketStatus.ISSUED);
+        order.setRefundPendingAt(validFrom.plus(Duration.ofMinutes(5)));
+        TicketService service = serviceWithClock(validFrom.plus(Duration.ofMinutes(6)), Duration.ofHours(72));
+
+        when(ticketRepository.findByCodeForUpdate(ticket.getCode())).thenReturn(Optional.of(ticket));
+
+        assertThatThrownBy(() -> service.redeemByCode(ticket.getCode()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("refund is being processed");
+
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.ISSUED);
+        assertThat(ticket.getUsedAt()).isNull();
+        verify(ticketRepository, never()).save(any(Ticket.class));
+    }
+
+    @Test
+    void redeemByCode_whenOrderAlreadyRefunded_isRejected() {
+        Instant validFrom = Instant.parse("2026-01-10T10:00:00Z");
+        Instant validTo = validFrom.plus(Duration.ofHours(72));
+        Order order = paidOrder(validFrom, TicketType.ADULT, 1);
+        Ticket ticket = existingTicket(order, validFrom, validTo, TicketStatus.ISSUED);
+        order.setStatus(OrderStatus.REFUNDED);
+        TicketService service = serviceWithClock(validFrom.plus(Duration.ofHours(1)), Duration.ofHours(72));
+
+        when(ticketRepository.findByCodeForUpdate(ticket.getCode())).thenReturn(Optional.of(ticket));
+
+        assertThatThrownBy(() -> service.redeemByCode(ticket.getCode()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("refunded order");
+
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.ISSUED);
+        verify(ticketRepository, never()).save(any(Ticket.class));
     }
 
     @Test

@@ -110,6 +110,18 @@ public class TicketService {
             throw new IllegalArgumentException("Ticket with id " + code + " cannot be redeemed in its current status");
         }
 
+        // Read the order only after the ticket row is locked: a refund that is deciding right now
+        // holds that same lock, so by this point its marker is either committed or not written at
+        // all. Refusing here is what stops a walk being boarded while the money goes back.
+        Order order = orderRepository.findById(t.getOrder().getId())
+                .orElseThrow(() -> new NoSuchElementException("Order for ticket " + code + " not found"));
+        if (order.getStatus() == OrderStatus.REFUNDED) {
+            throw new IllegalArgumentException("Ticket with id " + code + " belongs to a refunded order");
+        }
+        if (order.getRefundPendingAt() != null) {
+            throw new IllegalStateException("Ticket with id " + code + " is on hold while a refund is being processed");
+        }
+
         Instant now = Instant.now(clock);
         if (!now.isBefore(t.getValidTo()) || t.getValidFrom().isAfter(now)) {
             throw new IllegalStateException("Ticket with id " + code + " is not valid at the moment");
@@ -148,6 +160,9 @@ public class TicketService {
 
 // ... остальные импорты
 
+    // Reads the ticket's order to show a refund hold, so it needs a session open for the lazy
+    // association; open-in-view is off, and without this the staff page fails with a proxy error.
+    @Transactional(readOnly = true)
     public String renderCheckPage(String code, String csrfParameterName, String csrfToken) {
         // Защита от XSS: экранируем всё, что попадает в HTML
         String safeCode = HtmlUtils.htmlEscape(code != null ? code : "");
@@ -200,6 +215,18 @@ public class TicketService {
                 sb.append("<p>Purchase date: ").append(safePurchaseDate).append("</p>");
                 sb.append("<p>Ticket type: ").append(safeType).append("</p>");
                 sb.append("<p>Ticket status: ").append(safeStatus).append("</p>");
+                sb.append("</body></html>");
+                return sb.toString();
+            }
+
+            if (t.getTicketStatus() == TicketStatus.ISSUED
+                    && t.getOrder() != null && t.getOrder().getRefundPendingAt() != null) {
+                sb.append("<html><body>");
+                sb.append("<div style=\"color:red\">{{errorMessage}}</div>");
+                sb.append("<h1>Ticket with code: ").append(safeCode).append(" is on hold: a refund is being processed</h1>");
+                sb.append("<p>Purchase email: ").append(safeEmail).append("</p>");
+                sb.append("<p>Ticket status: ").append(safeStatus).append("</p>");
+                sb.append("<p>Do not board this ticket until the refund result is known.</p>");
                 sb.append("</body></html>");
                 return sb.toString();
             }

@@ -51,6 +51,20 @@ public class Payment {
     @Column(name = "refunded_at")
     private Instant refundedAt;
 
+    // Refund recovery state. A refund is "in flight" while refundRequestedAt is set and neither
+    // refundedAt nor refundFailedAt is: that marker is written before the provider is called, so a
+    // crash or a failed local commit after a successful provider refund is still recoverable.
+    @Column(name = "refund_requested_at")
+    private Instant refundRequestedAt;
+    @Column(name = "refund_failed_at")
+    private Instant refundFailedAt;
+    @Column(name = "refund_failure_reason", length = 300)
+    private String refundFailureReason;
+    @Column(name = "refund_next_check_at")
+    private Instant refundNextCheckAt;
+    @Column(name = "refund_check_attempts")
+    private Integer refundCheckAttempts;
+
     @PrePersist
     void  prePersist(){
         if(status == null) status = PaymentStatus.NEW;

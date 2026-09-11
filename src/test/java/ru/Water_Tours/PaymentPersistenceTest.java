@@ -230,6 +230,34 @@ class PaymentPersistenceTest {
         return orders.saveAndFlush(order);
     }
 
+    /**
+     * The staff check page reads the ticket's order to show a refund hold. Open-in-view is off, so
+     * this only holds together if the read runs inside a transaction; a mocked repository would
+     * never notice, which is why it is exercised here against a real database.
+     */
+    @Test
+    void staffCheckPageRendersAndAnnouncesARefundHold() {
+        Order order = paidOrder();
+        new ru.Water_Tours.component.TicketIssuanceJob(orders, ticketService).issuePaidOrders();
+        String code = ticketRepository.findAllByOrderId(order.getId()).getFirst().getCode();
+
+        String page = ticketService.renderCheckPage(code, null, null);
+        assertThat(page).contains("Ticket with code").doesNotContain("on hold");
+
+        jdbc.update("update orders set refund_pending_at = now() where id = ?", order.getId());
+
+        assertThat(ticketService.renderCheckPage(code, null, null)).contains("on hold");
+        assertThatThrownBy(() -> ticketService.redeemByCode(code))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("refund is being processed");
+        assertThat(ticketRepository.findByCode(code).orElseThrow().getTicketStatus())
+                .isEqualTo(ru.Water_Tours.enums.TicketStatus.ISSUED);
+
+        jdbc.update("update orders set refund_pending_at = null where id = ?", order.getId());
+        assertThat(ticketService.redeemByCode(code).ticketStatus())
+                .isEqualTo(ru.Water_Tours.enums.TicketStatus.USED);
+    }
+
     @Test
     void automaticIssuanceAndConcurrentRedemptionHappenOnlyOnce() throws Exception {
         Order order = paidOrder();

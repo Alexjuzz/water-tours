@@ -187,9 +187,15 @@ public class TelegramUpdateHandler {
             sender.sendMessage(chatId, "Возврат выполнен: " + result.amount() + " ₽, refundId=" + result.providerRefundId());
         } catch (IllegalStateException | NoSuchElementException e) {
             sender.sendMessage(chatId, "Возврат не выполнен: " + e.getMessage());
+        } catch (ru.Water_Tours.ticket.service.PaymentProviderException e) {
+            log.warn("Telegram staff refund unresolved for chatId={}, orderId={}, message={}", chatId, orderId, e.getMessage());
+            boolean unknown = e.getMessage() != null && e.getMessage().contains("unknown");
+            sender.sendMessage(chatId, unknown
+                    ? "Результат возврата пока неизвестен. Билеты заблокированы, статус уточняется автоматически."
+                    : "Возврат не выполнен: провайдер платежей отклонил запрос или недоступен.");
         } catch (Exception e) {
             log.warn("Telegram staff refund failed for chatId={}, orderId={}, errorType={}", chatId, orderId, e.getClass().getSimpleName());
-            sender.sendMessage(chatId, "Возврат не выполнен: провайдер платежей недоступен или отклонил запрос.");
+            sender.sendMessage(chatId, "Возврат не выполнен: внутренняя ошибка. Проверьте статус заказа.");
         }
     }
 

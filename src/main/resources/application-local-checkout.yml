@@ -3,6 +3,9 @@ server:
 payments:
   reconciliation:
     enabled: false
+refunds:
+  reconciliation:
+    enabled: false
 tickets:
   issuance:
     enabled: false
