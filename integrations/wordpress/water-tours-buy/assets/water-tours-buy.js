@@ -51,6 +51,36 @@
       .catch(function () { return fallback; });
   }
 
+  /** A hung request must not look like a working one; every call is bounded. */
+  function fetchWithTimeout(url, init, timeoutMs) {
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var settings = Object.assign({}, init || {});
+    if (controller) settings.signal = controller.signal;
+    var timer = null;
+    var expiry = new Promise(function (resolve, reject) {
+      timer = setTimeout(function () {
+        if (controller) controller.abort();
+        reject(new Error('timeout'));
+      }, timeoutMs);
+    });
+    return Promise.race([fetch(url, settings), expiry]).then(function (response) {
+      clearTimeout(timer);
+      return response;
+    }, function (error) {
+      clearTimeout(timer);
+      // The aborted fetch rejects a moment after our own timeout did; report one cause, not two.
+      throw (error && error.name === 'AbortError') ? new Error('timeout') : error;
+    });
+  }
+
+  var STATUS_TIMEOUT_MS = 10000;
+  var PAY_TIMEOUT_MS = 15000;
+  var CREATE_TIMEOUT_MS = 20000;
+  var POLL_INTERVAL_MS = 4000;
+  // Set only while the browser is away at the payment provider. It is what lets the modal open
+  // by itself exactly once on the way back, without an ordinary refresh reopening it forever.
+  var RETURN_KEY = 'wt_return_pending';
+
   function createCheckout(options) {
     var modal = document.getElementById(options.modalId);
     var openBtn = document.getElementById(options.openBtnId);
@@ -61,6 +91,12 @@
     var lastFocusedElement = null;
     var fallbackIdempotencyKey = null;
     var pollTimer = null;
+    // Every status check takes a number. A reply whose number is no longer the newest belongs to
+    // a check the customer has already superseded, so it must not paint over the current screen.
+    var statusGeneration = 0;
+    var currentScreenKey = null;
+    var resumeEl = null;
+    var resumeKey = null;
 
     // ---------------------------------------------------------------- modal
 
@@ -87,8 +123,12 @@
       }
     }
 
+    function isOpen() {
+      return !!modal && modal.classList.contains('is-open');
+    }
+
     function openModal() {
-      if (!modal) return;
+      if (!modal || isOpen()) return;
       lastFocusedElement = document.activeElement;
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
@@ -100,9 +140,14 @@
     function closeModal() {
       if (!modal) return;
       stopPolling();
+      // Drop any reply still in flight: closing is the customer saying they are done for now.
+      statusGeneration++;
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.removeEventListener('keydown', trapFocus);
+      if (!resumeEl && loadOrder()) {
+        showResume('unknown', 'warn', options.labels.resumeUnknown, [openAction('primary')]);
+      }
       if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
     }
 
@@ -110,7 +155,6 @@
 
     function saveOrder(order) {
       writeSession(options.storageKey, JSON.stringify({ id: order.id, accessToken: order.accessToken }));
-      writeSession('wt_last_order_kind', options.kind);
     }
 
     function loadOrder() {
@@ -126,7 +170,8 @@
 
     function forgetOrder() {
       removeSession(options.storageKey);
-      if (readSession('wt_last_order_kind') === options.kind) removeSession('wt_last_order_kind');
+      if (readSession(RETURN_KEY) === options.kind) removeSession(RETURN_KEY);
+      hideResume();
     }
 
     function idempotencyKey() {
@@ -153,17 +198,33 @@
       }
     }
 
+    /** Once the order is paid the form is no longer an option the customer has. */
+    function setFormVisible(visible) {
+      if (form) form.hidden = !visible;
+    }
+
     function clearResult() {
       if (!resultEl) return;
       stopPolling();
       resultEl.textContent = '';
       resultEl.className = 'wt-result';
+      currentScreenKey = null;
     }
 
-    /** One screen shape for every outcome: a title, an explanation, and the actions that apply. */
-    function screen(tone, title, description, actions) {
+    /**
+     * One screen shape for every outcome: a title, an explanation, and the actions that apply.
+     * `key` identifies what is on screen. Re-rendering the same screen would reset a button the
+     * customer just pressed and yank the page back under them on every poll, so it is skipped -
+     * and the null return tells the caller nothing was rebuilt.
+     */
+    function screen(key, tone, title, description, actions) {
       if (!resultEl) return null;
+      if (key && key === currentScreenKey) {
+        clearBusy();
+        return null;
+      }
       clearResult();
+      currentScreenKey = key;
       resultEl.className = 'wt-result wt-status wt-status-' + tone;
       var panel = document.createElement('div');
       panel.className = 'wt-status-panel';
@@ -196,13 +257,41 @@
       return panel;
     }
 
-    function actionButton(label, variant, onClick) {
+    /** A pressed button says so and stops accepting presses until its request settles. */
+    function markBusy(button, busyLabel) {
+      button.setAttribute('data-idle-label', button.textContent);
+      button.setAttribute('aria-busy', 'true');
+      button.disabled = true;
+      button.textContent = busyLabel;
+    }
+
+    function clearBusy() {
+      if (!resultEl) return;
+      Array.prototype.slice.call(resultEl.querySelectorAll('[data-idle-label]')).forEach(function (button) {
+        button.textContent = button.getAttribute('data-idle-label');
+        button.removeAttribute('data-idle-label');
+        button.removeAttribute('aria-busy');
+        button.disabled = false;
+      });
+    }
+
+    function actionButton(label, variant, onClick, busyLabel) {
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'wt-status-button' + (variant ? ' wt-status-button-' + variant : '');
       button.textContent = label;
-      button.addEventListener('click', function () { onClick(button); });
+      button.addEventListener('click', function () {
+        if (button.disabled) return;
+        if (busyLabel) markBusy(button, busyLabel);
+        onClick(button);
+      });
       return button;
+    }
+
+    function recheckButton(order, attempts, variant) {
+      return actionButton(options.labels.recheck, variant || 'ghost', function () {
+        refreshStatus(order, attempts);
+      }, options.labels.rechecking);
     }
 
     function pdfLink(order, snapshot) {
@@ -224,11 +313,87 @@
       resultEl.textContent = text;
     }
 
+    // ------------------------------------------------- order kept on the page
+
+    /**
+     * An unfinished order and a ready ticket stay one click away next to the buy button. This is
+     * what replaces reopening the modal on load: the order is never lost, but it also never
+     * ambushes someone who simply refreshed the page or closed the window.
+     */
+    function hideResume() {
+      if (resumeEl && resumeEl.parentNode) resumeEl.parentNode.removeChild(resumeEl);
+      resumeEl = null;
+      resumeKey = null;
+    }
+
+    function showResume(key, tone, text, actions) {
+      if (!openBtn || !openBtn.parentNode) return;
+      if (resumeEl && key === resumeKey) return;
+      hideResume();
+      resumeKey = key;
+      resumeEl = document.createElement('div');
+      resumeEl.className = 'wt-resume wt-resume-' + tone;
+      resumeEl.setAttribute('role', 'status');
+
+      var line = document.createElement('p');
+      line.className = 'wt-resume-text';
+      line.textContent = text;
+      resumeEl.appendChild(line);
+
+      if (actions && actions.length) {
+        var row = document.createElement('div');
+        row.className = 'wt-resume-actions';
+        actions.forEach(function (action) { if (action) row.appendChild(action); });
+        resumeEl.appendChild(row);
+      }
+      openBtn.parentNode.insertBefore(resumeEl, openBtn.nextSibling);
+    }
+
+    function openAction(variant) {
+      return actionButton(options.labels.resumeOpen, variant || 'ghost', function () { openWithStatus(); });
+    }
+
+    function renderResume(order, snapshot) {
+      var status = snapshot && snapshot.status;
+
+      if (status === 'CANCELLED' || status === 'EXPIRED' || status === 'REFUNDED') {
+        // Nothing left to return to, and keeping it would make the next purchase open on a dead
+        // order instead of the form. Only this tab's own bookkeeping is discarded.
+        forgetOrder();
+        clearIdempotencyKey();
+        return;
+      }
+      if (snapshot && snapshot.refundInProgress) return hideResume();
+
+      if (status === 'PAID' && snapshot.ticketsIssued) {
+        return showResume('paid', 'success', options.labels.resumePaid, [pdfLink(order, snapshot), openAction('ghost')]);
+      }
+      if (status === 'PAID') {
+        return showResume('processing', 'success', options.labels.resumeProcessing, [openAction('primary')]);
+      }
+      showResume('unfinished', 'warn', options.labels.resumeUnfinished, [openAction('primary')]);
+    }
+
+    /** Opening the purchase screen always re-verifies first, so a paid order can never land back
+     *  on the payment form and no second order is started by mistake. */
+    function openWithStatus() {
+      var order = loadOrder();
+      openModal();
+      if (!order) {
+        clearResult();
+        setFormVisible(true);
+        return;
+      }
+      message('info', options.labels.checking);
+      refreshStatus(order, 3);
+    }
+
     // ------------------------------------------------------- status handling
 
     function fetchStatus(order) {
-      return fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
-        + '/status?accessToken=' + encodeURIComponent(order.accessToken)), { method: 'GET', credentials: 'omit' })
+      return fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
+        + '/status?accessToken=' + encodeURIComponent(order.accessToken)),
+        { method: 'GET', credentials: 'omit' }, STATUS_TIMEOUT_MS)
         .then(function (response) {
           if (response.status === 403 || response.status === 404) throw new Error('gone');
           if (!response.ok) throw new Error('status');
@@ -242,19 +407,30 @@
      *        take a few seconds to reach us, so a fresh return from checkout is never final yet.
      */
     function refreshStatus(order, attemptsLeft) {
+      stopPolling();
+      var generation = ++statusGeneration;
       fetchStatus(order)
-        .then(function (snapshot) { applyStatus(order, snapshot, attemptsLeft); })
+        .then(function (snapshot) {
+          if (generation !== statusGeneration) return;
+          applyStatus(order, snapshot, attemptsLeft);
+        })
         .catch(function (error) {
+          if (generation !== statusGeneration) return;
+          clearBusy();
           if (error && error.message === 'gone') {
             forgetOrder();
+            clearIdempotencyKey();
             return showCancelled(null, options.labels.orderGone);
           }
+          if (error && error.message === 'timeout') return showTimeout(order);
           showConnectionError(order);
         });
     }
 
     function applyStatus(order, snapshot, attemptsLeft) {
+      clearBusy();
       var status = snapshot && snapshot.status;
+      renderResume(order, snapshot);
 
       if (snapshot && snapshot.refundInProgress) return showRefundPending();
       if (status === 'REFUNDED') return showRefunded();
@@ -266,23 +442,29 @@
 
       // PAID but no ticket yet, or still waiting for the payment to be confirmed.
       if (attemptsLeft > 0) {
-        showProcessing(order, status === 'PAID');
-        pollTimer = setTimeout(function () { refreshStatus(order, attemptsLeft - 1); }, 4000);
+        showProcessing(order, status === 'PAID', true);
+        pollTimer = setTimeout(function () {
+          pollTimer = null;
+          refreshStatus(order, attemptsLeft - 1);
+        }, POLL_INTERVAL_MS);
         return;
       }
-      if (status === 'PAID') return showProcessing(order, true);
+      if (status === 'PAID') return showProcessing(order, true, false);
       return showUnpaid(order);
     }
 
     function showPaid(order, snapshot) {
+      setFormVisible(false);
+      var emailed = !!(snapshot && snapshot.ticketsEmailedAt);
       var actions = [pdfLink(order, snapshot)];
       if (snapshot && snapshot.emailResendAvailable) {
         actions.push(actionButton(options.labels.resend, 'ghost', function (button) {
           resendEmail(order, button);
         }));
       }
-      var panel = screen('success', options.labels.paidTitle, options.labels.paidText, actions);
-      if (panel && snapshot && snapshot.ticketsEmailedAt) {
+      var panel = screen('paid:' + (emailed ? '1' : '0'), 'success',
+        options.labels.paidTitle, options.labels.paidText, actions);
+      if (panel && emailed) {
         var note = document.createElement('p');
         note.className = 'wt-status-note';
         note.textContent = options.labels.emailedNote;
@@ -290,49 +472,73 @@
       }
     }
 
-    function showProcessing(order, paid) {
-      screen('info', options.labels.processingTitle,
+    function showProcessing(order, paid, autoChecking) {
+      setFormVisible(false);
+      var key = 'processing:' + (paid ? 'paid' : 'pending') + ':' + (autoChecking ? 'auto' : 'idle');
+      var panel = screen(key, 'info', options.labels.processingTitle,
         paid ? options.labels.processingPaidText : options.labels.processingText,
-        [actionButton(options.labels.recheck, 'ghost', function () { refreshStatus(order, 3); })]);
+        [recheckButton(order, 3, 'ghost')]);
+      if (panel) {
+        var note = document.createElement('p');
+        note.className = 'wt-status-note';
+        note.textContent = autoChecking ? options.labels.processingAutoNote : options.labels.processingStalledNote;
+        panel.appendChild(note);
+      }
     }
 
     function showUnpaid(order) {
-      screen('warn', options.labels.unpaidTitle, options.labels.unpaidText, [
+      setFormVisible(false);
+      screen('unpaid', 'warn', options.labels.unpaidTitle, options.labels.unpaidText, [
         actionButton(config.localTestMode ? options.labels.testPay : options.labels.pay, 'primary', function (button) {
-          button.disabled = true;
           if (config.localTestMode) testPay(order, button);
           else startPayment(order);
-        }),
+        }, config.localTestMode ? options.labels.testPaying : options.labels.redirecting),
+        recheckButton(order, 2, 'ghost'),
         actionButton(options.labels.startOver, 'ghost', function () { startOver(); })
       ]);
     }
 
     function showCancelled(order, customText) {
-      screen('warn', options.labels.cancelledTitle, customText || options.labels.cancelledText, [
-        actionButton(options.labels.startOver, 'primary', function () { startOver(); })
-      ]);
+      setFormVisible(false);
+      screen('cancelled:' + (customText || ''), 'warn', options.labels.cancelledTitle,
+        customText || options.labels.cancelledText, [
+          actionButton(options.labels.startOver, 'primary', function () { startOver(); })
+        ]);
     }
 
     function showRefunded() {
-      screen('info', options.labels.refundedTitle, options.labels.refundedText, [
+      setFormVisible(false);
+      screen('refunded', 'info', options.labels.refundedTitle, options.labels.refundedText, [
         actionButton(options.labels.startOver, 'ghost', function () { startOver(); })
       ]);
     }
 
     function showRefundPending() {
-      screen('info', options.labels.refundPendingTitle, options.labels.refundPendingText, []);
+      setFormVisible(false);
+      screen('refund-pending', 'info', options.labels.refundPendingTitle, options.labels.refundPendingText, []);
     }
 
     function showConnectionError(order) {
-      screen('error', options.labels.connectionTitle, options.labels.connectionText, [
-        actionButton(options.labels.recheck, 'primary', function () { refreshStatus(order, 2); })
+      setFormVisible(false);
+      screen('error:connection', 'error', options.labels.connectionTitle, options.labels.connectionText, [
+        recheckButton(order, 2, 'primary')
+      ]);
+    }
+
+    function showTimeout(order) {
+      setFormVisible(false);
+      screen('error:timeout', 'error', options.labels.timeoutTitle, options.labels.timeoutText, [
+        recheckButton(order, 2, 'primary')
       ]);
     }
 
     function startOver() {
+      stopPolling();
+      statusGeneration++;
       forgetOrder();
       clearIdempotencyKey();
       clearResult();
+      setFormVisible(true);
       if (form) form.reset();
       if (options.onReset) options.onReset();
     }
@@ -343,8 +549,9 @@
       button.disabled = true;
       var previous = button.textContent;
       button.textContent = options.labels.resending;
-      fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
-        + '/tickets/email?accessToken=' + encodeURIComponent(order.accessToken)), { method: 'POST', credentials: 'omit' })
+      fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
+        + '/tickets/email?accessToken=' + encodeURIComponent(order.accessToken)),
+        { method: 'POST', credentials: 'omit' }, PAY_TIMEOUT_MS)
         .then(function (response) {
           if (response.ok) {
             button.textContent = options.labels.resent;
@@ -371,29 +578,38 @@
 
     function startPayment(order) {
       message('info', options.labels.redirecting);
-      fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
-        + '/pay?accessToken=' + encodeURIComponent(order.accessToken)), { method: 'POST', credentials: 'omit' })
+      fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
+        + '/pay?accessToken=' + encodeURIComponent(order.accessToken)),
+        { method: 'POST', credentials: 'omit' }, PAY_TIMEOUT_MS)
         .then(function (response) {
           if (!response.ok) throw new Error('pay');
           return response.json();
         })
         .then(function (payment) {
           if (payment && payment.paymentUrl) {
+            // Leaving for the provider. This marker is the only thing that will let the modal
+            // reopen on its own, and it is consumed by the first load after the return.
+            writeSession(RETURN_KEY, options.kind);
             window.location.href = payment.paymentUrl;
             return;
           }
           throw new Error('no-payment-url');
         })
-        .catch(function () {
-          screen('error', options.labels.payFailedTitle, options.labels.payFailedText, [
-            actionButton(options.labels.pay, 'primary', function () { startPayment(order); })
-          ]);
+        .catch(function (error) {
+          var timedOut = error && error.message === 'timeout';
+          screen(timedOut ? 'error:pay-timeout' : 'error:pay', 'error',
+            options.labels.payFailedTitle,
+            timedOut ? options.labels.payTimeoutText : options.labels.payFailedText, [
+              actionButton(options.labels.pay, 'primary', function () { startPayment(order); }, options.labels.redirecting),
+              recheckButton(order, 2, 'ghost')
+            ]);
         });
     }
 
     function testPay(order, button) {
-      fetch(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
-        + '/test-pay?accessToken=' + encodeURIComponent(order.accessToken)), { method: 'POST', credentials: 'omit' })
+      fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
+        + '/test-pay?accessToken=' + encodeURIComponent(order.accessToken)),
+        { method: 'POST', credentials: 'omit' }, PAY_TIMEOUT_MS)
         .then(function (response) {
           if (!response.ok) throw new Error('test-pay');
           return response.json();
@@ -410,14 +626,17 @@
       var payload = options.collect();
       if (payload.error) return message('error', payload.error);
 
-      if (submitBtn) submitBtn.disabled = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.setAttribute('aria-busy', 'true');
+      }
       message('info', options.labels.creating);
-      fetch(backendUrl(config.ordersPath || '/api/v1/orders'), {
+      fetchWithTimeout(backendUrl(config.ordersPath || '/api/v1/orders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey() },
         body: JSON.stringify(payload.body),
         credentials: 'omit'
-      })
+      }, CREATE_TIMEOUT_MS)
         .then(function (response) {
           if (!response.ok) {
             return readErrorMessage(response, options.labels.createFailed).then(function (text) {
@@ -434,24 +653,53 @@
           startPayment(order);
         })
         .catch(function (error) {
+          // The idempotency key survives a failure, so pressing the button again resolves to the
+          // same order server-side instead of creating a second one.
+          if (error && error.message === 'timeout') return message('error', options.labels.createTimeout);
           message('error', (error && error.message) ? error.message : options.labels.createFailed);
         })
-        .finally(function () { if (submitBtn) submitBtn.disabled = false; });
+        .finally(function () {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-busy');
+          }
+        });
     }
 
+    /**
+     * Runs once per page load. Only a genuine return from the payment provider opens the modal;
+     * an ordinary refresh - or a reload after the customer closed the window - just puts the
+     * order back within reach beside the buy button.
+     */
     function restore() {
-      if (readSession('wt_last_order_kind') !== options.kind) return;
       var order = loadOrder();
       if (!order) return;
-      openModal();
-      message('info', options.labels.checking);
-      // A reload or a return from the payment page lands here: never trust a cached status.
-      refreshStatus(order, 6);
+
+      if (readSession(RETURN_KEY) === options.kind) {
+        removeSession(RETURN_KEY);
+        openModal();
+        message('info', options.labels.checking);
+        // Never trust a cached status: the outcome shown here is the one the server confirms.
+        refreshStatus(order, 6);
+        return;
+      }
+
+      fetchStatus(order)
+        .then(function (snapshot) { renderResume(order, snapshot); })
+        .catch(function (error) {
+          if (error && error.message === 'gone') {
+            forgetOrder();
+            clearIdempotencyKey();
+            return;
+          }
+          // Say only what is known: the order exists, its state does not.
+          showResume('unknown', 'warn', options.labels.resumeUnknown, [openAction('primary')]);
+        });
     }
 
     function init() {
       if (!form) return;
-      if (openBtn) openBtn.addEventListener('click', openModal);
+      if (openBtn) openBtn.addEventListener('click', openWithStatus);
       if (closeBtn) closeBtn.addEventListener('click', closeModal);
       if (modal) modal.addEventListener('click', function (event) { if (event.target === modal) closeModal(); });
       form.addEventListener('submit', submitOrder);
@@ -521,7 +769,20 @@
       processingTitle: 'Оплата обрабатывается',
       processingText: 'Проверяем платёж. Это занимает до минуты — не закрывайте страницу.',
       processingPaidText: 'Оплата подтверждена, готовим билеты. Обычно это занимает меньше минуты.',
-      recheck: 'Проверить ещё раз',
+      recheck: 'Проверить оплату',
+      rechecking: 'Проверяем оплату...',
+      processingAutoNote: 'Статус обновляется автоматически каждые несколько секунд.',
+      processingStalledNote: 'Автоматическая проверка завершена. Нажмите «Проверить оплату», если статус не изменился.',
+      timeoutTitle: 'Проверка не уложилась во время',
+      timeoutText: 'Сервер не ответил за 10 секунд. Заказ не потерян — попробуйте проверить ещё раз.',
+      payTimeoutText: 'Платёжная страница не ответила вовремя. Попробуйте ещё раз — повторный переход не создаёт второй платёж.',
+      createTimeout: 'Сервер не ответил вовремя. Нажмите «Оформить заказ» ещё раз — дубликат заказа не создастся.',
+      testPaying: 'Оплачиваем...',
+      resumeOpen: 'Открыть заказ',
+      resumePaid: 'Заказ оплачен, билеты готовы.',
+      resumeProcessing: 'Оплата подтверждена, готовим билеты.',
+      resumeUnfinished: 'У вас есть незавершённый заказ.',
+      resumeUnknown: 'У вас есть незавершённый заказ. Статус пока не удалось проверить.',
       unpaidTitle: 'Оплата не завершена',
       unpaidText: 'Заказ создан, но оплата не подтверждена. Если вы уже платили, подождите минуту и проверьте статус.',
       pay: 'Перейти к оплате',
@@ -617,7 +878,20 @@
       processingTitle: 'Оплата обрабатывается',
       processingText: 'Проверяем платёж. Это занимает до минуты — не закрывайте страницу.',
       processingPaidText: 'Оплата подтверждена, готовим билет. Обычно это занимает меньше минуты.',
-      recheck: 'Проверить ещё раз',
+      recheck: 'Проверить оплату',
+      rechecking: 'Проверяем оплату...',
+      processingAutoNote: 'Статус обновляется автоматически каждые несколько секунд.',
+      processingStalledNote: 'Автоматическая проверка завершена. Нажмите «Проверить оплату», если статус не изменился.',
+      timeoutTitle: 'Проверка не уложилась во время',
+      timeoutText: 'Сервер не ответил за 10 секунд. Заявка не потеряна — попробуйте проверить ещё раз.',
+      payTimeoutText: 'Платёжная страница не ответила вовремя. Попробуйте ещё раз — повторный переход не создаёт второй платёж.',
+      createTimeout: 'Сервер не ответил вовремя. Нажмите «Оформить аренду» ещё раз — дубликат заявки не создастся.',
+      testPaying: 'Оплачиваем...',
+      resumeOpen: 'Открыть заявку',
+      resumePaid: 'Аренда оплачена, билет готов.',
+      resumeProcessing: 'Оплата подтверждена, готовим билет.',
+      resumeUnfinished: 'У вас есть незавершённая заявка на аренду.',
+      resumeUnknown: 'У вас есть незавершённая заявка на аренду. Статус пока не удалось проверить.',
       unpaidTitle: 'Оплата не завершена',
       unpaidText: 'Заявка на аренду создана, но оплата не подтверждена. Если вы уже платили, подождите минуту и проверьте статус.',
       pay: 'Перейти к оплате',

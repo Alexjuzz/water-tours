@@ -247,6 +247,55 @@
     cursor: not-allowed;
 }
 
+
+/* An unfinished order or a ready ticket, kept beside the buy button instead of reopening
+   the modal on every page load. */
+/* Hiding the form is how a paid order is kept from offering payment entry again; a theme
+   rule on form must not be able to bring it back. */
+.wt-modal-content form[hidden] {
+    display: none !important;
+}
+
+.wt-resume {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border: 1px solid #d9e1e7;
+    border-left-width: 4px;
+    border-radius: 10px;
+    background: #f8fafb;
+    text-align: left;
+}
+
+.wt-resume-success {
+    border-left-color: #2e7d32;
+    background: #f3faf4;
+}
+
+.wt-resume-warn {
+    border-left-color: #ef6c00;
+    background: #fff8f1;
+}
+
+.wt-resume-text {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #17212b;
+}
+
+.wt-resume-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+/* A pressed action reads as working, not as broken. */
+.wt-status-button[aria-busy="true"] {
+    cursor: progress;
+}
+
 .wt-boat-main-button {
     background: #083f4c;
 }
@@ -371,6 +420,11 @@
     }
 
     .wt-status-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wt-resume-actions {
         flex-direction: column;
         align-items: stretch;
     }

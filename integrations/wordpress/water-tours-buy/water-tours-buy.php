@@ -208,7 +208,7 @@ function water_tours_buy_shortcode() {
             Купить билет
         </button>
 
-        <div id="wt-modal" class="wt-modal">
+        <div id="wt-modal" class="wt-modal" aria-hidden="true">
             <div class="wt-modal-content" role="dialog" aria-modal="true" aria-labelledby="wt-modal-title">
                 <button id="wt-close-modal" class="wt-close" type="button" aria-label="Закрыть">&times;</button>
 
@@ -252,7 +252,7 @@ function water_tours_buy_shortcode() {
                     </button>
                 </form>
 
-                <div id="wt-result" class="wt-result"></div>
+                <div id="wt-result" class="wt-result" aria-live="polite"></div>
             </div>
         </div>
     </div>
