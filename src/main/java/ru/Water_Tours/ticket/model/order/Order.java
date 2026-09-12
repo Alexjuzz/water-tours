@@ -60,6 +60,10 @@ public class Order {
     private String phone;
     @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount;
+    // Which published price version was in effect when this order's items were priced (task 7.3) -
+    // a later price change never affects an already-created order.
+    @Column(name = "price_version")
+    private Integer priceVersion;
     @Column(name = "created_at")
     private Instant createdAt;
     @Column(name = "paid_at")

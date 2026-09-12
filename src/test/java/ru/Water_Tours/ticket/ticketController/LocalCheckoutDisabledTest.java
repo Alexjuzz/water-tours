@@ -16,6 +16,7 @@ class LocalCheckoutDisabledTest {
  @Autowired MockMvc mvc;
  @MockitoBean LocalCheckoutService checkout;
  @MockitoBean TicketService tickets;
+ @MockitoBean PricingService pricing;
  @Test void localFeaturesAbsentWithoutProfile() throws Exception {
   mvc.perform(get("/checkout.html")).andExpect(status().isNotFound());
   mvc.perform(get("/api/v1/local-checkout/catalog")).andExpect(status().isNotFound());

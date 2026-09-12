@@ -2,7 +2,6 @@ package ru.Water_Tours.ticket.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.Water_Tours.component.TicketProperties;
 import ru.Water_Tours.enums.OrderStatus;
 import ru.Water_Tours.enums.OrderType;
 import ru.Water_Tours.enums.TicketType;
@@ -11,6 +10,7 @@ import ru.Water_Tours.ticket.model.order.BoatRentalRequestDTO;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.order.OrderRequestDTO;
 import ru.Water_Tours.ticket.model.order.OrderResponse;
+import ru.Water_Tours.ticket.model.pricing.PriceVersion;
 import ru.Water_Tours.ticket.repository.OrderRepository;
 
 import java.math.BigDecimal;
@@ -22,22 +22,29 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ru.Water_Tours.ticket.repository.TicketRepository ticketRepository;
+    private final PricingService pricingService;
 
     public OrderService(OrderRepository orderRepository,
-                        ru.Water_Tours.ticket.repository.TicketRepository ticketRepository) {
+                        ru.Water_Tours.ticket.repository.TicketRepository ticketRepository,
+                        PricingService pricingService) {
         this.orderRepository = orderRepository;
         this.ticketRepository = ticketRepository;
+        this.pricingService = pricingService;
     }
 
     public Order createOrder(OrderRequestDTO order, String idempotencyKey) {
         Order newOrder = new Order();
+        // Read once so both branches and the total price out of one atomic view of published
+        // prices - a publish happening mid-request can't mix old and new prices in one order.
+        PriceVersion priceVersion = pricingService.getCurrent();
+        newOrder.setPriceVersion(priceVersion.getVersionNumber());
         if (order.boatRental() != null) {
             if (order.tickets() != null && order.tickets().values().stream().anyMatch(qty -> qty != null && qty > 0)) {
                 throw new IllegalArgumentException("Passenger tickets and a private boat cannot be combined in one order");
             }
-            configurePrivateBoat(newOrder, order.boatRental());
+            configurePrivateBoat(newOrder, order.boatRental(), priceVersion);
         } else {
-            configurePassengerOrder(newOrder, order.tickets());
+            configurePassengerOrder(newOrder, order.tickets(), priceVersion);
         }
 
         newOrder.setEmail(order.email());
@@ -52,18 +59,18 @@ public class OrderService {
         return orderRepository.save(newOrder);
     }
 
-    private void configurePassengerOrder(Order order, Map<TicketType, Integer> tickets) {
+    private void configurePassengerOrder(Order order, Map<TicketType, Integer> tickets, PriceVersion priceVersion) {
         if (tickets == null || tickets.isEmpty() || tickets.containsKey(TicketType.PRIVATE_BOAT)) {
             throw new IllegalArgumentException("Order must contain at least one passenger ticket");
         }
         order.setOrderType(OrderType.PASSENGER);
-        order.setOrderItems(getOrderItems(order, tickets));
+        order.setOrderItems(getOrderItems(order, tickets, priceVersion));
         if (order.getOrderItems().isEmpty()) {
             throw new IllegalArgumentException("Order must contain at least one ticket with positive quantity");
         }
     }
 
-    private void configurePrivateBoat(Order order, BoatRentalRequestDTO rental) {
+    private void configurePrivateBoat(Order order, BoatRentalRequestDTO rental, PriceVersion priceVersion) {
         if (rental.durationMinutes() == null || rental.guestCount() == null || rental.routeType() == null) {
             throw new IllegalArgumentException("Boat rental duration, guest count and route type are required");
         }
@@ -74,7 +81,7 @@ public class OrderService {
         if (routeNote != null && routeNote.length() > 300) {
             throw new IllegalArgumentException("Boat route note must not exceed 300 characters");
         }
-        BigDecimal price = BoatRentalPricing.priceFor(rental.durationMinutes());
+        BigDecimal price = boatPriceFrom(priceVersion, rental.durationMinutes());
         order.setOrderType(OrderType.PRIVATE_BOAT);
         order.setBoatDurationMinutes(rental.durationMinutes());
         order.setBoatGuestCount(rental.guestCount());
@@ -121,7 +128,7 @@ public class OrderService {
         );
     }
 
-    private List<OrderItem> getOrderItems(Order order, Map<TicketType, Integer> tickets) {
+    private List<OrderItem> getOrderItems(Order order, Map<TicketType, Integer> tickets, PriceVersion priceVersion) {
         if (tickets.isEmpty()) {
             return new ArrayList<>();
         }
@@ -130,12 +137,13 @@ public class OrderService {
             if (entry.getKey() == null || entry.getKey() == TicketType.PRIVATE_BOAT) continue;
             Integer qty = entry.getValue();
             if (qty == null || qty <= 0) continue;
+            BigDecimal unitPrice = ticketPriceFrom(priceVersion, entry.getKey());
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
-            orderItem.setPrice(TicketProperties.getPriceByType(entry.getKey()));
+            orderItem.setPrice(unitPrice);
             orderItem.setType(entry.getKey());
             orderItem.setQuantity(entry.getValue());
-            orderItem.setAmountPrice(calculateTicketPrice(entry.getKey(), entry.getValue()));
+            orderItem.setAmountPrice(unitPrice.multiply(BigDecimal.valueOf(entry.getValue())));
             result.add(orderItem);
         }
         return result;
@@ -182,9 +190,23 @@ public class OrderService {
 
     //REGION PRIVATE METHODS
 
-    private BigDecimal calculateTicketPrice(TicketType ticketType, Integer count) {
-        return TicketProperties.getPriceByType(ticketType).multiply(BigDecimal.valueOf(count));
+    private BigDecimal ticketPriceFrom(PriceVersion priceVersion, TicketType type) {
+        return switch (type) {
+            case ADULT -> priceVersion.getAdultPrice();
+            case CHILD -> priceVersion.getChildPrice();
+            case BENEFIT -> priceVersion.getBenefitPrice();
+            case PRIVATE_BOAT -> throw new IllegalArgumentException("Private boat price depends on rental duration");
+        };
+    }
 
+    private BigDecimal boatPriceFrom(PriceVersion priceVersion, int durationMinutes) {
+        return switch (durationMinutes) {
+            case 30 -> priceVersion.getBoatPrice30();
+            case 60 -> priceVersion.getBoatPrice60();
+            case 90 -> priceVersion.getBoatPrice90();
+            case 120 -> priceVersion.getBoatPrice120();
+            default -> throw new IllegalArgumentException("Boat rental duration must be one of: 30, 60, 90, 120 minutes");
+        };
     }
 
     private BigDecimal calculateTotalAmount(List<OrderItem> orderItemList) {

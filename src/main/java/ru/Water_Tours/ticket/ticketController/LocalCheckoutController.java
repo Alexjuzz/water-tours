@@ -9,12 +9,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
-import ru.Water_Tours.component.TicketProperties;
 import ru.Water_Tours.enums.TicketType;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.order.TestPaymentResponse;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
 import ru.Water_Tours.ticket.service.LocalCheckoutService;
+import ru.Water_Tours.ticket.service.PricingService;
 import ru.Water_Tours.ticket.service.TicketService;
 
 import java.math.BigDecimal;
@@ -35,6 +35,7 @@ public class LocalCheckoutController {
 
     private final LocalCheckoutService checkoutService;
     private final TicketService ticketService;
+    private final PricingService pricingService;
     /**
      * Explicit allowlist for non-loopback callers, e.g. the Docker Desktop bridge gateway
      * address when this backend runs in a container and the WordPress bridge calls it via
@@ -43,9 +44,11 @@ public class LocalCheckoutController {
     private final Set<String> trustedRemoteAddresses;
 
     public LocalCheckoutController(LocalCheckoutService checkoutService, TicketService ticketService,
+            PricingService pricingService,
             @Value("${local-checkout.trusted-remote-addresses:}") String trustedRemoteAddresses) {
         this.checkoutService = checkoutService;
         this.ticketService = ticketService;
+        this.pricingService = pricingService;
         this.trustedRemoteAddresses = Arrays.stream(trustedRemoteAddresses.split(","))
                 .map(String::trim)
                 .filter(address -> !address.isEmpty())
@@ -62,7 +65,7 @@ public class LocalCheckoutController {
         Map<TicketType, BigDecimal> catalog = new LinkedHashMap<>();
         for (TicketType type : TicketType.values()) {
             if (type == TicketType.PRIVATE_BOAT) continue;
-            catalog.put(type, TicketProperties.getPriceByType(type));
+            catalog.put(type, pricingService.getTicketPrice(type));
         }
         return catalog;
     }

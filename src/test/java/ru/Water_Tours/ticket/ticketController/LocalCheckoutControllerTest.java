@@ -14,6 +14,7 @@ import ru.Water_Tours.security.LoginAttemptService;
 import ru.Water_Tours.security.SecurityConfig;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.service.LocalCheckoutService;
+import ru.Water_Tours.ticket.service.PricingService;
 import ru.Water_Tours.ticket.service.TicketService;
 
 import java.time.Instant;
@@ -37,6 +38,7 @@ class LocalCheckoutControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean LocalCheckoutService checkoutService;
     @MockitoBean TicketService ticketService;
+    @MockitoBean PricingService pricingService;
 
     private Order testPaidOrder(UUID id, Instant paidAt) {
         Order order = new Order();
