@@ -15,6 +15,7 @@ import ru.Water_Tours.enums.TicketStatus;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
 import ru.Water_Tours.ticket.service.PdfTicketService;
+import ru.Water_Tours.ticket.service.StaffTestEmailGuard;
 import ru.Water_Tours.ticket.service.StaffTestOrderService;
 import ru.Water_Tours.ticket.service.TicketService;
 
@@ -35,13 +36,16 @@ public class StaffTestOrderController {
     private static final Logger log = LoggerFactory.getLogger(StaffTestOrderController.class);
 
     private final StaffTestOrderService testOrders;
+    private final StaffTestEmailGuard emailGuard;
     private final TicketService ticketService;
     private final PdfTicketService pdfTicketService;
     private final String baseUrl;
 
-    public StaffTestOrderController(StaffTestOrderService testOrders, TicketService ticketService,
-                                    PdfTicketService pdfTicketService, @Value("${app.base-url}") String baseUrl) {
+    public StaffTestOrderController(StaffTestOrderService testOrders, StaffTestEmailGuard emailGuard,
+                                    TicketService ticketService, PdfTicketService pdfTicketService,
+                                    @Value("${app.base-url}") String baseUrl) {
         this.testOrders = testOrders;
+        this.emailGuard = emailGuard;
         this.ticketService = ticketService;
         this.pdfTicketService = pdfTicketService;
         this.baseUrl = baseUrl;
@@ -60,8 +64,9 @@ public class StaffTestOrderController {
 
         sb.append("<p>Создаёт помеченный тестовый заказ и сразу выпускает билет. Деньги не списываются, платёжный ")
                 .append("провайдер не вызывается. Тестовые заказы <strong>никогда не попадают в автоматическую рассылку</strong> — ")
-                .append("письмо по ним уходит только по кнопке «Отправить письмо» ниже, на тот адрес, который вы укажете.</p>");
-        sb.append("<p class=\"muted\">Если оставить адрес пустым, заказ получит служебный адрес ")
+                .append("письмо по ним уходит только по вашей кнопке, на тот адрес, который вы укажете здесь.</p>");
+        sb.append("<p class=\"muted\">Письмо уходит той же самой почтой, что и настоящим покупателям: то же оформление ")
+                .append("и тот же PDF с QR-кодом. Если оставить адрес пустым, заказ получит служебный адрес ")
                 .append(HtmlUtils.htmlEscape(StaffTestOrderService.TEST_EMAIL_DOMAIN))
                 .append(" — тогда письмо отправить нельзя, но выдачу и PDF проверить можно.</p>");
 
@@ -71,8 +76,13 @@ public class StaffTestOrderController {
                 .append("<option value=\"ticket\">обычный билет (взрослый, 1 шт.)</option>")
                 .append("<option value=\"boat\">аренда катера (60 мин, 2 гостя)</option>")
                 .append("</select></label></p>");
-        sb.append("<p><label>Email для письма <input type=\"email\" name=\"email\" placeholder=\"можно оставить пустым\" size=\"32\"></label></p>");
-        sb.append("<button type=\"submit\">Создать тестовый заказ и выдать билет</button>");
+        sb.append("<p><label>Email для письма <input type=\"email\" name=\"email\" placeholder=\"you@example.ru\" size=\"32\"></label></p>");
+        sb.append("<p><button type=\"submit\" name=\"action\" value=\"create\">Только создать заказ и выдать билет (без письма)</button></p>");
+        sb.append("<p><button type=\"submit\" name=\"action\" value=\"create-and-send\" ")
+                .append("onclick=\"return confirm('Отправить настоящее письмо с билетом на указанный адрес?');\">")
+                .append("Создать заказ и отправить письмо с билетом на указанный адрес</button></p>");
+        sb.append("<p class=\"muted\">Отправка требует подтверждения и защищена от повторов: одно письмо на один адрес "
+                + "не чаще раза в минуту, поэтому двойной клик или обновление страницы не создадут второе письмо.</p>");
         sb.append("</form>");
 
         List<Order> orders = testOrders.recentTestOrders();
@@ -120,14 +130,51 @@ public class StaffTestOrderController {
     @PostMapping
     public String create(@RequestParam(required = false) String flow,
                          @RequestParam(required = false) String email,
+                         @RequestParam(required = false) String action,
                          Authentication authentication) {
+        boolean privateBoat = "boat".equals(flow);
+        String staff = authentication.getName();
+
+        if (!"create-and-send".equals(action)) {
+            try {
+                Order order = testOrders.createIssuedTestOrder(staff, privateBoat, email);
+                return redirect("msg", "Тестовый заказ создан, билет выпущен: " + order.getId()
+                        + ". Письмо не отправлялось.");
+            } catch (Exception e) {
+                log.warn("Staff test order failed, errorType={}", e.getClass().getSimpleName());
+                return redirect("error", "Не удалось создать тестовый заказ: " + e.getMessage());
+            }
+        }
+
+        // Address and repeat protection first: refuse before a ticket is issued, so a mistyped
+        // address or a double click does not leave stray test orders behind.
+        String recipient;
         try {
-            boolean privateBoat = "boat".equals(flow);
-            Order order = testOrders.createIssuedTestOrder(authentication.getName(), privateBoat, email);
-            return redirect("msg", "Тестовый заказ создан, билет выпущен: " + order.getId());
+            recipient = emailGuard.requireSendableAddress(email);
+            emailGuard.reserve(staff, recipient);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return redirect("error", e.getMessage());
+        }
+
+        Order order;
+        try {
+            order = testOrders.createIssuedTestOrder(staff, privateBoat, recipient);
         } catch (Exception e) {
             log.warn("Staff test order failed, errorType={}", e.getClass().getSimpleName());
             return redirect("error", "Не удалось создать тестовый заказ: " + e.getMessage());
+        }
+
+        String masked = StaffMailQueueController.maskEmail(recipient);
+        try {
+            testOrders.sendTestEmail(order.getId(), staff);
+            return redirect("msg", "Готово. Заказ " + order.getId() + " создан, билет выпущен, письмо принято"
+                    + " почтовым сервером для доставки на " + masked
+                    + ". Проверьте «Входящие» и «Спам»: приём сервером ещё не гарантирует попадание в папку.");
+        } catch (Exception e) {
+            log.warn("Staff test email failed for orderId={}, errorType={}", order.getId(), e.getClass().getSimpleName());
+            return redirect("error", "Заказ " + order.getId() + " создан и билет выпущен, но почтовый сервер"
+                    + " не принял письмо на " + masked + ": " + e.getMessage()
+                    + " Билет можно скачать в таблице ниже.");
         }
     }
 
