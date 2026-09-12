@@ -54,6 +54,9 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       # SMTP now confirmed working (2026-09-07) — safe to turn on real delivery.
       TICKETS_EMAIL_DELIVERY_ENABLED: ${TICKETS_EMAIL_DELIVERY_ENABLED:-true}
+      # Required alongside the flag: only orders paid after this instant are delivered
+      # automatically. Empty means nothing is delivered (see TicketEmailDeliveryJob).
+      TICKETS_EMAIL_DELIVERY_DELIVER_PAID_FROM: ${TICKETS_EMAIL_DELIVERY_DELIVER_PAID_FROM:-}
       YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID}
       YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY}
       STAFF_USERNAME: ${STAFF_USERNAME}
