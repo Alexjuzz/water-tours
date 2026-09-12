@@ -1,5 +1,9 @@
 # Disaster recovery
 
+Создание бэкапов (сервер, cron) описано в `backup.sh` рядом с этим файлом и в
+`../readiness/BACKUP-POLICY.md`. Этот README — про восстановление из уже готового
+бэкапа.
+
 Полностью автономный docker-compose стек: Postgres, Redis, backend-приложение,
 MariaDB, WordPress, Nginx. Поднимает копию сайта с нуля на любой машине с Docker
 и восстанавливает данные из бэкапа.
