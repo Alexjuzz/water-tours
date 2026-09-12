@@ -77,3 +77,7 @@ tickets:
   email-delivery:
     enabled: false
     interval: 60000
+    # Only orders paid after this instant are delivered automatically; anything older stays queued
+    # for explicit review at /staff/mail-queue. Both this and `enabled` are required - see
+    # TicketEmailDeliveryJob.
+    deliver-paid-from: ${TICKETS_EMAIL_DELIVERY_DELIVER_PAID_FROM:}

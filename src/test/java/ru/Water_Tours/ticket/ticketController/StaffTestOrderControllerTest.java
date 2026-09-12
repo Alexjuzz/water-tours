@@ -73,12 +73,39 @@ class StaffTestOrderControllerTest {
     void staffCanCreateATestOrder() throws Exception {
         Order order = new Order();
         order.setId(UUID.randomUUID());
-        when(testOrders.createIssuedTestOrder("staff")).thenReturn(order);
+        when(testOrders.createIssuedTestOrder("staff", false, null)).thenReturn(order);
 
         mvc.perform(post("/staff/test-order").with(user("staff").roles("STAFF")).with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
-        verify(testOrders).createIssuedTestOrder("staff");
+        verify(testOrders).createIssuedTestOrder("staff", false, null);
+    }
+
+    @Test
+    void staffCanCreateAPrivateBoatTestOrderWithAnAddress() throws Exception {
+        Order order = new Order();
+        order.setId(UUID.randomUUID());
+        when(testOrders.createIssuedTestOrder("staff", true, "owner@example.org")).thenReturn(order);
+
+        mvc.perform(post("/staff/test-order").with(user("staff").roles("STAFF")).with(csrf())
+                        .param("flow", "boat").param("email", "owner@example.org"))
+                .andExpect(status().is3xxRedirection());
+
+        verify(testOrders).createIssuedTestOrder("staff", true, "owner@example.org");
+    }
+
+    @Test
+    void sendingATestEmailIsStaffOnlyAndNeedsCsrf() throws Exception {
+        UUID id = UUID.randomUUID();
+        mvc.perform(post("/staff/test-order/{id}/send", id).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+        mvc.perform(post("/staff/test-order/{id}/send", id).with(user("staff").roles("STAFF")))
+                .andExpect(status().isForbidden());
+        verify(testOrders, never()).sendTestEmail(any(), any());
+
+        mvc.perform(post("/staff/test-order/{id}/send", id).with(user("staff").roles("STAFF")).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+        verify(testOrders).sendTestEmail(id, "staff");
     }
 
     @Test

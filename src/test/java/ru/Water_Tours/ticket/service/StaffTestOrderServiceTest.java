@@ -3,6 +3,7 @@ package ru.Water_Tours.ticket.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.Water_Tours.enums.OrderStatus;
+import ru.Water_Tours.enums.OrderType;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.order.OrderRequestDTO;
 import ru.Water_Tours.ticket.model.payment.Payment;
@@ -30,8 +31,10 @@ class StaffTestOrderServiceTest {
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
     private final TicketService ticketService = mock(TicketService.class);
+    private final TicketEmailService ticketEmailService = mock(TicketEmailService.class);
     private final StaffTestOrderService service = new StaffTestOrderService(
-            orderService, orderRepository, paymentRepository, ticketService, Clock.fixed(NOW, ZoneOffset.UTC));
+            orderService, orderRepository, paymentRepository, ticketService, ticketEmailService,
+            Clock.fixed(NOW, ZoneOffset.UTC));
 
     private Order order;
 
@@ -49,7 +52,7 @@ class StaffTestOrderServiceTest {
 
     @Test
     void createsPaidTestOrderAndIssuesTickets() {
-        Order result = service.createIssuedTestOrder("staff");
+        Order result = service.createIssuedTestOrder("staff", false, null);
 
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAID);
         assertThat(result.getTestPaid()).isTrue();
@@ -58,27 +61,43 @@ class StaffTestOrderServiceTest {
     }
 
     @Test
-    void suppressesTicketEmailByPreStampingDeliveredAt() {
-        Order result = service.createIssuedTestOrder("staff");
+    void leavesDeliveryStateHonestSoNothingIsMarkedAsSentWhenItWasNot() {
+        Order result = service.createIssuedTestOrder("staff", false, null);
 
-        // findOrderIdsAwaitingTicketEmail only returns orders whose ticketsEmailedAt is null, so a
-        // non-null stamp is what keeps the delivery job from mailing a test ticket to anyone.
-        assertThat(result.getTicketsEmailedAt()).isEqualTo(NOW);
+        // Test orders are kept out of automatic delivery by the queue's test_paid exclusion, not by
+        // pretending a mail already went out.
+        assertThat(result.getTicketsEmailedAt()).isNull();
+        verifyNoInteractions(ticketEmailService);
     }
 
     @Test
-    void usesAnUnroutableTestEmailAddress() {
-        service.createIssuedTestOrder("staff");
+    void withoutAnAddressItUsesAnUnroutableTestMailbox() {
+        service.createIssuedTestOrder("staff", false, "  ");
 
         verify(orderService).createOrder(argThat(dto ->
                 dto.email().endsWith(StaffTestOrderService.TEST_EMAIL_DOMAIN)), anyString());
     }
 
     @Test
+    void usesTheAddressTheStaffMemberTyped() {
+        service.createIssuedTestOrder("staff", false, " owner@example.org ");
+
+        verify(orderService).createOrder(argThat(dto -> dto.email().equals("owner@example.org")), anyString());
+    }
+
+    @Test
+    void canCreateAPrivateBoatTestOrder() {
+        service.createIssuedTestOrder("staff", true, null);
+
+        verify(orderService).createOrder(argThat(dto ->
+                dto.tickets() == null && dto.boatRental() != null && dto.boatRental().durationMinutes() == 60), anyString());
+    }
+
+    @Test
     void refusesToTestPayAnOrderThatHasPaymentAttempts() {
         when(paymentRepository.findAllByOrderId(order.getId())).thenReturn(List.of(new Payment()));
 
-        assertThatThrownBy(() -> service.createIssuedTestOrder("staff"))
+        assertThatThrownBy(() -> service.createIssuedTestOrder("staff", false, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("payment attempts");
         verifyNoInteractions(ticketService);
@@ -97,9 +116,39 @@ class StaffTestOrderServiceTest {
     }
 
     @Test
-    void requireTestOrderAcceptsATestOrder() {
+    void sendTestEmailRefusesTheUnroutableServiceAddress() {
         order.setTestPaid(true);
+        order.setEmail("staff-test-x" + StaffTestOrderService.TEST_EMAIL_DOMAIN);
 
-        assertThat(service.requireTestOrder(order.getId()).getId()).isEqualTo(order.getId());
+        assertThatThrownBy(() -> service.sendTestEmail(order.getId(), "staff"))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(ticketEmailService);
+    }
+
+    @Test
+    void sendTestEmailUsesFirstDeliveryThenResend() {
+        order.setTestPaid(true);
+        order.setEmail("owner@example.org");
+
+        service.sendTestEmail(order.getId(), "staff");
+        verify(ticketEmailService).sendTicketsPdf(order.getId());
+
+        order.setTicketsEmailedAt(NOW);
+        service.sendTestEmail(order.getId(), "staff");
+        verify(ticketEmailService).resendTicketsPdf(order.getId());
+    }
+
+    @Test
+    void sendTestEmailRefusesAnOrderThatIsNotATestOrder() {
+        Order real = new Order();
+        real.setId(UUID.randomUUID());
+        real.setTestPaid(false);
+        real.setEmail("customer@example.org");
+        real.setOrderType(OrderType.PASSENGER);
+        when(orderRepository.findById(real.getId())).thenReturn(Optional.of(real));
+
+        assertThatThrownBy(() -> service.sendTestEmail(real.getId(), "staff"))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(ticketEmailService);
     }
 }

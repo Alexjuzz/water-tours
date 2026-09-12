@@ -36,7 +36,7 @@ final class StaffPages {
                 + ".test-badge{background:#8a4b00;color:#fff;border-radius:4px;padding:1px 6px;font-size:12px}"
                 + "</style></head><body>"
                 + "<nav><a href=\"/staff\">Панель</a><a href=\"/staff/prices\">Цены</a><a href=\"/staff/refund\">Возвраты</a>"
-                + "<a href=\"/staff/test-order\">Тестовый билет</a>"
+                + "<a href=\"/staff/test-order\">Тестовый билет</a><a href=\"/staff/mail-queue\">Очередь писем</a>"
                 + "<form method=\"post\" action=\"/logout\">" + csrfField(csrfToken) + "<button type=\"submit\">Выйти</button></form>"
                 + "</nav>";
     }

@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.HtmlUtils;
+import ru.Water_Tours.enums.OrderType;
 import ru.Water_Tours.enums.TicketStatus;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
@@ -57,12 +58,20 @@ public class StaffTestOrderController {
         if (msg != null) sb.append("<p style=\"color:#0a7d33\">").append(HtmlUtils.htmlEscape(msg)).append("</p>");
         if (error != null) sb.append("<p style=\"color:#b3261e\">").append(HtmlUtils.htmlEscape(error)).append("</p>");
 
-        sb.append("<p>Создаёт заказ на один взрослый билет, помечает его как тестовый и сразу выпускает билет. ")
-                .append("Деньги не списываются, платёжный провайдер не вызывается, письмо покупателю не отправляется. ")
-                .append("Такие заказы помечены <span class=\"test-badge\">ТЕСТ</span> и видны как тестовые в списке возвратов.</p>");
+        sb.append("<p>Создаёт помеченный тестовый заказ и сразу выпускает билет. Деньги не списываются, платёжный ")
+                .append("провайдер не вызывается. Тестовые заказы <strong>никогда не попадают в автоматическую рассылку</strong> — ")
+                .append("письмо по ним уходит только по кнопке «Отправить письмо» ниже, на тот адрес, который вы укажете.</p>");
+        sb.append("<p class=\"muted\">Если оставить адрес пустым, заказ получит служебный адрес ")
+                .append(HtmlUtils.htmlEscape(StaffTestOrderService.TEST_EMAIL_DOMAIN))
+                .append(" — тогда письмо отправить нельзя, но выдачу и PDF проверить можно.</p>");
 
         sb.append("<form method=\"post\" action=\"/staff/test-order\">");
         sb.append(StaffPages.csrfField(StaffPages.csrfToken(request)));
+        sb.append("<p><label>Тип заказа <select name=\"flow\">")
+                .append("<option value=\"ticket\">обычный билет (взрослый, 1 шт.)</option>")
+                .append("<option value=\"boat\">аренда катера (60 мин, 2 гостя)</option>")
+                .append("</select></label></p>");
+        sb.append("<p><label>Email для письма <input type=\"email\" name=\"email\" placeholder=\"можно оставить пустым\" size=\"32\"></label></p>");
         sb.append("<button type=\"submit\">Создать тестовый заказ и выдать билет</button>");
         sb.append("</form>");
 
@@ -71,19 +80,33 @@ public class StaffTestOrderController {
         if (orders.isEmpty()) {
             sb.append("<p class=\"muted\">Пока ни одного тестового заказа не создано.</p>");
         } else {
-            sb.append("<table><tr><th>Создан</th><th>Заказ</th><th>Сумма</th><th>Билеты</th><th>PDF</th></tr>");
+            sb.append("<table><tr><th>Создан</th><th>Заказ</th><th>Тип</th><th>Адрес</th><th>Билеты</th><th>PDF</th><th>Письмо</th></tr>");
             for (Order order : orders) {
                 List<TicketResponse> tickets = ticketService.getTickets(order.getId());
+                boolean unroutable = order.getEmail() != null && order.getEmail().endsWith(StaffTestOrderService.TEST_EMAIL_DOMAIN);
                 sb.append("<tr>");
                 sb.append("<td>").append(order.getCreatedAt()).append("</td>");
                 sb.append("<td><span class=\"test-badge\">ТЕСТ</span> ").append(order.getId()).append("</td>");
-                sb.append("<td>").append(order.getTotalAmount()).append(" ₽</td>");
+                sb.append("<td>").append(order.getOrderType() == OrderType.PRIVATE_BOAT ? "катер" : "билеты").append("</td>");
+                sb.append("<td>").append(HtmlUtils.htmlEscape(StaffMailQueueController.maskEmail(order.getEmail()))).append("</td>");
                 sb.append("<td>").append(describeTickets(tickets)).append("</td>");
                 sb.append("<td>");
                 if (tickets.isEmpty()) {
                     sb.append("—");
                 } else {
                     sb.append("<a href=\"/staff/test-order/").append(order.getId()).append("/tickets.pdf\">скачать</a>");
+                }
+                sb.append("</td><td>");
+                if (tickets.isEmpty() || unroutable) {
+                    sb.append("<span class=\"muted\">").append(unroutable ? "служебный адрес" : "нет билетов").append("</span>");
+                } else {
+                    sb.append("<form method=\"post\" action=\"/staff/test-order/").append(order.getId())
+                            .append("/send\" onsubmit=\"return confirm('Отправить тестовое письмо на указанный адрес?');\">");
+                    sb.append(StaffPages.csrfField(StaffPages.csrfToken(request)));
+                    sb.append("<button type=\"submit\">Отправить письмо</button></form>");
+                    if (order.getTicketsEmailedAt() != null) {
+                        sb.append("<span class=\"muted\">отправлено ").append(order.getTicketsEmailedAt()).append("</span>");
+                    }
                 }
                 sb.append("</td></tr>");
             }
@@ -95,13 +118,27 @@ public class StaffTestOrderController {
     }
 
     @PostMapping
-    public String create(Authentication authentication) {
+    public String create(@RequestParam(required = false) String flow,
+                         @RequestParam(required = false) String email,
+                         Authentication authentication) {
         try {
-            Order order = testOrders.createIssuedTestOrder(authentication.getName());
+            boolean privateBoat = "boat".equals(flow);
+            Order order = testOrders.createIssuedTestOrder(authentication.getName(), privateBoat, email);
             return redirect("msg", "Тестовый заказ создан, билет выпущен: " + order.getId());
         } catch (Exception e) {
             log.warn("Staff test order failed, errorType={}", e.getClass().getSimpleName());
             return redirect("error", "Не удалось создать тестовый заказ: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/{orderId}/send")
+    public String sendEmail(@PathVariable UUID orderId, Authentication authentication) {
+        try {
+            testOrders.sendTestEmail(orderId, authentication.getName());
+            return redirect("msg", "Тестовое письмо отправлено по заказу " + orderId);
+        } catch (Exception e) {
+            log.warn("Staff test email failed for orderId={}, errorType={}", orderId, e.getClass().getSimpleName());
+            return redirect("error", "Не удалось отправить письмо: " + e.getMessage());
         }
     }
 

@@ -305,12 +305,12 @@ class PaymentPersistenceTest {
                 new jakarta.mail.internet.MimeMessage((jakarta.mail.Session) null));
         org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("test SMTP unavailable"))
                 .doNothing().when(mailSender).send(org.mockito.ArgumentMatchers.any(jakarta.mail.internet.MimeMessage.class));
-        new ru.Water_Tours.component.TicketEmailDeliveryJob(orders, emailService).deliverPendingEmails();
+        new ru.Water_Tours.component.TicketEmailDeliveryJob(orders, emailService, "1970-01-01T00:00:00Z").deliverPendingEmails();
         Order failed = orders.findById(order.getId()).orElseThrow();
         assertThat(failed.getStatus()).isEqualTo(OrderStatus.PAID);
         assertThat(failed.getTicketsEmailedAt()).isNull();
         assertThat(orders.findOrderIdsAwaitingTicketEmail()).contains(order.getId());
-        var restartedJob = new ru.Water_Tours.component.TicketEmailDeliveryJob(orders, emailService);
+        var restartedJob = new ru.Water_Tours.component.TicketEmailDeliveryJob(orders, emailService, "1970-01-01T00:00:00Z");
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(restartedJob::deliverPendingEmails);
             var second = executor.submit(restartedJob::deliverPendingEmails);

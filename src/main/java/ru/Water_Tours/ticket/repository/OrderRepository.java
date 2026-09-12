@@ -27,11 +27,26 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("select o.id from Order o where o.status = ru.Water_Tours.enums.OrderStatus.PAID and o.ticketIssuedAt is not null and o.ticketsEmailedAt is null")
     List<UUID> findOrderIdsAwaitingTicketEmail();
 
+    /**
+     * Automatic delivery queue. Two exclusions on top of "paid, issued, not yet emailed":
+     * orders paid before the configured start date stay held for explicit review (the backlog
+     * accumulated while delivery was off contains addresses nobody has checked), and test orders
+     * never join production delivery - staff send those explicitly.
+     */
+    @Query("select o.id from Order o where o.status = ru.Water_Tours.enums.OrderStatus.PAID "
+            + "and o.ticketIssuedAt is not null and o.ticketsEmailedAt is null "
+            + "and (o.testPaid is null or o.testPaid = false) and o.paidAt > :paidFrom")
+    List<UUID> findOrderIdsAwaitingTicketEmailPaidAfter(@Param("paidFrom") Instant paidFrom);
+
+    @Query("select o from Order o where o.status = ru.Water_Tours.enums.OrderStatus.PAID "
+            + "and o.ticketIssuedAt is not null and o.ticketsEmailedAt is null order by o.paidAt desc")
+    List<Order> findOrdersAwaitingTicketEmail();
+
     List<Order> findAllByStatusAndCreatedAtBefore(OrderStatus status, Instant cutoff);
 
     List<Order> findAllByTelegramChatIdOrderByCreatedAtDesc(Long telegramChatId);
 
     List<Order> findAllByEmailIgnoreCaseOrderByCreatedAtDesc(String email);
 
-    List<Order> findAllByEmailEndingWithIgnoreCaseOrderByCreatedAtDesc(String emailSuffix);
+    List<Order> findAllByTestPaidIsTrueOrderByCreatedAtDesc();
 }
