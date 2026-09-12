@@ -36,24 +36,118 @@ function water_tours_buy_local_test_mode() {
 }
 
 /**
- * Server-side fallback prices, used whenever local test mode is off. Keep in sync
- * with the backend's TicketProperties (source of truth for pricing).
+ * Where this server talks to the backend. The public WATER_TOURS_BACKEND_URL is empty in
+ * production (the browser uses same-origin paths through nginx), which is useless for a
+ * server-side call, so prices are read straight from the backend on localhost.
  */
-function water_tours_buy_ticket_prices() {
-    $defaults = array(
-        'ADULT' => 1500,
-        'CHILD' => 800,
-        'BENEFIT' => 1020,
+function water_tours_buy_internal_backend_url() {
+    $url = defined('WATER_TOURS_BACKEND_INTERNAL_URL') ? WATER_TOURS_BACKEND_INTERNAL_URL : 'http://127.0.0.1:8080';
+    return esc_url_raw(apply_filters('water_tours_backend_internal_url', $url));
+}
+
+/**
+ * Prices published by the backend (GET /api/v1/prices) - the single source of truth, edited by
+ * the owner at /staff/prices. Cached briefly so a page view does not wait on the backend, with
+ * the last successful answer kept in an option: if the backend is down we show the last real
+ * prices rather than a number baked into this file that silently drifts out of date.
+ */
+function water_tours_buy_prices() {
+    $cached = get_transient('water_tours_prices');
+    if (is_array($cached)) {
+        return $cached;
+    }
+
+    $response = wp_remote_get(
+        water_tours_buy_internal_backend_url() . '/api/v1/prices',
+        array('timeout' => 2)
     );
 
-    $prices = apply_filters('water_tours_ticket_prices', $defaults);
+    $prices = null;
+    if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+        $payload = json_decode(wp_remote_retrieve_body($response), true);
+        $prices = water_tours_buy_normalize_prices($payload);
+    }
 
+    if ($prices === null) {
+        $prices = get_option('water_tours_prices_last_good');
+        if (!is_array($prices)) {
+            $prices = water_tours_buy_price_defaults();
+        }
+        // Short retry window so a brief backend restart does not pin stale prices for long.
+        set_transient('water_tours_prices', $prices, 30);
+        return $prices;
+    }
+
+    update_option('water_tours_prices_last_good', $prices, false);
+    set_transient('water_tours_prices', $prices, 60);
+    return $prices;
+}
+
+/**
+ * Last-resort values, used only before the backend has ever answered on this install.
+ */
+function water_tours_buy_price_defaults() {
+    return array(
+        'version' => 0,
+        'tickets' => array('ADULT' => 1500, 'CHILD' => 800, 'BENEFIT' => 1020),
+        'boat' => array(30 => 3500, 60 => 6000, 90 => 9000, 120 => 11000),
+    );
+}
+
+function water_tours_buy_normalize_prices($payload) {
+    if (!is_array($payload) || !isset($payload['tickets']) || !is_array($payload['tickets'])) {
+        return null;
+    }
+
+    $defaults = water_tours_buy_price_defaults();
+    $normalized = array('version' => isset($payload['version']) ? (int) $payload['version'] : 0);
+
+    foreach ($defaults['tickets'] as $type => $fallback) {
+        $normalized['tickets'][$type] = isset($payload['tickets'][$type])
+            ? max(0, (int) round((float) $payload['tickets'][$type]))
+            : $fallback;
+    }
+
+    $boat = isset($payload['boatRentalByDurationMinutes']) && is_array($payload['boatRentalByDurationMinutes'])
+        ? $payload['boatRentalByDurationMinutes']
+        : array();
+    foreach ($defaults['boat'] as $minutes => $fallback) {
+        $normalized['boat'][$minutes] = isset($boat[$minutes])
+            ? max(0, (int) round((float) $boat[$minutes]))
+            : $fallback;
+    }
+
+    return $normalized;
+}
+
+function water_tours_buy_ticket_prices() {
+    $prices = water_tours_buy_prices();
     $sanitized = array();
-    foreach ($defaults as $type => $fallback) {
-        $sanitized[$type] = isset($prices[$type]) ? max(0, (int) $prices[$type]) : $fallback;
+    foreach ($prices['tickets'] as $type => $price) {
+        $sanitized[$type] = max(0, (int) $price);
+    }
+
+    $filtered = apply_filters('water_tours_ticket_prices', $sanitized);
+    foreach ($sanitized as $type => $fallback) {
+        $sanitized[$type] = isset($filtered[$type]) ? max(0, (int) $filtered[$type]) : $fallback;
     }
 
     return $sanitized;
+}
+
+/**
+ * Boat rental price per duration in minutes. Also used by the theme's landing page so the
+ * headline price and the duration grid cannot drift away from what the backend charges.
+ */
+function water_tours_boat_prices() {
+    $prices = water_tours_buy_prices();
+    $sanitized = array();
+    foreach ($prices['boat'] as $minutes => $price) {
+        $sanitized[(int) $minutes] = max(0, (int) $price);
+    }
+    ksort($sanitized);
+
+    return apply_filters('water_tours_boat_prices', $sanitized);
 }
 
 /**
@@ -89,6 +183,7 @@ function water_tours_buy_enqueue_assets() {
         'catalogPath' => '/api/v1/local-checkout/catalog',
         'ordersPath' => '/api/v1/orders',
         'prices' => water_tours_buy_ticket_prices(),
+        'boatPrices' => water_tours_boat_prices(),
         'nonce' => wp_create_nonce('water_tours_buy_submit'),
     ));
 }
@@ -167,6 +262,8 @@ function water_tours_buy_shortcode() {
 add_shortcode('water_tours_buy', 'water_tours_buy_shortcode');
 
 function water_tours_boat_shortcode() {
+    $boat_prices = water_tours_boat_prices();
+    $starting_price = $boat_prices ? reset($boat_prices) : 0;
     ob_start();
     ?>
     <div class="wt-buy wt-boat-buy">
@@ -208,10 +305,11 @@ function water_tours_boat_shortcode() {
                         <div class="wt-field">
                             <label for="wt-boat-duration">Продолжительность</label>
                             <select id="wt-boat-duration" required>
-                                <option value="30" data-price="3500">30 минут — 3 500 ₽</option>
-                                <option value="60" data-price="6000">60 минут — 6 000 ₽</option>
-                                <option value="90" data-price="9000">90 минут — 9 000 ₽</option>
-                                <option value="120" data-price="11000">120 минут — 11 000 ₽</option>
+                                <?php foreach ($boat_prices as $minutes => $price) : ?>
+                                    <option value="<?php echo esc_attr($minutes); ?>" data-price="<?php echo esc_attr($price); ?>">
+                                        <?php echo esc_html($minutes . ' минут — ' . water_tours_buy_format_price($price) . ' ₽'); ?>
+                                    </option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                     </div>
@@ -228,7 +326,7 @@ function water_tours_boat_shortcode() {
                     </div>
 
                     <div class="wt-total wt-boat-total" aria-live="polite">
-                        Итого за катер: <span id="wt-boat-total-sum">3 500</span> ₽
+                        Итого за катер: <span id="wt-boat-total-sum"><?php echo esc_html(water_tours_buy_format_price($starting_price)); ?></span> ₽
                     </div>
 
                     <button id="wt-boat-submit" class="wt-submit" type="submit">Оформить аренду</button>

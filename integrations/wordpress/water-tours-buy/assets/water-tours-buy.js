@@ -576,7 +576,7 @@
 
   // ------------------------------------------------------------------ boat rental
 
-  var boatPrices = { 30: 3500, 60: 6000, 90: 9000, 120: 11000 };
+  var boatPrices = Object.assign({ 30: 3500, 60: 6000, 90: 9000, 120: 11000 }, config.boatPrices || {});
   var boatEmailInput = document.getElementById('wt-boat-email');
   var boatPhoneInput = document.getElementById('wt-boat-phone');
   var boatGuestsInput = document.getElementById('wt-boat-guests');

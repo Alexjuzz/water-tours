@@ -40,6 +40,30 @@ add_filter('wp_sitemaps_add_provider', function ($provider, $name) {
 add_filter('pre_get_document_title', function ($title) {
     return is_front_page() ? 'Речные прогулки — электронные билеты | Water Tours' : $title;
 });
+/**
+ * Boat rental prices for the landing page. The purchase plugin owns the call to the backend's
+ * published prices; the theme only falls back to fixed numbers if the plugin is not active, so
+ * the page still renders instead of fataling.
+ */
+function water_tours_home_boat_prices() {
+    if (function_exists('water_tours_boat_prices')) {
+        $prices = water_tours_boat_prices();
+        if (is_array($prices) && $prices) {
+            return $prices;
+        }
+    }
+
+    return array(30 => 3500, 60 => 6000, 90 => 9000, 120 => 11000);
+}
+
+function water_tours_home_format_price($amount) {
+    if (function_exists('water_tours_buy_format_price')) {
+        return water_tours_buy_format_price($amount);
+    }
+
+    return number_format((float) $amount, 0, ',', ' ');
+}
+
 function water_tours_home_faq() {
     return array(
         'С какого момента действуют 72 часа?' => 'С момента подтверждения оплаты. Оформление неоплаченного заказа не запускает срок действия. Точные даты начала и окончания указаны в билете.',

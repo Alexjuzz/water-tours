@@ -54,4 +54,10 @@ class LoginRateLimitIntegrationTest {
         mvc.perform(formLogin().user("test").password("test-only"))
                 .andExpect(status().is3xxRedirection());
     }
+
+    @Test
+    void successfulLoginLandsOnTheStaffHome() throws Exception {
+        mvc.perform(formLogin().user("test").password("test-only"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/staff"));
+    }
 }

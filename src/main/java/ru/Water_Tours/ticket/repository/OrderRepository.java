@@ -32,4 +32,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findAllByTelegramChatIdOrderByCreatedAtDesc(Long telegramChatId);
 
     List<Order> findAllByEmailIgnoreCaseOrderByCreatedAtDesc(String email);
+
+    List<Order> findAllByEmailEndingWithIgnoreCaseOrderByCreatedAtDesc(String emailSuffix);
 }

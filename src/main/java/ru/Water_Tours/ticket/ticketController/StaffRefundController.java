@@ -50,7 +50,7 @@ public class StaffRefundController {
         String csrfValue = csrfToken != null ? csrfToken.getToken() : null;
 
         StringBuilder sb = new StringBuilder();
-        sb.append("<html><head><meta charset=\"utf-8\"><title>Возврат заказа</title></head><body>");
+        sb.append(StaffPages.open("Возврат заказа", csrfToken));
         sb.append("<h1>Возврат заказа</h1>");
 
         if (msg != null) sb.append("<p style=\"color:green\">").append(HtmlUtils.htmlEscape(msg)).append("</p>");
@@ -71,7 +71,11 @@ public class StaffRefundController {
                         .append("<th>Заказ</th><th>Email</th><th>Сумма</th><th>Статус заказа</th><th>Создан</th><th>Действие</th></tr>");
                 for (Order order : found) {
                     sb.append("<tr>");
-                    sb.append("<td>").append(order.getId()).append("</td>");
+                    sb.append("<td>");
+                    if (Boolean.TRUE.equals(order.getTestPaid())) {
+                        sb.append("<span class=\"test-badge\">ТЕСТ</span> ");
+                    }
+                    sb.append(order.getId()).append("</td>");
                     sb.append("<td>").append(HtmlUtils.htmlEscape(order.getEmail() != null ? order.getEmail() : "")).append("</td>");
                     sb.append("<td>").append(order.getTotalAmount()).append(" ₽</td>");
                     sb.append("<td>").append(order.getStatus()).append("</td>");
@@ -83,7 +87,7 @@ public class StaffRefundController {
             }
         }
 
-        sb.append("</body></html>");
+        sb.append(StaffPages.close());
         return sb.toString();
     }
 

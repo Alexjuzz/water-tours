@@ -47,7 +47,7 @@ public class StaffPricingController {
         List<PriceVersion> history = pricingService.getHistory();
 
         StringBuilder sb = new StringBuilder();
-        sb.append("<html><head><meta charset=\"utf-8\"><title>Цены</title></head><body>");
+        sb.append(StaffPages.open("Цены", csrfToken));
         sb.append("<h1>Цены и тарифы</h1>");
         if (msg != null) sb.append("<p style=\"color:green\">").append(HtmlUtils.htmlEscape(msg)).append("</p>");
         if (error != null) sb.append("<p style=\"color:red\">").append(HtmlUtils.htmlEscape(error)).append("</p>");
@@ -90,7 +90,9 @@ public class StaffPricingController {
             sb.append("</tr>");
         }
         sb.append("</table>");
-        sb.append("</body></html>");
+        sb.append("<p class=\"muted\">Публикация создаёт новую версию. Уже созданные заказы сохраняют свою версию цены "
+                + "и не пересчитываются. Публичный сайт подхватывает новые цены в течение минуты.</p>");
+        sb.append(StaffPages.close());
         return sb.toString();
     }
 

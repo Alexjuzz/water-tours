@@ -52,7 +52,10 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").hasRole("STAFF") // остальные actuator только staff
                         .anyRequest().permitAll()
                 )
-                .formLogin(Customizer.withDefaults())
+                // false: a saved request still wins, so a staff member who was sent to /login from a
+                // deep link lands back on it. Without a default, everyone else landed on "/", which
+                // is the public site and shows nothing about what they can do.
+                .formLogin(form -> form.defaultSuccessUrl("/staff", false))
                 .rememberMe(rm -> rm
                         .key(rememberMeKey)
                         .tokenValiditySeconds(7 * 24 * 60 * 60)
