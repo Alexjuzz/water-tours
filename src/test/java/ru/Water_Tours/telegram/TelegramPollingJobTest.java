@@ -5,10 +5,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.queryParam;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class TelegramPollingJobTest {
@@ -95,6 +97,64 @@ class TelegramPollingJobTest {
         RestClient client = builder.build();
         TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
         TelegramPollingJob job = new TelegramPollingJob(client, handler, "");
+
+        job.poll();
+
+        server.verify();
+    }
+
+    @Test
+    void pollSurvivesGetUpdatesFailureWithoutAdvancingOffset() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org/bottest-token");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        RestClient client = builder.build();
+        TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token");
+
+        server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
+                .andRespond(withServerError());
+
+        job.poll(); // must not throw
+
+        server.verify();
+        server.reset();
+
+        // Offset was not advanced by the failed call, so the retry uses the same offset.
+        server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
+                .andRespond(withSuccess("{\"ok\":true,\"result\":[]}", MediaType.APPLICATION_JSON));
+
+        job.poll();
+
+        server.verify();
+    }
+
+    @Test
+    void pollAdvancesOffsetAndKeepsProcessingEvenIfOneMessageHandlerThrows() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org/bottest-token");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        RestClient client = builder.build();
+        TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
+        doThrow(new RuntimeException("boom")).when(handler).handle(1L, "bad", true);
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token");
+
+        server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
+                .andRespond(withSuccess("""
+                        {"ok":true,"result":[
+                          {"update_id":1,"message":{"chat":{"id":1,"type":"private"},"text":"bad"}},
+                          {"update_id":2,"message":{"chat":{"id":2,"type":"private"},"text":"ok"}}
+                        ]}
+                        """, MediaType.APPLICATION_JSON));
+
+        job.poll(); // must not throw despite the first handler call failing
+
+        verify(handler).handle(2L, "ok", true);
+        server.verify();
+        server.reset();
+
+        // Offset advanced past both updates (including the one whose handling failed) - a
+        // failed message is not retried, matching the no-duplicate-processing requirement.
+        server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=3"))
+                .andRespond(withSuccess("{\"ok\":true,\"result\":[]}", MediaType.APPLICATION_JSON));
 
         job.poll();
 
