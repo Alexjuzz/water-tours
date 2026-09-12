@@ -77,6 +77,8 @@
   var PAY_TIMEOUT_MS = 15000;
   var CREATE_TIMEOUT_MS = 20000;
   var POLL_INTERVAL_MS = 4000;
+  // ~100s of re-checks after a provider return, which is what a slow confirmation needs.
+  var RETURN_ATTEMPTS = 25;
   // Set only while the browser is away at the payment provider. It is what lets the modal open
   // by itself exactly once on the way back, without an ordinary refresh reopening it forever.
   var RETURN_KEY = 'wt_return_pending';
@@ -450,7 +452,9 @@
         return;
       }
       if (status === 'PAID') return showProcessing(order, true, false);
-      return showUnpaid(order);
+      // Payment was started, so "not paid" is a claim we cannot make: the provider may simply
+      // not have reached us yet. Offer the re-check first and the payment page second.
+      return showAwaitingConfirmation(order);
     }
 
     function showPaid(order, snapshot) {
@@ -494,6 +498,15 @@
           else startPayment(order);
         }, config.localTestMode ? options.labels.testPaying : options.labels.redirecting),
         recheckButton(order, 2, 'ghost'),
+        actionButton(options.labels.startOver, 'ghost', function () { startOver(); })
+      ]);
+    }
+
+    function showAwaitingConfirmation(order) {
+      setFormVisible(false);
+      screen('awaiting', 'warn', options.labels.awaitingTitle, options.labels.awaitingText, [
+        recheckButton(order, 3, 'primary'),
+        actionButton(options.labels.pay, 'ghost', function () { startPayment(order); }, options.labels.redirecting),
         actionButton(options.labels.startOver, 'ghost', function () { startOver(); })
       ]);
     }
@@ -680,7 +693,7 @@
         openModal();
         message('info', options.labels.checking);
         // Never trust a cached status: the outcome shown here is the one the server confirms.
-        refreshStatus(order, 6);
+        refreshStatus(order, RETURN_ATTEMPTS);
         return;
       }
 
@@ -783,6 +796,8 @@
       resumeProcessing: 'Оплата подтверждена, готовим билеты.',
       resumeUnfinished: 'У вас есть незавершённый заказ.',
       resumeUnknown: 'У вас есть незавершённый заказ. Статус пока не удалось проверить.',
+      awaitingTitle: 'Оплата пока не подтверждена',
+      awaitingText: 'Если вы уже оплатили, подтверждение от банка может идти ещё несколько минут — нажмите «Проверить оплату». Если оплата не завершена, вернитесь к ней: повторный переход не создаёт второй платёж и не списывает деньги дважды.',
       unpaidTitle: 'Оплата не завершена',
       unpaidText: 'Заказ создан, но оплата не подтверждена. Если вы уже платили, подождите минуту и проверьте статус.',
       pay: 'Перейти к оплате',
@@ -892,6 +907,8 @@
       resumeProcessing: 'Оплата подтверждена, готовим билет.',
       resumeUnfinished: 'У вас есть незавершённая заявка на аренду.',
       resumeUnknown: 'У вас есть незавершённая заявка на аренду. Статус пока не удалось проверить.',
+      awaitingTitle: 'Оплата пока не подтверждена',
+      awaitingText: 'Если вы уже оплатили, подтверждение от банка может идти ещё несколько минут — нажмите «Проверить оплату». Если оплата не завершена, вернитесь к ней: повторный переход не создаёт второй платёж и не списывает деньги дважды.',
       unpaidTitle: 'Оплата не завершена',
       unpaidText: 'Заявка на аренду создана, но оплата не подтверждена. Если вы уже платили, подождите минуту и проверьте статус.',
       pay: 'Перейти к оплате',
