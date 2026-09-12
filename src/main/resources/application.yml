@@ -52,8 +52,8 @@ order:
   expiration-check-interval: 300000 # проверка каждые 5 минут (в миллисекундах)
 staff:
   username: ${STAFF_USERNAME:staff}
-  password: ${STAFF_PASSWORD:staff12345}
-  remember-me-key: ${STAFF_REMEMBER_ME_KEY:change-me-in-production-please}
+  password: ${STAFF_PASSWORD}
+  remember-me-key: ${STAFF_REMEMBER_ME_KEY}
   telegram-chat-ids: ${STAFF_TELEGRAM_CHAT_IDS:}
 management:
   endpoints:

@@ -40,7 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "yookassa.shopId=test", "yookassa.secretKey=test", "app.base-url=http://localhost:8080",
         "spring.mail.username=test@example.invalid", "spring.mail.password=test",
         "app.mail-from=test@example.invalid", "spring.jpa.show-sql=false",
-        "management.health.mail.enabled=false", "payments.reconciliation.enabled=false", "tickets.issuance.enabled=false", "order.expiration-check-interval=86400000"
+        "management.health.mail.enabled=false", "payments.reconciliation.enabled=false", "tickets.issuance.enabled=false", "order.expiration-check-interval=86400000",
+        "staff.username=test", "staff.password=test-only", "staff.remember-me-key=test-only-key"
 })
 @Testcontainers
 @AutoConfigureMockMvc

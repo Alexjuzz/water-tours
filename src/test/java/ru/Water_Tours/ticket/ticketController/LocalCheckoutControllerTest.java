@@ -10,6 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import ru.Water_Tours.enums.OrderStatus;
+import ru.Water_Tours.security.LoginAttemptService;
 import ru.Water_Tours.security.SecurityConfig;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.service.LocalCheckoutService;
@@ -30,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "local-checkout.trusted-remote-addresses=172.28.0.1"
 })
 @ActiveProfiles("local-checkout")
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, LoginAttemptService.class})
 class LocalCheckoutControllerTest {
 
     @Autowired MockMvc mvc;

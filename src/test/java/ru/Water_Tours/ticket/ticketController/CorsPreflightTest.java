@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.Water_Tours.security.LoginAttemptService;
 import ru.Water_Tours.security.SecurityConfig;
 import ru.Water_Tours.ticket.idempotency.IdempotencyService;
 import ru.Water_Tours.ticket.service.*;
@@ -22,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "staff.username=test", "staff.password=test-only", "staff.remember-me-key=test-only-key",
         "app.base-url=http://localhost:8080"
 })
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, LoginAttemptService.class})
 class CorsPreflightTest {
     @Autowired MockMvc mvc;
     @MockitoBean OrderService orders;

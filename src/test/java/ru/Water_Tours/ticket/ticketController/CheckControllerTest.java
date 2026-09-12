@@ -8,6 +8,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.Water_Tours.enums.TicketStatus;
 import ru.Water_Tours.enums.TicketType;
+import ru.Water_Tours.security.LoginAttemptService;
 import ru.Water_Tours.security.SecurityConfig;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
 import ru.Water_Tours.ticket.service.TicketService;
@@ -28,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(value = CheckController.class, properties = {
         "staff.username=test", "staff.password=test-only", "staff.remember-me-key=test-only-key"
 })
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, LoginAttemptService.class})
 class CheckControllerTest {
 
     @Autowired MockMvc mvc;

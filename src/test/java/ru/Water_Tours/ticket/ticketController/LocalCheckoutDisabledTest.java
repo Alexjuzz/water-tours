@@ -5,12 +5,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.Water_Tours.security.LoginAttemptService;
 import ru.Water_Tours.security.SecurityConfig;
 import ru.Water_Tours.ticket.service.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 @WebMvcTest(value=LocalCheckoutController.class,properties={"staff.username=test","staff.password=test-only","staff.remember-me-key=test-only-key"})
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, LoginAttemptService.class})
 class LocalCheckoutDisabledTest {
  @Autowired MockMvc mvc;
  @MockitoBean LocalCheckoutService checkout;
