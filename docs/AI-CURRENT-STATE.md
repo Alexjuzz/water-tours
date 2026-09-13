@@ -6,7 +6,7 @@ Read this first when resuming. This is a sanitized code handoff; credentials and
 - Working branch: `work/tasks-6-7-9-11`. Canonical WordPress code: `integrations/wordpress/`. Do not use the separate legacy WordPress repository.
 - Latest implementation before the new design: `2931bba`. Earlier: `6577ac9` staff test-ticket mail buttons; `72eb9d4` checkout UX; `485337f` truthful pending-payment screen.
 - Worker reported those changes pushed to the same remote branch and deployed. No merge to main is claimed.
-- Active live theme: `water-tours-prototype` (last worker verification). `water-tours-editorial` installed inactive. Owner rejected editorial design; retain it as history, do not activate it.
+- Active live theme: `water-tours-river`, deployed and activated 2026-09-13 (see "River theme deployed" below). `water-tours-prototype` and `water-tours-editorial` remain installed and inactive as rollback. Owner rejected editorial design; retain it as history, do not activate it.
 - Prototype CTA colors swapped: ticket sand #ffd27a; own-route lime #d6ef7c. Header/mobile CTA, immediate check-payment feedback, bounded timeout, single provider-return restoration and accessible saved-order resume implemented.
 
 ## Product invariants
@@ -43,4 +43,16 @@ Read this first when resuming. This is a sanitized code handoff; credentials and
 - Same canonical shortcodes render live forms; theme adds no checkout API, price constants or payment state handling.
 - Local preview: `target/river-preview/router.php` with PHP stubs, served on localhost:8767. It renders the actual theme, but booking buttons deliberately show a preview notice and cannot charge/send mail.
 - Local checks PASS: PHP lint (4 files), JS syntax, browser widths 390/768/1024/1440, image loading, no horizontal overflow, mobile navigation, FAQ; no browser JS errors. Screenshots in `target/river-preview/`. Live checkout styling is reserved for deployment acceptance; local stubs do not prove that integration.
-- NEXT: Opus deploy only this theme from the design commit, activate `water-tours-river`, verify homepage/assets and open both actual purchase forms without submitting, then report deployment evidence. Preserve old themes as rollback. No new paid tests or email sends in this design task.
+- Deployment of this theme is DONE, 2026-09-13. See the section below.
+
+## River theme deployed to production — 2026-09-13 (verified by Opus)
+- Recovery doc for this deployment: local `target/river-deploy-20260913/RESULT.md` (gitignored; screenshots and raw measurements beside it).
+- Pushed to `origin/work/tasks-6-7-9-11`: `2931bba..4516a8d` (checkpoint + River theme), then `4516a8d..b7a4243` (dialog CSS fix). Remote head `b7a4243`. No merge to `main`.
+- Deployed only `integrations/wordpress/themes/water-tours-river` (11 files, cut with `git archive` from the design commit). Installed `www-data:www-data`, dirs 755, files 644. Server file hashes equal the committed blobs and equal the HTTP-served bodies.
+- Server PHP 7.4.3: `php -l` clean on all 4 theme PHP files before activation. `wp theme activate water-tours-river` succeeded; `stylesheet`/`template` both `water-tours-river`.
+- Backup before deploy: `/root/backups/themes-before-river-20260913.tar.gz`, sha256 `f208ae83…1a5a80`, whole `wp-content/themes` tree. Recorded prior active theme and rollback target: `water-tours-prototype`.
+- Live checks (headless Chrome, 1440 and 390, against https://water-tours.ru): homepage 200; theme slug confirmed; CSS/JS/both photos/favicon 200 with matching hashes; no horizontal overflow; no browser JS errors; no failed requests. Both real plugin dialogs (`#wt-modal`, `#wt-boat-modal`) rendered, opened, closed and reopened cleanly at both widths, with live prices — not preview stubs. No form submitted, no order, no payment, no email.
+- White-on-white risk from the dark boat card checked explicitly and CLEARED: every dialog and resume-bar text measured 14.46–18.1 contrast. Lowest on the page is 4.48 (plugin's own `#777` close "×" and `.wt-muted`) — pre-existing plugin styling, not theme-introduced, left unchanged.
+- One theme-specific CSS integration defect was found live and fixed minimally in `b7a4243`: the theme's global `h2` and `p{margin:0}` leaked into the plugin dialog, giving 52px/38px modal titles and a description paragraph colliding with the Email label. Fix is two rules scoped to `.river-theme .wt-modal-content`; the purchase plugin was not touched. Re-verified after redeploy.
+- Payment code untouched: live `water-tours-buy` php/css/js hashes matched the repo before deploy and were not modified. Fixes `485337f` and `72eb9d4` intact. Nothing outside the theme directory was written on the server.
+- NOT established by this stage: end-to-end checkout acceptance on the River theme. No paid test, test order, email send, backend restart or migration was performed. That remains a separate stage.
