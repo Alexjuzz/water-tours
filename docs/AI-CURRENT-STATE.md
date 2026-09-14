@@ -3,7 +3,7 @@
 Read this first when resuming. This is a sanitized code handoff; credentials and machine-specific operational notes remain in the owner's local hub, not Git.
 
 ## Current source and deployment
-- Working branch: `work/tasks-6-7-9-11`. Canonical WordPress code: `integrations/wordpress/`. Do not use the separate legacy WordPress repository.
+- Working branch: `work/tasks-6-7-9-11`, head `8891fca` (payment-support stage, deployed 2026-09-14). Canonical WordPress code: `integrations/wordpress/`. Do not use the separate legacy WordPress repository.
 - Latest implementation before the new design: `2931bba`. Earlier: `6577ac9` staff test-ticket mail buttons; `72eb9d4` checkout UX; `485337f` truthful pending-payment screen.
 - Worker reported those changes pushed to the same remote branch and deployed. No merge to main is claimed.
 - Active live theme: `water-tours-river`, deployed and activated 2026-09-13 (see "River theme deployed" below). `water-tours-prototype` and `water-tours-editorial` remain installed and inactive as rollback. Owner rejected editorial design; retain it as history, do not activate it.
@@ -56,3 +56,61 @@ Read this first when resuming. This is a sanitized code handoff; credentials and
 - One theme-specific CSS integration defect was found live and fixed minimally in `b7a4243`: the theme's global `h2` and `p{margin:0}` leaked into the plugin dialog, giving 52px/38px modal titles and a description paragraph colliding with the Email label. Fix is two rules scoped to `.river-theme .wt-modal-content`; the purchase plugin was not touched. Re-verified after redeploy.
 - Payment code untouched: live `water-tours-buy` php/css/js hashes matched the repo before deploy and were not modified. Fixes `485337f` and `72eb9d4` intact. Nothing outside the theme directory was written on the server.
 - NOT established by this stage: end-to-end checkout acceptance on the River theme. No paid test, test order, email send, backend restart or migration was performed. That remains a separate stage.
+
+## Payment support deployed — 2026-09-14 (verified by Opus)
+
+Recovery doc: local `target/order-support-20260914/RESULT.md` (gitignored). Commit, push and
+deployment are separate facts; none of them is acceptance of the customer screens.
+
+- Commit `8891fca` pushed to `origin/work/tasks-6-7-9-11` (`3fc372c..8891fca`, fast-forward).
+  No merge to `main`. Local notes `PROBLEMS.md`/`STATUS.md` stayed untracked.
+- **Checkout (shared by tickets and boat):** «Проверить оплату» now has one controller-level
+  15 s cooldown with the remaining seconds in its label; it is disabled with immediate progress
+  while a request is out or a poll is scheduled, and closing the modal does not reset the
+  deadline. `prefers-reduced-motion` respected.
+- **Customer e-mail states are explicit and honest:** letter accepted by SMTP / letter still
+  going out (bounded automatic check, 8 × 15 s) / send unconfirmed. The PDF is offered first in
+  all three, and no state suggests the payment failed. "Sent" always means SMTP acceptance, never
+  inbox delivery. Server resend cooldown and cap untouched.
+- **New staff page `/staff/order-support`** (nav + dashboard, separate from refunds): exact search
+  by order UUID, e-mail or normalised phone, nothing on partial input, everything escaped, no
+  ticket codes or access tokens rendered, and an explicit note that no customer name is stored.
+- **Address correction** for a mistyped e-mail re-sends the ALREADY ISSUED PDF: PAID + issued +
+  not refund-pending/refunded + no USED/REVOKED/EXPIRED ticket, CSRF, address entered twice,
+  mandatory reason, browser confirmation with masked addresses only, blocked against concurrent
+  sends by the existing delivery claim plus a per-order cooldown/cap
+  (`staff.email-correction.cooldown` 60 s, `.max-per-order` 3). No ticket or QR is issued and no
+  payment state is touched.
+- **Audit trail:** new table `order_email_corrections` (order id, both addresses, staff principal,
+  reason, timestamp, outcome, failure type), written before the send so a crash still leaves
+  evidence; addresses never reach the log. A failed send keeps the corrected address with no
+  delivery stamp, so the right destination stays retryable.
+- **Repository:** exact normalised phone lookup. Stored numbers keep the shape the customer typed
+  — normalisation happens on read, no customer record was rewritten. Orders with no phone are
+  excluded from the match.
+- **Migration** `scripts/migrations/20260914_add_order_email_corrections.sql` applied inside a
+  transaction with `ON_ERROR_STOP` BEFORE the new app started: one additive table plus an index,
+  10 columns, 0 rows. Hibernate then issued no DDL against it, so the migration matches the
+  entity. Rollback: `DROP TABLE IF EXISTS order_email_corrections;` (only before any correction is
+  recorded); application rollback tree `/opt/water-tours-prev-20260914-005839`.
+- **Backups before the deploy:** `/root/backups/pre-deploy/appdb-20260914-005839.sql` (sha256
+  `9f8206b0…8bdfe1`), the backend tree above, and `water-tours-buy-before-20260914-005839`.
+- **Deploy:** backend cut with `git archive` from `8891fca` (LF), verified against the server tree
+  first — no server-local backend edits existed — and all 195 files byte-match the commit after
+  extraction. Only `tickets_app` was rebuilt/recreated; Postgres and Redis kept running; health
+  200 UP with no startup errors. Canonical plugin `water-tours-buy` installed (3 files, PHP 7.4
+  lint clean, `www-data` 644/755); installed hashes equal the committed blobs and the HTTP-served
+  bodies.
+- **Live checks:** homepage and prices 200; served checkout JS is the committed file; status API
+  still token-protected (400 without, 403 with a wrong token) and still carries `ticketsEmailedAt`
+  and `emailResendAvailable`; staff pages 302 to `/login` for anonymous and the correction POST is
+  refused; logged in, the support page renders, refuses a partial phone and finds an existing real
+  order by all four spellings of its number without leaking a token. Held backlog still 13 with
+  zero attempts, `order_email_corrections` empty — no e-mail was sent and no order was created.
+- `./mvnw -B verify` 239/239 (was 213). The suite caught a real defect mid-work: an empty digit
+  string matched every order without a phone; fixed in the query itself.
+- **NOT established:** end-to-end acceptance of the three customer screens (needs a real paid
+  order, out of scope) and any proof of actual delivery for a correction (no test e-mail was
+  authorised). Telegram exposure of this action was deliberately left for later.
+- **Pre-existing, unrelated:** the public nginx returns 404 for `/staff` while `/staff/` and
+  `/staff/<page>` redirect to `/login`. The dashboard links use `/staff`. Worth a separate fix.
