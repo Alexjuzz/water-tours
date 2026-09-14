@@ -201,3 +201,42 @@ notified in ONE private Telegram chat. No AI answers, no CRM, no website chat.
   `ddl-auto=update` and issued NO DDL against `support_inquiries`; schema and 0 rows unchanged.
 - No real Telegram message was sent in validation: the sender is mocked throughout. No e-mail, no
   payment, no order.
+
+## Support modal always visible — fixed and deployed 2026-09-14
+
+Recovery doc: local `target/support-modal-fix-20260914/RESULT.md` (gitignored).
+
+- **Cause:** `assets/river.css` set `.ask-line{display:flex}` and
+  `.wt-ask-modal{display:flex}` unconditionally; author CSS overrides the
+  browser's default `[hidden]` styling regardless of specificity, so the FAQ
+  "Задать вопрос" entry and its dialog stayed visible on every load/refresh,
+  and `river.js` toggling `hidden` on close had no visual effect.
+- **Fix, commit `ad3a9ba`** (pushed `c5fd1a2..ad3a9ba` to
+  `origin/work/tasks-6-7-9-11`, fast-forward, no merge to `main`): two scoped
+  rules, `.ask-line[hidden]{display:none!important}` and
+  `.wt-ask-modal[hidden]{display:none!important}`. Nothing else in the diff —
+  no JS/HTML/backend/auth/payment/recipient changes.
+- **Local verification:** Playwright + system Chrome against a harness
+  mirroring the real markup/CSS/JS, desktop 1440 and mobile 390, mocked
+  support-status enabled/disabled/failing (with an artificial resolve delay)
+  and a JS-blocked run. Initial state and both-disabled/failing states are
+  `display:none` with no scroll lock or captured focus; enabled reveals only
+  the entry line; the dialog opens solely on click with focus trap and scroll
+  lock; Escape/X/backdrop(desktop) close it, restoring focus and scroll;
+  reopening works.
+- **Deploy:** backup
+  `/root/backups/pre-deploy/river-theme-before-support-modal-fix-20260914-121122.tar.gz`
+  sha256 `fc189fe5d30acd283ea855fe2903ea73a6330bead87888aa21f26c58ce25670a`.
+  Only `assets/river.css` copied to
+  `/var/www/water-tours/wp-content/themes/water-tours-river/assets/river.css`,
+  `www-data:www-data` 644. No app restart, no migration.
+- **Live verification:** server file hash `ba21a4976a9eff0c5097404a42301c00`
+  matches the committed fix and the HTTP-served body. Headless Chrome against
+  `https://water-tours.ru` (support-status mocked enabled, questions endpoint
+  blocked — no question submitted, no Telegram/email sent) confirms
+  `display:none` on load, entry line appears only once "enabled", dialog opens
+  only on click and closes back to `display:none` on Escape, desktop and
+  mobile.
+- **Unchanged:** `SUPPORT_OWNER_TELEGRAM_CHAT_ID` still unset in production
+  (support stays disabled); the two purchase dialogs (`#wt-modal`,
+  `#wt-boat-modal`) and all checkout CSS untouched.
