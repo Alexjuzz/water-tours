@@ -44,7 +44,7 @@ class SupportRateLimiterTest {
         SupportRateLimiter limiter = new SupportRateLimiter(clock);
 
         SupportRateLimiter.Decision refusal = null;
-        for (int i = 0; i < 200 && refusal == null; i++) {
+        for (int i = 0; i < 1000 && refusal == null; i++) {
             refusal = limiter.check("guest" + i + "@example.ru", "10.0.0." + (i % 250));
         }
         // The per-contact and per-address buckets never fire here - every attempt uses a fresh

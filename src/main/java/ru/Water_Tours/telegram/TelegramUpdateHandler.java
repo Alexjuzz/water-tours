@@ -323,8 +323,12 @@ public class TelegramUpdateHandler {
     /**
      * Staff can send a photo of the printed/screen QR instead of typing the code. Decodes with
      * the same ZXing pipeline used to generate the ticket's QR, then reuses handleStaffRedeem.
+     *
+     * <p>The image arrives as a supplier, not as bytes: every guard below runs before anything is
+     * fetched. Polling is one scheduled loop, so downloading a stranger's 20 MB photo just to
+     * refuse it stalled ticket status replies and question capture for everybody.
      */
-    public void handlePhoto(long chatId, byte[] imageBytes, boolean isPrivateChat) {
+    public void handlePhoto(long chatId, java.util.function.Supplier<byte[]> imageSource, boolean isPrivateChat) {
         if (isPrivateChat && supportChatStates.isAwaitingQuestion(chatId)) {
             // Mid-question a photo is not a ticket to redeem. Only text is accepted as a question,
             // so say so and leave the state open rather than falling through to redemption.
@@ -341,7 +345,7 @@ public class TelegramUpdateHandler {
         }
         String decoded;
         try {
-            BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageSource.get()));
             if (image == null) {
                 throw new IllegalArgumentException("Not a readable image");
             }

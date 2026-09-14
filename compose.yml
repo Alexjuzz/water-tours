@@ -67,6 +67,10 @@ services:
       STAFF_TELEGRAM_CHAT_IDS: ${STAFF_TELEGRAM_CHAT_IDS}
       SUPPORT_OWNER_TELEGRAM_CHAT_ID: ${SUPPORT_OWNER_TELEGRAM_CHAT_ID:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+      # Cross-origin callers of the public API. The two production origins by default; a local
+      # WordPress (http://water-tours.local) must be listed here explicitly. Never leave this
+      # empty - an empty list denies every cross-origin call, including the real storefront.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://water-tours.ru,https://www.water-tours.ru}
       # Docker Desktop's host-to-container port forwarding arrives from this fixed bridge
       # gateway address rather than loopback; only relevant when local-checkout is active.
       LOCAL_CHECKOUT_TRUSTED_REMOTE_ADDRESSES: 172.28.0.1

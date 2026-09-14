@@ -61,7 +61,9 @@ public class TelegramPollingJob {
                 JsonNode photos = message.path("photo");
                 if (photos.isArray() && !photos.isEmpty()) {
                     String fileId = photos.get(photos.size() - 1).path("file_id").asText();
-                    handler.handlePhoto(chatId, downloadFile(fileId), isPrivateChat);
+                    // Supplier, not bytes: the handler authorises the sender before the file is
+                    // fetched, so an unauthorised photo costs no download.
+                    handler.handlePhoto(chatId, () -> downloadFile(fileId), isPrivateChat);
                 } else {
                     handler.handle(chatId, message.path("text").asText(null), isPrivateChat);
                 }

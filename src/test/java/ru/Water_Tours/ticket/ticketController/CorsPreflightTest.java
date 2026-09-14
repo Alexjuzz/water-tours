@@ -9,7 +9,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.Water_Tours.security.LoginAttemptService;
 import ru.Water_Tours.security.SecurityConfig;
-import ru.Water_Tours.ticket.idempotency.IdempotencyService;
 import ru.Water_Tours.ticket.service.*;
 import ru.Water_Tours.telegram.TelegramLinkService;
 
@@ -31,18 +30,29 @@ class CorsPreflightTest {
     @MockitoBean TicketService tickets;
     @MockitoBean PdfTicketService pdf;
     @MockitoBean TicketEmailService mail;
-    @MockitoBean IdempotencyService<UUID> idempotency;
+    @MockitoBean OrderCreationService orderCreation;
     @MockitoBean TelegramLinkService telegramLinkService;
 
     @Test
-    void preflightForOrdersCreationAllowsWordpressOriginAndIdempotencyKey() throws Exception {
+    void preflightForOrdersCreationAllowsTheProductionOriginAndTheCredentialHeaders() throws Exception {
         mvc.perform(options("/api/v1/orders")
-                        .header(HttpHeaders.ORIGIN, "http://water-tours.local")
+                        .header(HttpHeaders.ORIGIN, "https://water-tours.ru")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
-                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Idempotency-Key"))
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Idempotency-Key, Idempotency-Secret, X-Order-Token"))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://water-tours.local"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://water-tours.ru"))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, org.hamcrest.Matchers.containsString("POST")))
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, org.hamcrest.Matchers.containsStringIgnoringCase("Idempotency-Key")));
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, org.hamcrest.Matchers.containsStringIgnoringCase("Idempotency-Key")))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, org.hamcrest.Matchers.containsStringIgnoringCase("Idempotency-Secret")))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, org.hamcrest.Matchers.containsStringIgnoringCase("X-Order-Token")));
+    }
+
+    /** L-9: developer origins are no longer part of the production allowlist. */
+    @Test
+    void preflightFromADeveloperOriginIsRefusedByDefault() throws Exception {
+        mvc.perform(options("/api/v1/orders")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+                .andExpect(status().isForbidden());
     }
 }

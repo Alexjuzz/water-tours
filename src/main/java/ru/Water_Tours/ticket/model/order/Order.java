@@ -29,6 +29,13 @@ public class Order {
     private OrderStatus status;
     @Column(name = "idempotency_code", unique = true)
     private String idempotencyCode;
+    // Bindings for the idempotency key, kept on the row so they outlive the 10-minute cache entry.
+    // requestHash is what the key stands for; callerHash is the caller that may be given this
+    // order's credentials back on a retry. See OrderCreationService.
+    @Column(name = "idempotency_request_hash", length = 64)
+    private String idempotencyRequestHash;
+    @Column(name = "idempotency_caller_hash", length = 64)
+    private String idempotencyCallerHash;
     @Column(name = "tickets_emailed_at")
     private Instant ticketsEmailedAt;
     @Column(name = "access_token", unique = true, nullable = false)

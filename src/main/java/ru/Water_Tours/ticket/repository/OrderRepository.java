@@ -22,6 +22,13 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("select o from Order o where o.id = :orderId")
     Optional<Order> findByIdForUpdate(@Param("orderId") UUID orderId);
 
+    /**
+     * Resolves an idempotency key that is no longer in the cache. Without it a repeat of the same
+     * key after the cache TTL either created a second order or hit the unique constraint and
+     * surfaced as a 500.
+     */
+    Optional<Order> findByIdempotencyCode(String idempotencyCode);
+
     @Query("select o.id from Order o where o.status = ru.Water_Tours.enums.OrderStatus.PAID and o.ticketIssuedAt is null")
     List<UUID> findPaidOrderIdsAwaitingTickets();
 

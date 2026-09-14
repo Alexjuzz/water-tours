@@ -240,3 +240,41 @@ Recovery doc: local `target/support-modal-fix-20260914/RESULT.md` (gitignored).
 - **Unchanged:** `SUPPORT_OWNER_TELEGRAM_CHAT_ID` still unset in production
   (support stays disabled); the two purchase dialogs (`#wt-modal`,
   `#wt-boat-modal`) and all checkout CSS untouched.
+
+## Security remediation of the 2026-09-14 audit — implemented, NOT deployed
+
+Audit report and per-finding disposition: local `target/security-audit-20260914/REPORT.md` and
+`REMEDIATION-RESULT.md` (gitignored). Code only — nothing was deployed, pushed to production,
+restarted or migrated on the server. `./mvnw -B verify` 327/327 (was 300).
+
+- **Order takeover via a replayed `Idempotency-Key` (H-1) closed.** The key resolved to nothing but
+  an order id, so replaying somebody's key returned their access token, e-mail and phone. A record
+  now carries a fingerprint of the request and of the caller's own `Idempotency-Secret` header. A
+  replay with a changed payload, or by a caller that cannot present the secret, is refused (409)
+  and discloses nothing; the caller that created the order still recovers it, so a lost first
+  response does not become a second payment. Both fingerprints are stored on the order row, so a
+  retry after the 10-minute cache entry expires resolves to the same order instead of failing on
+  the unique constraint. Migration `scripts/migrations/20260914_add_order_idempotency_bindings.sql`
+  (two nullable columns, additive, re-runnable — applied twice against a throwaway PostgreSQL 16).
+  The storefront's `Math.random()` UUID fallback is gone; it uses `crypto.getRandomValues`.
+- **Transport (M-1/M-3/L-1).** `server.forward-headers-strategy: native` runs Tomcat's
+  RemoteIpValve with an explicit trusted-proxy list, so the app sees the real client address and
+  knows the request is HTTPS. `Secure` cookies and HSTS follow from that rather than being forced,
+  which keeps plain local development working. CSP, Referrer-Policy and `SameSite=Lax` added.
+  HSTS `includeSubDomains` is deliberately OFF until every *.water-tours.ru host is known to serve
+  HTTPS. The login throttle now keys per address with a far looser global backstop — one visitor
+  can no longer lock the console out with ten requests.
+- **Also in this change.** Access token accepted in an `X-Order-Token` header (the query parameter
+  stays, so issued PDF and Telegram links keep working); `anyRequest().authenticated()` with an
+  explicit public list; owner/staff role split for refunds and prices with the existing account
+  holding both roles; optional per-person accounts via `STAFF_ADDITIONAL_ACCOUNTS`; a server-side
+  ticket-quantity ceiling; a zero-total order refused at creation; the Telegram photo authorised
+  before it is downloaded; CORS limited to the two production origins by default; `show-sql` off;
+  the unverified WordPress nonce removed; DR stack password parameterised and its nginx bound to
+  loopback.
+- **Deliberately NOT done:** Flyway / `ddl-auto: validate` (needs a verified drill against the real
+  schema — deferred with the procedure recorded), a signed one-time PDF link (would break links
+  already issued), and every live check. `H-2` is defended in depth (startup assertion + nginx
+  deny) but its production status was never observed.
+- **Requires a production action to take effect:** the nginx `X-Forwarded-For`/log-redaction change
+  and a restart. Exact steps are in `REMEDIATION-RESULT.md`. Nothing here is verified live.

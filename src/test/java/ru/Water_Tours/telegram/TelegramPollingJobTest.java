@@ -1,10 +1,14 @@
 package ru.Water_Tours.telegram;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -45,7 +49,7 @@ class TelegramPollingJobTest {
     }
 
     @Test
-    void pollDownloadsLargestPhotoAndDispatchesBytesToHandler() {
+    void pollHandsTheLargestPhotoToTheHandlerWithoutDownloadingItFirst() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org/bottest-token");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient client = builder.build();
@@ -67,7 +71,17 @@ class TelegramPollingJobTest {
 
         job.poll();
 
-        verify(handler).handlePhoto(999L, imageBytes, true);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.function.Supplier<byte[]>> image =
+                ArgumentCaptor.forClass(java.util.function.Supplier.class);
+        verify(handler).handlePhoto(eq(999L), image.capture(), eq(true));
+
+        // Nothing has been fetched at the point the handler is called: getFile and the file body
+        // are still outstanding expectations. That is the whole point - an unauthorised sender
+        // must not be able to make the polling loop download their file before it is refused.
+        assertThatThrownBy(server::verify).isInstanceOf(AssertionError.class);
+
+        assertThat(image.getValue().get()).isEqualTo(imageBytes);
         server.verify();
     }
 

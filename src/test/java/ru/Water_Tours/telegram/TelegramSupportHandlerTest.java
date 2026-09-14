@@ -178,7 +178,7 @@ class TelegramSupportHandlerTest {
     void aPhotoDuringTheQuestionFlowIsNotTreatedAsATicketToRedeem() {
         handler.handle(STAFF_CHAT_ID, "/question", true);
 
-        handler.handlePhoto(STAFF_CHAT_ID, new byte[]{1, 2, 3}, true);
+        handler.handlePhoto(STAFF_CHAT_ID, () -> new byte[]{1, 2, 3}, true);
 
         verify(ticketService, never()).redeemByCode(anyString());
         assertThat(lastMessageTo(STAFF_CHAT_ID)).contains("только текстом");

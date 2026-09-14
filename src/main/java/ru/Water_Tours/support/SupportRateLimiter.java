@@ -17,9 +17,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <ul>
  *   <li><b>per contact</b> - the only key that is stable for a real customer;</li>
  *   <li><b>per client address</b> - catches one script rotating contacts;</li>
- *   <li><b>global</b> - the backstop. The site sits behind nginx, which does not forward the
- *       client address today, so the per-address bucket can collapse into a single key. The
- *       global cap is what actually guarantees the owner cannot be flooded either way.</li>
+ *   <li><b>global</b> - the backstop only. It used to be the effective limit, because the
+ *       per-address bucket collapsed into a single key while the backend saw nginx rather than
+ *       the client; at 40/hour that let one script silence the form for every real customer.
+ *       Now that the client address is visible ({@code server.forward-headers-strategy=native})
+ *       the per-address bucket does the work and this cap is set far higher, as a bound on the
+ *       owner's inbox rather than as the thing a stranger trips.</li>
  * </ul>
  *
  * Storage is bounded twice over: expired windows are pruned on every write, and past
@@ -36,7 +39,7 @@ public class SupportRateLimiter {
     private static final Duration PER_CONTACT_WINDOW = Duration.ofHours(1);
     private static final int PER_ADDRESS_MAX = 10;
     private static final Duration PER_ADDRESS_WINDOW = Duration.ofHours(1);
-    private static final int GLOBAL_MAX = 40;
+    private static final int GLOBAL_MAX = 200;
     private static final Duration GLOBAL_WINDOW = Duration.ofHours(1);
 
     private final Clock clock;

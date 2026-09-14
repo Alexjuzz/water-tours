@@ -3,7 +3,6 @@ package ru.Water_Tours.ticket.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
@@ -39,8 +38,16 @@ class OrderServiceTest {
     @Mock
     private PricingService pricingService;
 
-    @InjectMocks
+    @Mock
+    private ru.Water_Tours.ticket.repository.TicketRepository ticketRepository;
+
     private OrderService orderService;
+
+    /** Same ceiling the deployed configuration uses: 20 per ticket type, 40 per order. */
+    @BeforeEach
+    void createService() {
+        orderService = new OrderService(orderRepository, ticketRepository, pricingService, 20, 40);
+    }
 
     @BeforeEach
     void stubCurrentPrices() {
@@ -211,5 +218,77 @@ class OrderServiceTest {
         when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
         assertThrows(NoSuchElementException.class, () -> orderService.checkAccess(orderId, UUID.randomUUID()));
+    }
+
+    // ------------------------------------------------------------------ M-6 / L-7
+
+    @Test
+    void anAbsurdTicketCountIsRefusedBeforeAnyRowIsWritten() {
+        Map<TicketType, Integer> tickets = new EnumMap<>(TicketType.class);
+        tickets.put(TicketType.ADULT, 999_999);
+
+        assertThatThrownBy(() -> orderService.createOrder(
+                new OrderRequestDTO("buyer@example.com", null, tickets), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("20");
+    }
+
+    @Test
+    void theTotalAcrossTypesIsAlsoBounded() {
+        Map<TicketType, Integer> tickets = new EnumMap<>(TicketType.class);
+        tickets.put(TicketType.ADULT, 20);
+        tickets.put(TicketType.CHILD, 20);
+        tickets.put(TicketType.BENEFIT, 20);
+
+        assertThatThrownBy(() -> orderService.createOrder(
+                new OrderRequestDTO("buyer@example.com", null, tickets), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("40");
+    }
+
+    @Test
+    void anOrdinaryPurchaseIsUnaffectedByTheCeiling() {
+        Map<TicketType, Integer> tickets = new EnumMap<>(TicketType.class);
+        tickets.put(TicketType.ADULT, 2);
+        tickets.put(TicketType.CHILD, 1);
+        when(orderRepository.save(any(Order.class))).thenAnswer(call -> call.getArgument(0));
+
+        Order order = orderService.createOrder(new OrderRequestDTO("buyer@example.com", null, tickets), null);
+
+        assertThat(order.getTotalAmount()).isEqualByComparingTo(new BigDecimal("3800.00"));
+    }
+
+    /**
+     * L-7, re-scoped. A zero unit price stays legal - a free ticket type is a pricing decision -
+     * but an order that totals zero cannot be paid at all (PaymentService refuses a non-positive
+     * amount), so it is refused while the form is still open rather than at the "pay" click.
+     */
+    @Test
+    void anOrderThatTotalsZeroIsRefusedAtCreationRatherThanAtPayment() {
+        PriceVersion freeChildren = new PriceVersion();
+        freeChildren.setVersionNumber(2);
+        freeChildren.setAdultPrice(new BigDecimal("1500.00"));
+        freeChildren.setChildPrice(BigDecimal.ZERO);
+        freeChildren.setBenefitPrice(new BigDecimal("1020.00"));
+        freeChildren.setBoatPrice30(new BigDecimal("3500.00"));
+        freeChildren.setBoatPrice60(new BigDecimal("6000.00"));
+        freeChildren.setBoatPrice90(new BigDecimal("9000.00"));
+        freeChildren.setBoatPrice120(new BigDecimal("11000.00"));
+        when(pricingService.getCurrent()).thenReturn(freeChildren);
+        when(orderRepository.save(any(Order.class))).thenAnswer(call -> call.getArgument(0));
+
+        Map<TicketType, Integer> onlyFreeChildren = new EnumMap<>(TicketType.class);
+        onlyFreeChildren.put(TicketType.CHILD, 2);
+        assertThatThrownBy(() -> orderService.createOrder(
+                new OrderRequestDTO("buyer@example.com", null, onlyFreeChildren), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("greater than zero");
+
+        // A free child alongside a paid adult is still a perfectly good order.
+        Map<TicketType, Integer> mixed = new EnumMap<>(TicketType.class);
+        mixed.put(TicketType.ADULT, 1);
+        mixed.put(TicketType.CHILD, 1);
+        Order order = orderService.createOrder(new OrderRequestDTO("buyer@example.com", null, mixed), null);
+        assertThat(order.getTotalAmount()).isEqualByComparingTo(new BigDecimal("1500.00"));
     }
 }

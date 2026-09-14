@@ -184,7 +184,9 @@ function water_tours_buy_enqueue_assets() {
         'ordersPath' => '/api/v1/orders',
         'prices' => water_tours_buy_ticket_prices(),
         'boatPrices' => water_tours_boat_prices(),
-        'nonce' => wp_create_nonce('water_tours_buy_submit'),
+        // No nonce here on purpose. The browser posts straight to the Spring API - there is no
+        // admin-ajax handler and no REST route in this plugin, so nothing could ever verify one.
+        // Printing a nonce anyway implied a check that did not exist.
     ));
 }
 add_action('wp_enqueue_scripts', 'water_tours_buy_enqueue_assets');
@@ -215,8 +217,6 @@ function water_tours_buy_shortcode() {
                 <h2 id="wt-modal-title">Купить билет</h2>
 
                 <form id="wt-ticket-form">
-                    <?php wp_nonce_field('water_tours_buy_submit', 'wt_nonce'); ?>
-
                     <div class="wt-field">
                         <label for="wt-email">Email</label>
                         <input id="wt-email" type="email" required placeholder="example@mail.ru">
@@ -280,8 +280,6 @@ function water_tours_boat_shortcode() {
                 <p id="wt-boat-modal-description" class="wt-muted">Один электронный билет действует 72 часа после оплаты. Маршрут можно предложить свой или выбрать вместе с нами.</p>
 
                 <form id="wt-boat-form">
-                    <?php wp_nonce_field('water_tours_buy_submit', 'wt_boat_nonce'); ?>
-
                     <div class="wt-field">
                         <label for="wt-boat-email">Email</label>
                         <input id="wt-boat-email" type="email" autocomplete="email" required placeholder="example@mail.ru">

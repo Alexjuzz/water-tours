@@ -60,13 +60,13 @@ class StaffPricingControllerTest {
         when(pricingService.getCurrent()).thenReturn(versionOf(2));
         when(pricingService.getHistory()).thenReturn(List.of(versionOf(2), versionOf(1)));
 
-        mvc.perform(get("/staff/prices").with(user("staff").roles("STAFF")))
+        mvc.perform(get("/staff/prices").with(user("owner").roles("STAFF", "OWNER")))
                 .andExpect(status().isOk());
     }
 
     @Test
     void staffPublishRequiresCsrf() throws Exception {
-        mvc.perform(post("/staff/prices").with(user("staff").roles("STAFF"))
+        mvc.perform(post("/staff/prices").with(user("owner").roles("STAFF", "OWNER"))
                         .param("adultPrice", "1500").param("childPrice", "800").param("benefitPrice", "1020")
                         .param("boatPrice30", "3500").param("boatPrice60", "6000")
                         .param("boatPrice90", "9000").param("boatPrice120", "11000"))
@@ -76,24 +76,24 @@ class StaffPricingControllerTest {
 
     @Test
     void staffPublishSucceedsAndRedirectsWithMessage() throws Exception {
-        when(pricingService.publish(any(PriceValues.class), eq("staff"))).thenReturn(versionOf(2));
+        when(pricingService.publish(any(PriceValues.class), eq("owner"))).thenReturn(versionOf(2));
 
-        mvc.perform(post("/staff/prices").with(user("staff").roles("STAFF")).with(csrf())
+        mvc.perform(post("/staff/prices").with(user("owner").roles("STAFF", "OWNER")).with(csrf())
                         .param("adultPrice", "1600").param("childPrice", "850").param("benefitPrice", "1100")
                         .param("boatPrice30", "3600").param("boatPrice60", "6100")
                         .param("boatPrice90", "9100").param("boatPrice120", "11100"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("/staff/prices?msg=*"));
 
-        verify(pricingService).publish(any(PriceValues.class), eq("staff"));
+        verify(pricingService).publish(any(PriceValues.class), eq("owner"));
     }
 
     @Test
     void staffPublishValidationErrorRedirectsWithError() throws Exception {
-        when(pricingService.publish(any(PriceValues.class), eq("staff")))
+        when(pricingService.publish(any(PriceValues.class), eq("owner")))
                 .thenThrow(new IllegalArgumentException("adultPrice must not be negative"));
 
-        mvc.perform(post("/staff/prices").with(user("staff").roles("STAFF")).with(csrf())
+        mvc.perform(post("/staff/prices").with(user("owner").roles("STAFF", "OWNER")).with(csrf())
                         .param("adultPrice", "-1").param("childPrice", "800").param("benefitPrice", "1020")
                         .param("boatPrice30", "3500").param("boatPrice60", "6000")
                         .param("boatPrice90", "9000").param("boatPrice120", "11000"))
@@ -103,12 +103,12 @@ class StaffPricingControllerTest {
 
     @Test
     void staffRollbackCallsServiceAndRedirects() throws Exception {
-        when(pricingService.rollbackTo(1, "staff")).thenReturn(versionOf(3));
+        when(pricingService.rollbackTo(1, "owner")).thenReturn(versionOf(3));
 
-        mvc.perform(post("/staff/prices/rollback/1").with(user("staff").roles("STAFF")).with(csrf()))
+        mvc.perform(post("/staff/prices/rollback/1").with(user("owner").roles("STAFF", "OWNER")).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("/staff/prices?msg=*"));
 
-        verify(pricingService).rollbackTo(1, "staff");
+        verify(pricingService).rollbackTo(1, "owner");
     }
 }

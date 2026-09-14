@@ -26,7 +26,7 @@ MariaDB, WordPress, Nginx. Поднимает копию сайта с нуля 
 ```bash
 cd ops/disaster-recovery
 cp .env.example .env
-# впишите в .env: STAFF_PASSWORD, STAFF_REMEMBER_ME_KEY, WORDPRESS_DB_ROOT_PASSWORD,
+# впишите в .env: DR_DB_PASSWORD, STAFF_PASSWORD, STAFF_REMEMBER_ME_KEY, WORDPRESS_DB_ROOT_PASSWORD,
 # WORDPRESS_DB_PASSWORD (новые значения — это не обязательно старые секреты),
 # и по желанию TELEGRAM_*/YOOKASSA_*/MAIL_* если они уже есть.
 

@@ -16,12 +16,32 @@
     return (config.backendUrl || '').replace(/\/$/, '') + path;
   }
 
+  /**
+   * Random values used as credentials: the retry key and the secret that proves this browser owns
+   * the order it created. Math.random() was the old fallback here and is not a cryptographic RNG -
+   * a predictable key is a key somebody else can present. crypto.getRandomValues is available
+   * wherever randomUUID is not (it predates it by years); if neither exists the flow refuses
+   * rather than issuing a guessable value.
+   */
+  function randomHex(byteLength) {
+    if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
+      throw new Error('no-secure-random');
+    }
+    var bytes = new Uint8Array(byteLength);
+    crypto.getRandomValues(bytes);
+    var out = '';
+    for (var i = 0; i < bytes.length; i++) {
+      out += ('0' + bytes[i].toString(16)).slice(-2);
+    }
+    return out;
+  }
+
   function generateUUID() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      var r = (Math.random() * 16) | 0;
-      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-    });
+    var hex = randomHex(16);
+    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-4' + hex.slice(13, 16) + '-'
+      + ((parseInt(hex.slice(16, 17), 16) & 0x3 | 0x8).toString(16)) + hex.slice(17, 20) + '-'
+      + hex.slice(20, 32);
   }
 
   function validateEmail(email) {
@@ -109,6 +129,7 @@
     var submitBtn = document.getElementById(options.submitId);
     var lastFocusedElement = null;
     var fallbackIdempotencyKey = null;
+    var fallbackIdempotencySecret = null;
     var pollTimer = null;
     // Every status check takes a number. A reply whose number is no longer the newest belongs to
     // a check the customer has already superseded, so it must not paint over the current screen.
@@ -217,9 +238,33 @@
       return fallbackIdempotencyKey;
     }
 
+    /**
+     * Proves to the server that a replay of the retry key above comes from the browser that
+     * created the order. The key is a request header and is not treated as a secret anywhere;
+     * this value is, and it never goes into a URL. Without it a replay is still honoured, but the
+     * reply carries no access token - which is the point: knowing somebody's retry key must not
+     * be enough to take over their order.
+     */
+    function idempotencySecret() {
+      var stored = readSession(options.idempotencySecretKey);
+      if (stored) return stored;
+      fallbackIdempotencySecret = fallbackIdempotencySecret || randomHex(32);
+      writeSession(options.idempotencySecretKey, fallbackIdempotencySecret);
+      return fallbackIdempotencySecret;
+    }
+
     function clearIdempotencyKey() {
       fallbackIdempotencyKey = null;
+      fallbackIdempotencySecret = null;
       removeSession(options.idempotencyKey);
+      removeSession(options.idempotencySecretKey);
+    }
+
+    /** Keeps the order's access token out of the URL, and therefore out of access logs. */
+    function tokenHeaders(order, extra) {
+      var headers = extra || {};
+      headers['X-Order-Token'] = order.accessToken;
+      return headers;
     }
 
     // --------------------------------------------------------------- screens
@@ -509,9 +554,8 @@
     // ------------------------------------------------------- status handling
 
     function fetchStatus(order) {
-      return fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
-        + '/status?accessToken=' + encodeURIComponent(order.accessToken)),
-        { method: 'GET', credentials: 'omit' }, STATUS_TIMEOUT_MS)
+      return fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/status'),
+        { method: 'GET', credentials: 'omit', headers: tokenHeaders(order) }, STATUS_TIMEOUT_MS)
         .then(function (response) {
           if (response.status === 403 || response.status === 404) throw new Error('gone');
           if (!response.ok) throw new Error('status');
@@ -720,9 +764,8 @@
       button.disabled = true;
       var previous = button.textContent;
       button.textContent = options.labels.resending;
-      fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
-        + '/tickets/email?accessToken=' + encodeURIComponent(order.accessToken)),
-        { method: 'POST', credentials: 'omit' }, PAY_TIMEOUT_MS)
+      fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets/email'),
+        { method: 'POST', credentials: 'omit', headers: tokenHeaders(order) }, PAY_TIMEOUT_MS)
         .then(function (response) {
           if (response.ok) {
             button.textContent = options.labels.resent;
@@ -754,9 +797,8 @@
 
     function startPayment(order) {
       message('info', options.labels.redirecting);
-      fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id)
-        + '/pay?accessToken=' + encodeURIComponent(order.accessToken)),
-        { method: 'POST', credentials: 'omit' }, PAY_TIMEOUT_MS)
+      fetchWithTimeout(backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/pay'),
+        { method: 'POST', credentials: 'omit', headers: tokenHeaders(order) }, PAY_TIMEOUT_MS)
         .then(function (response) {
           if (!response.ok) throw new Error('pay');
           return response.json();
@@ -802,6 +844,18 @@
       var payload = options.collect();
       if (payload.error) return message('error', payload.error);
 
+      // Both values are credentials and both need a real RNG. Resolve them before the button is
+      // disabled, so a browser that cannot produce them says so instead of sitting on "creating"
+      // for ever - and so no order is created that this browser could never prove it owns.
+      var idemKey;
+      var idemSecret;
+      try {
+        idemKey = idempotencyKey();
+        idemSecret = idempotencySecret();
+      } catch (e) {
+        return message('error', options.labels.createFailed);
+      }
+
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.setAttribute('aria-busy', 'true');
@@ -809,7 +863,11 @@
       message('info', options.labels.creating);
       fetchWithTimeout(backendUrl(config.ordersPath || '/api/v1/orders'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey() },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idemKey,
+          'Idempotency-Secret': idemSecret
+        },
         body: JSON.stringify(payload.body),
         credentials: 'omit'
       }, CREATE_TIMEOUT_MS)
@@ -935,6 +993,7 @@
     resultId: 'wt-result',
     storageKey: 'wt_order',
     idempotencyKey: 'wt_idempotency_key',
+    idempotencySecretKey: 'wt_idempotency_secret',
     labels: {
       download: 'Скачать PDF билета',
       resend: 'Отправить на email ещё раз',
@@ -1050,6 +1109,7 @@
     resultId: 'wt-boat-result',
     storageKey: 'wt_boat_order',
     idempotencyKey: 'wt_boat_idempotency_key',
+    idempotencySecretKey: 'wt_boat_idempotency_secret',
     labels: {
       download: 'Скачать PDF билета',
       resend: 'Отправить на email ещё раз',

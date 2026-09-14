@@ -9,7 +9,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.Water_Tours.security.LoginAttemptService;
 import ru.Water_Tours.security.SecurityConfig;
-import ru.Water_Tours.ticket.idempotency.IdempotencyService;
 import ru.Water_Tours.ticket.service.*;
 import ru.Water_Tours.telegram.TelegramLinkService;
 import java.util.UUID;
@@ -30,7 +29,7 @@ class OrderAccessTest {
     @MockitoBean TicketService tickets;
     @MockitoBean PdfTicketService pdf;
     @MockitoBean TicketEmailService mail;
-    @MockitoBean IdempotencyService<UUID> idempotency;
+    @MockitoBean OrderCreationService orderCreation;
     @MockitoBean TelegramLinkService telegramLinkService;
 
     @Test
@@ -173,5 +172,67 @@ class OrderAccessTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
                         .header().string("Retry-After", "120"));
+    }
+
+    // ------------------------------------------------------------------ M-2: token out of the URL
+
+    @Test
+    void theAccessTokenMayTravelInAHeaderInsteadOfTheQueryString() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+
+        mvc.perform(post("/api/v1/orders/{id}/pay", id).header("X-Order-Token", token.toString()))
+                .andExpect(status().isCreated());
+
+        verify(orders).checkAccess(id, token);
+        verify(payments).startPayment(id);
+    }
+
+    @Test
+    void aHeaderTokenIsStillCheckedAgainstTheOrder() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        doThrow(new AccessDeniedException("invalid")).when(orders).checkAccess(id, token);
+
+        mvc.perform(post("/api/v1/orders/{id}/pay", id).header("X-Order-Token", token.toString()))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(payments);
+    }
+
+    @Test
+    void aMalformedHeaderTokenReadsAsNoTokenAtAllAndSaysNothingAboutTheOrder() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mvc.perform(post("/api/v1/orders/{id}/pay", id).header("X-Order-Token", "not-a-uuid"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(orders, payments);
+    }
+
+    /**
+     * The PDF and Telegram links already in customers' hands carry the token as a query parameter.
+     * Removing that would break every issued ticket, so it stays.
+     */
+    @Test
+    void theQueryParameterStillWorksForLinksAlreadyIssued() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        when(pdf.buildTicketsPdfByOrderId(id, "http://localhost:8080")).thenReturn(new byte[]{9});
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/orders/" + id + "/tickets/pdf")
+                        .param("accessToken", token.toString()))
+                .andExpect(status().isOk());
+        verify(orders).checkAccess(id, token);
+    }
+
+    // ------------------------------------------------------------------ L-3: fail-closed default
+
+    @Test
+    void anUnmappedPathIsNotPublicByDefault() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/some/endpoint/nobody/listed"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .redirectedUrlPattern("**/login"));
     }
 }

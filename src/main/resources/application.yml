@@ -9,8 +9,12 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      # Overridable so a deployment can be moved to `validate` without a rebuild. It stays
+      # `update` by default: the deployed schema has never been checked against the entities,
+      # and flipping it blind would refuse to start. See ops/security/DDL-VALIDATE-DRILL.md.
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    # Every statement in the container log buries real warnings; turn it on per run when needed.
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
   data:
     redis:
       host: localhost
@@ -30,6 +34,54 @@ spring:
           starttls:
             enable: true
             required: true
+# Transport and client-address handling.
+#
+# `native` runs Tomcat's RemoteIpValve, which is the only strategy here with a real trust
+# boundary: it rewrites the scheme and the remote address ONLY when the TCP peer matches
+# `internal-proxies`. A direct caller that invents `X-Forwarded-For` or `X-Forwarded-Proto`
+# is ignored, so the login throttle, the support limiter and the local-checkout loopback guard
+# cannot be spoofed from outside.
+#
+# The valve reads `X-Forwarded-For` right-to-left, which is what makes this safe with BOTH
+# nginx spellings: `$proxy_add_x_forwarded_for` (appends the observed client after anything the
+# client sent) and `$remote_addr` (replaces it). The rightmost entry is always the address the
+# trusted proxy actually saw.
+#
+# internal-proxies is deliberately narrower than Spring's default (which trusts every RFC1918
+# range): loopback plus the two bridge gateway addresses a container can see the host arrive from -
+# this project's fixed compose network (`172.28.0.0/24`) and Docker's default bridge - because that
+# is how the host's published-port forwarding appears inside the container. Nothing else can
+# present those source addresses to a backend published on 127.0.0.1 only. If the deployed gateway
+# is a different address the valve simply does not apply, and the login throttle silently falls
+# back to one shared key - so this is the first thing to check live after deploying.
+#
+# Cookie `Secure` and HSTS are intentionally NOT forced on: Tomcat marks JSESSIONID `Secure` and
+# Spring Security emits HSTS whenever `request.isSecure()` is true, which the valve makes true
+# behind the TLS proxy and false for plain local development. One setting, both behaviours right.
+server:
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:native}
+  tomcat:
+    remoteip:
+      # No `{n,m}` quantifiers here: a `}` inside a ${...} default terminates the placeholder.
+      internal-proxies: ${TRUSTED_PROXIES:127\.\d+\.\d+\.\d+|0:0:0:0:0:0:0:1|::1|172\.28\.0\.1|172\.17\.0\.1}
+      remote-ip-header: x-forwarded-for
+      protocol-header: x-forwarded-proto
+      protocol-header-https-value: https
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+
+# HSTS applies for a year and cannot be withdrawn from a browser that has seen it. The apex is
+# HTTPS-only, so the header ships on. includeSubDomains is OFF until somebody confirms that every
+# *.water-tours.ru host serves HTTPS - a subdomain that does not would become unreachable for a
+# year in every browser that had visited the site.
+security:
+  hsts:
+    include-subdomains: ${HSTS_INCLUDE_SUBDOMAINS:false}
+    max-age-seconds: ${HSTS_MAX_AGE_SECONDS:31536000}
+
 yookassa:
   shopId: ${YOOKASSA_SHOP_ID}
   secretKey: ${YOOKASSA_SECRET_KEY}
@@ -50,11 +102,48 @@ app:
 order:
   expiration-timeout: 30m          # заказы в PENDING_PAYMENT старше 30 минут → EXPIRED
   expiration-check-interval: 300000 # проверка каждые 5 минут (в миллисекундах)
+  # Server-side ceiling on a passenger order. The numbers are the bound the checkout prototype
+  # already enforces in the browser (src/main/resources/local/checkout.html), lifted to where it
+  # cannot be skipped; the private-boat path was already bounded to 1-6 guests.
+  max-quantity-per-type: ${ORDER_MAX_QUANTITY_PER_TYPE:20}
+  max-total-quantity: ${ORDER_MAX_TOTAL_QUANTITY:40}
+  # Per-client-address cap on anonymous order creation. OFF by default: it is only meaningful
+  # once a live check confirms the backend sees the real client address rather than the proxy
+  # (see REMEDIATION-RESULT.md). Enabling it while the address collapses to one key would
+  # throttle the whole storefront, which is worse than the abuse it prevents.
+  rate-limit:
+    enabled: ${ORDER_RATE_LIMIT_ENABLED:false}
+    max-per-window: ${ORDER_RATE_LIMIT_MAX:20}
+    window: ${ORDER_RATE_LIMIT_WINDOW:10m}
+    max-tracked-keys: ${ORDER_RATE_LIMIT_MAX_KEYS:10000}
 staff:
   username: ${STAFF_USERNAME:staff}
   password: ${STAFF_PASSWORD}
   remember-me-key: ${STAFF_REMEMBER_ME_KEY}
   telegram-chat-ids: ${STAFF_TELEGRAM_CHAT_IDS:}
+  # Optional per-person logins: username:ROLE:bcryptHash, comma or newline separated.
+  # ROLE is STAFF or OWNER (OWNER additionally allows /staff/refund and /staff/prices).
+  # Empty by default - the account above already holds both roles, so nothing changes until
+  # this is populated. Generate the bcrypt hash with htpasswd -bnBC 10 (drop the leading colon).
+  additional-accounts: ${STAFF_ADDITIONAL_ACCOUNTS:}
+  # 7 days, unchanged. Shorten it here if a captured remember-me cookie should expire sooner.
+  remember-me-validity-seconds: ${STAFF_REMEMBER_ME_VALIDITY_SECONDS:604800}
+  # Login throttle. The per-address bucket is the effective one now that the client address is
+  # visible (see server.tomcat.remoteip above); the global bucket is only a last-resort brake
+  # against a distributed attack and is deliberately far looser, because the old global-only
+  # behaviour let any single visitor lock the console out with ten requests.
+  login-throttle:
+    max-attempts: ${LOGIN_THROTTLE_MAX_ATTEMPTS:10}
+    window: ${LOGIN_THROTTLE_WINDOW:15m}
+    block-duration: ${LOGIN_THROTTLE_BLOCK:15m}
+    global-max-attempts: ${LOGIN_THROTTLE_GLOBAL_MAX_ATTEMPTS:100}
+    global-block-duration: ${LOGIN_THROTTLE_GLOBAL_BLOCK:2m}
+    max-tracked-keys: ${LOGIN_THROTTLE_MAX_KEYS:10000}
+
+# Cross-origin callers of the public API. Production default is the two real origins only;
+# local development sets CORS_ALLOWED_ORIGINS (the local-checkout profile does it for you).
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:https://water-tours.ru,https://www.water-tours.ru}
   # Staff correction of a mistyped ticket delivery address (/staff/order-support). Both limits are
   # per order: the cooldown separates two corrections, the cap bounds how many an order may get.
   email-correction:

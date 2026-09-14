@@ -213,7 +213,7 @@ class TelegramUpdateHandlerTest {
     void staffListedGroupChatCannotRedeemByPhoto() throws Exception {
         byte[] photo = qrPngBytes("http://localhost:8080/t/abc-123");
 
-        handler.handlePhoto(GROUP_CHAT_ID, photo, false);
+        handler.handlePhoto(GROUP_CHAT_ID, () -> photo, false);
 
         verifyNoInteractions(ticketService);
         verify(sender).sendMessage(eq(GROUP_CHAT_ID), contains("личном чате"));
@@ -226,7 +226,7 @@ class TelegramUpdateHandlerTest {
         when(ticketService.redeemByCode("abc-123")).thenReturn(redeemed);
         byte[] photo = qrPngBytes("http://localhost:8080/t/abc-123");
 
-        handler.handlePhoto(STAFF_CHAT_ID, photo, true);
+        handler.handlePhoto(STAFF_CHAT_ID, () -> photo, true);
 
         verify(ticketService).redeemByCode("abc-123");
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Погашён"));
@@ -234,7 +234,7 @@ class TelegramUpdateHandlerTest {
 
     @Test
     void nonStaffPhotoIsRejectedWithoutDecoding() {
-        handler.handlePhoto(CUSTOMER_CHAT_ID, new byte[]{1, 2, 3}, true);
+        handler.handlePhoto(CUSTOMER_CHAT_ID, () -> new byte[]{1, 2, 3}, true);
 
         verify(sender).sendMessage(eq(CUSTOMER_CHAT_ID), contains("только персонал"));
         verifyNoInteractions(ticketService);
@@ -242,7 +242,7 @@ class TelegramUpdateHandlerTest {
 
     @Test
     void staffPhotoWithNoDecodableQrRepliesWithFailure() {
-        handler.handlePhoto(STAFF_CHAT_ID, new byte[]{1, 2, 3, 4, 5}, true);
+        handler.handlePhoto(STAFF_CHAT_ID, () -> new byte[]{1, 2, 3, 4, 5}, true);
 
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("Не удалось распознать QR"));
         verifyNoInteractions(ticketService);

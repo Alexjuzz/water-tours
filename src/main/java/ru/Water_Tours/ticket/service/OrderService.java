@@ -23,16 +23,45 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ru.Water_Tours.ticket.repository.TicketRepository ticketRepository;
     private final PricingService pricingService;
+    /**
+     * Server-side ceiling on a passenger order. The browser already refuses more than 20 of a type
+     * (src/main/resources/local/checkout.html), and the private-boat path is bounded to 1-6
+     * guests; only the passenger path could be asked for 100 000 tickets, which writes rows and
+     * reaches the staff pages for an order nobody can pay.
+     */
+    private final int maxQuantityPerType;
+    private final int maxTotalQuantity;
 
     public OrderService(OrderRepository orderRepository,
                         ru.Water_Tours.ticket.repository.TicketRepository ticketRepository,
                         PricingService pricingService) {
+        this(orderRepository, ticketRepository, pricingService, 20, 40);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OrderService(OrderRepository orderRepository,
+                        ru.Water_Tours.ticket.repository.TicketRepository ticketRepository,
+                        PricingService pricingService,
+                        @org.springframework.beans.factory.annotation.Value("${order.max-quantity-per-type:20}") int maxQuantityPerType,
+                        @org.springframework.beans.factory.annotation.Value("${order.max-total-quantity:40}") int maxTotalQuantity) {
         this.orderRepository = orderRepository;
         this.ticketRepository = ticketRepository;
         this.pricingService = pricingService;
+        this.maxQuantityPerType = maxQuantityPerType;
+        this.maxTotalQuantity = maxTotalQuantity;
     }
 
     public Order createOrder(OrderRequestDTO order, String idempotencyKey) {
+        return createOrder(order, idempotencyKey, null, null);
+    }
+
+    /**
+     * @param requestHash fingerprint of the request this key stands for
+     * @param callerHash  fingerprint of the caller's idempotency secret, or null when the caller
+     *                    sent none. Both are stored so a retry after the cache TTL is still judged
+     *                    by the same rules - see OrderCreationService.
+     */
+    public Order createOrder(OrderRequestDTO order, String idempotencyKey, String requestHash, String callerHash) {
         Order newOrder = new Order();
         // Read once so both branches and the total price out of one atomic view of published
         // prices - a publish happening mid-request can't mix old and new prices in one order.
@@ -49,11 +78,21 @@ public class OrderService {
 
         newOrder.setEmail(order.email());
         newOrder.setPhone(order.phoneNumber());
-        newOrder.setTotalAmount(calculateTotalAmount(newOrder.getOrderItems()));
+        BigDecimal total = calculateTotalAmount(newOrder.getOrderItems());
+        // A zero unit price is legitimate (a free ticket type is a pricing decision, not a bug),
+        // but an order whose whole total is zero cannot be paid: PaymentService.startPayment
+        // refuses a non-positive amount. Refusing it here means the customer finds out while the
+        // form is still open instead of at the "pay" click, and no unpayable row is written.
+        if (total.signum() <= 0) {
+            throw new IllegalArgumentException("Order total must be greater than zero");
+        }
+        newOrder.setTotalAmount(total);
 
         // Задача 7: сохраняем idempotencyCode
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             newOrder.setIdempotencyCode(idempotencyKey);
+            newOrder.setIdempotencyRequestHash(requestHash);
+            newOrder.setIdempotencyCallerHash(callerHash);
         }
 
         return orderRepository.save(newOrder);
@@ -67,6 +106,17 @@ public class OrderService {
         order.setOrderItems(getOrderItems(order, tickets, priceVersion));
         if (order.getOrderItems().isEmpty()) {
             throw new IllegalArgumentException("Order must contain at least one ticket with positive quantity");
+        }
+        int total = 0;
+        for (OrderItem item : order.getOrderItems()) {
+            if (item.getQuantity() > maxQuantityPerType) {
+                throw new IllegalArgumentException(
+                        "At most " + maxQuantityPerType + " tickets of one type per order");
+            }
+            total += item.getQuantity();
+        }
+        if (total > maxTotalQuantity) {
+            throw new IllegalArgumentException("At most " + maxTotalQuantity + " tickets per order");
         }
     }
 

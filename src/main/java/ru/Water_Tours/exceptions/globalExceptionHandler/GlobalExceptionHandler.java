@@ -23,14 +23,34 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ExceptionResponse> handleNoSuchElementException(NoSuchElementException e, HttpServletRequest request) {
+        // The identifier the caller asked about is deliberately not echoed back: it adds nothing
+        // for a legitimate client, and it is the only part of this reply a prober could collect.
+        // The full message, with the id, stays in the log.
+        log.debug("Not found on {}: {}", request.getRequestURI(), e.getMessage());
         ExceptionResponse exceptionResponse = new ExceptionResponse(
                 java.time.Instant.now(),
                 HttpStatus.NOT_FOUND.value(),
                 "not found",
-                e.getMessage(),
+                "Requested resource was not found",
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(exceptionResponse);
+    }
+
+    /**
+     * A replayed Idempotency-Key that the caller cannot claim, or that carries a different
+     * payload. One status and one message for both, so the reply does not reveal whether the key
+     * exists.
+     */
+    @ExceptionHandler(ru.Water_Tours.ticket.idempotency.IdempotencyConflictException.class)
+    public ResponseEntity<ExceptionResponse> handleIdempotencyConflict(
+            ru.Water_Tours.ticket.idempotency.IdempotencyConflictException e, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ExceptionResponse(
+                Instant.now(),
+                HttpStatus.CONFLICT.value(),
+                "Idempotency key conflict",
+                e.getMessage(),
+                request.getRequestURI()));
     }
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<ExceptionResponse> handleAccessDenied(
