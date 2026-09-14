@@ -60,6 +60,15 @@ staff:
   email-correction:
     cooldown: ${STAFF_EMAIL_CORRECTION_COOLDOWN:60s}
     max-per-order: ${STAFF_EMAIL_CORRECTION_MAX_PER_ORDER:3}
+# Customer support: a question form on the site and /question in the bot, relayed to ONE private
+# Telegram chat. Disabled unless support.owner-telegram-chat-id holds a positive private chat id -
+# it is never derived from staff.telegram-chat-ids, which answers a different question (who may
+# redeem a ticket). support.enabled is a kill switch that leaves the id in place.
+support:
+  enabled: ${SUPPORT_ENABLED:true}
+  owner-telegram-chat-id: ${SUPPORT_OWNER_TELEGRAM_CHAT_ID:}
+  notify-interval: ${SUPPORT_NOTIFY_INTERVAL:20000}
+
 management:
   endpoints:
     web:

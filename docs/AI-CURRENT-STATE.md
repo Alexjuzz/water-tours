@@ -114,3 +114,90 @@ deployment are separate facts; none of them is acceptance of the customer screen
   authorised). Telegram exposure of this action was deliberately left for later.
 - **Pre-existing, unrelated:** the public nginx returns 404 for `/staff` while `/staff/` and
   `/staff/<page>` redirect to `/login`. The dashboard links use `/staff`. Worth a separate fix.
+
+## Customer support (question form + bot questions) — implemented 2026-09-14
+
+A customer can ask a question from the site or in the bot; it is stored, and the owner is
+notified in ONE private Telegram chat. No AI answers, no CRM, no website chat.
+
+### Configuration — the one value that is missing
+- The destination is `support.owner-telegram-chat-id` (`SUPPORT_OWNER_TELEGRAM_CHAT_ID`), the
+  OWNER's **private** chat id. It must be positive; a negative id is a group or channel and is
+  refused, so customers' contacts cannot be published to a group.
+- It is deliberately NOT derived from `STAFF_TELEGRAM_CHAT_IDS`. That allowlist answers a
+  different question (who may redeem a ticket) and is unchanged by this work: no signup, no
+  become-admin, no grant-role command exists.
+- **VERIFIED 2026-09-14: the production `/opt/water-tours/.env` has no `SUPPORT_*` key at all.**
+  So support ships DISABLED: `GET /api/v1/support/status` returns `enabled:false`, the site never
+  shows its button, `POST /api/v1/support/questions` answers 503 and stores nothing, and
+  `/question` in the bot refuses. Nothing was guessed and no destination was substituted.
+- To turn it on the owner adds one line to `/opt/water-tours/.env` and restarts `tickets_app`:
+  `SUPPORT_OWNER_TELEGRAM_CHAT_ID=<owner's own private chat id>`. `SUPPORT_ENABLED=false` is a
+  kill switch that keeps the id.
+
+### Website
+- Compact «Задать вопрос» button in the active `water-tours-river` theme, in the FAQ block. It is
+  hidden until `/api/v1/support/status` says the channel is configured, so a visitor never meets a
+  form whose answer could not be delivered.
+- Accessible dialog: labelled fields, hints, `aria-invalid`, focus trap, Esc/backdrop close, focus
+  restored on close, `role="status"` for results. It states plainly that the question and contact
+  go to support via Telegram, and asks for no passwords or card data.
+- `POST /api/v1/support/questions` validates length (10..2000) and the reply contact (e-mail or a
+  full phone; an unparseable contact is refused rather than stored), checks a honeypot field, and
+  rate limits per contact (3/h), per client address (10/h) and globally (40/h). The global cap is
+  the one that actually bounds a flood, because nginx does not forward the client address today.
+  Limiter storage is bounded twice: expired windows pruned on write, and new keys refused past
+  5 000 live keys.
+- A repeat of the same text to the same contact within 30 minutes returns the SAME reference
+  instead of creating a second inquiry, so a double click cannot flood the owner.
+- The browser never sees the bot token: it talks to the backend, the backend talks to Telegram.
+- «Принято» is shown only after the row is committed, and it says the question was received - never
+  that anyone read it. No order is ever looked up or disclosed: `orderReference` is free text the
+  customer typed and is never matched against the order table, so the form cannot be used to probe
+  the customer table. No website e-mail or SMS reply was implemented; staff answer by hand.
+
+### Telegram
+- `/question`, the «❓ Задать вопрос» reply-keyboard button and `?start=question` all open the same
+  flow in a private chat; `/cancel` ends it; the state expires after 15 minutes and the store is
+  capped at 500 chats. Per-chat limit 3 questions/hour. Commands are published with
+  `setMyCommands` so the entry point is visible.
+- **Dispatch order changed and it is load-bearing.** An open question state wins over everything
+  except `/cancel`: whatever is sent next is stored as text and is never dispatched. That is what
+  keeps "как оформить /refund?" from becoming a refund and keeps a staff member typing a question
+  from redeeming a pasted ticket code (a photo mid-question is refused, not decoded). Explicit
+  commands now run BEFORE the historical "any staff message is a ticket code" catch-all, which
+  still runs last and is otherwise unchanged.
+- `/start` order-link payloads and `/tickets` behave exactly as before; support is never offered
+  from a group.
+- Owner-only `/reply <reference> <text>` relays to the chat stored on the inquiry. The recipient is
+  never a parameter, so a forged or guessed argument cannot redirect an answer. The owner is told
+  whether Telegram ACCEPTED the message (acceptance, not reading), and a refusal is reported as not
+  sent and does not mark the inquiry answered. A website inquiry cannot be answered by the bot: it
+  returns the customer's contact and says so, rather than promising a delivery that cannot happen.
+- Authorisation everywhere is the chat id from the update envelope - never a username, display name
+  or forwarded content.
+
+### Storage, retries and recovery
+- New table `support_inquiries` (`scripts/migrations/20260914_add_support_inquiries.sql`,
+  additive: one table plus two indexes, nothing else touched). Public handle is a random
+  `WT-XXXXXXXX` reference, unique by index; the uuid id is never exposed.
+- Minimal personal data: the reply contact, the question, and for a Telegram inquiry the asking
+  chat id. No name, no IP. Contacts and message bodies are never written to the log - only the
+  reference and an error type.
+- `SupportNotificationJob` delivers every 20 s and retries with a fixed backoff
+  (1/3/10/30/120 min, 6 attempts total), at most 10 inquiries per pass. An inquiry leaves NEW the
+  moment Telegram accepts it, so the owner is never notified twice; after the last attempt it
+  becomes UNDELIVERED.
+- Read-only `/staff/support-inquiries` (last 50) exists for exactly that case, so a question whose
+  notification failed is not invisible. No reply box, no search, no status editing.
+
+### Checks
+- `./mvnw -B verify` 300/300 (was 239). New: support properties/validation/rate limiter/service/
+  notification job, the public endpoint enabled and disabled, a PostgreSQL persistence test, and a
+  Telegram support test covering public/staff/owner boundaries, private vs group, question/cancel/
+  start-question state, malicious command text (including from staff), forged references and
+  caller-supplied recipients, delivery failure, and that refunds/redemption/`/tickets` still work.
+- Migration verified against a throwaway PostgreSQL 16: applied first, then the app booted with
+  `ddl-auto=update` and issued NO DDL against `support_inquiries`; schema and 0 rows unchanged.
+- No real Telegram message was sent in validation: the sender is mocked throughout. No e-mail, no
+  payment, no order.

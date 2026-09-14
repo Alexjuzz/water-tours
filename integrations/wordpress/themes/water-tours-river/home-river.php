@@ -25,7 +25,7 @@
 </div></div></section>
 <section class="water-moment" aria-label="Вечерний Петербург"><img src="<?php echo esc_url(get_template_directory_uri()); ?>/assets/img/evening-boat.jpg" alt="Прогулочные суда на канале в вечернем Петербурге" width="1000" height="668" loading="lazy"><div class="wrap"><p class="eyebrow">ВРЕМЯ ЗАМЕДЛИТЬСЯ</p><p class="moment-title">Лучшие планы —<br><em>ближе к воде.</em></p><span class="image-caption">Виды Петербурга. Конкретный маршрут уточняйте перед прогулкой.</span></div></section>
 <section class="wrap section how" id="how"><div class="section-heading"><div><p class="eyebrow">ОТ ПЛАНА ДО ПРОГУЛКИ</p><h2>Всего три шага.</h2></div></div><div class="steps"><article><span class="step-number">01</span><h3>Выберите формат</h3><p>Билеты на прогулку или катер для своей компании. Проверьте состав заказа и сумму.</p></article><article><span class="step-number">02</span><h3>Сохраните билет</h3><p>После подтверждения оплаты скачайте PDF с QR-кодом. Срок действия указан в билете.</p></article><article><span class="step-number">03</span><h3>Встретимся у воды</h3><p>Уточните причал и расписание. При посадке покажите QR-код сотруднику.</p></article></div></section>
-<section class="faq-section" id="faq"><div class="wrap faq-layout"><div><p class="eyebrow">ПЕРЕД ПРОГУЛКОЙ</p><h2>Хороший вопрос.</h2><p>Самое важное<br>о вашем билете.</p></div><div class="questions">
+<section class="faq-section" id="faq"><div class="wrap faq-layout"><div><p class="eyebrow">ПЕРЕД ПРОГУЛКОЙ</p><h2>Хороший вопрос.</h2><p>Самое важное<br>о вашем билете.</p><p class="ask-line" id="wt-ask-line" hidden><span>Не нашли ответ?</span> <button type="button" class="btn btn-ask" id="wt-ask-open" aria-haspopup="dialog">Задать вопрос</button></p></div><div class="questions">
 <details><summary>Когда начинают действовать 72 часа?</summary><p>С момента подтверждения оплаты. Точные даты начала и окончания действия указаны в билете. Неоплаченный заказ не запускает срок действия.</p></details>
 <details><summary>Нужно ли выбирать рейс заранее?</summary><p>Билет не закрепляет рейс или место. Выберите отправление по расписанию в пределах срока действия. Наличие мест, причал и условия посадки уточняйте перед прогулкой.</p></details>
 <details><summary>Где найти билет после оплаты?</summary><p>После подтверждения оплаты и выпуска билета в окне заказа появится кнопка скачивания PDF. Билет также отправляется на указанную почту. Если письма нет, проверьте папку «Спам».</p></details>
@@ -33,5 +33,25 @@
 <details><summary>Как выбрать маршрут для катера?</summary><p>В форме аренды выберите «Предложу свой» или «Помогите выбрать». Маршрут и время выхода согласуются отдельно.</p></details>
 </div></div></section>
 <section class="closing wrap"><p class="eyebrow">УВИДИМСЯ НА ВОДЕ</p><h2>Добавьте Петербургу<br><em>новых впечатлений.</em></h2><a class="btn btn-ticket" href="#tickets">Выбрать билет <span aria-hidden="true">↗</span></a><a class="btn btn-route" href="#boat">Свой маршрут</a></section>
+<div class="wt-ask-modal" id="wt-ask-modal" hidden>
+<div class="wt-ask-backdrop" data-wt-ask-close></div>
+<div class="wt-ask-panel" role="dialog" aria-modal="true" aria-labelledby="wt-ask-title" aria-describedby="wt-ask-note">
+<button type="button" class="wt-ask-close" id="wt-ask-close" aria-label="Закрыть">&times;</button>
+<h2 id="wt-ask-title">Задать вопрос</h2>
+<p id="wt-ask-note" class="wt-ask-note">Ваш вопрос и указанный контакт будут отправлены в поддержку через Telegram. Ответ придёт на этот контакт. Не указывайте пароли, коды из СМС и данные банковской карты.</p>
+<form id="wt-ask-form" novalidate>
+<div class="wt-ask-field"><label for="wt-ask-message">Ваш вопрос</label>
+<textarea id="wt-ask-message" name="message" rows="5" maxlength="2000" required aria-describedby="wt-ask-message-hint"></textarea>
+<span class="wt-ask-hint" id="wt-ask-message-hint">От 10 до 2000 символов.</span></div>
+<div class="wt-ask-field"><label for="wt-ask-contact">Email или телефон для ответа</label>
+<input id="wt-ask-contact" name="contact" type="text" maxlength="160" required autocomplete="off" aria-describedby="wt-ask-contact-hint">
+<span class="wt-ask-hint" id="wt-ask-contact-hint">Укажите целиком — иначе ответить будет некуда.</span></div>
+<div class="wt-ask-field"><label for="wt-ask-order">Номер заказа <span class="wt-ask-optional">(если есть)</span></label>
+<input id="wt-ask-order" name="orderReference" type="text" maxlength="64" autocomplete="off"></div>
+<div class="wt-ask-hp" aria-hidden="true"><label for="wt-ask-website">Оставьте это поле пустым</label><input id="wt-ask-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+<button type="submit" class="wt-ask-submit" id="wt-ask-submit">Отправить вопрос</button>
+</form>
+<p class="wt-ask-status" id="wt-ask-status" role="status" aria-live="polite"></p>
+</div></div>
 </main><footer class="site-footer wrap"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">≈</span>water tours</a><p>Речные прогулки в Петербурге</p><a href="#faq">Правила билета</a></footer>
 <?php wp_footer(); ?></body></html>

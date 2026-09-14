@@ -37,6 +37,7 @@ final class StaffPages {
                 + "</style></head><body>"
                 + "<nav><a href=\"/staff\">Панель</a><a href=\"/staff/prices\">Цены</a>"
                 + "<a href=\"/staff/order-support\">Поддержка заказа</a><a href=\"/staff/refund\">Возвраты</a>"
+                + "<a href=\"/staff/support-inquiries\">Вопросы клиентов</a>"
                 + "<a href=\"/staff/test-order\">Тестовый билет</a><a href=\"/staff/mail-queue\">Очередь писем</a>"
                 + "<form method=\"post\" action=\"/logout\">" + csrfField(csrfToken) + "<button type=\"submit\">Выйти</button></form>"
                 + "</nav>";

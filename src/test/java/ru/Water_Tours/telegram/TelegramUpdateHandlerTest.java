@@ -3,6 +3,8 @@ package ru.Water_Tours.telegram;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import ru.Water_Tours.enums.TicketStatus;
+import ru.Water_Tours.support.SupportProperties;
+import ru.Water_Tours.support.SupportService;
 import ru.Water_Tours.enums.TicketType;
 import ru.Water_Tours.ticket.model.order.Order;
 import ru.Water_Tours.ticket.model.ticket.TicketResponse;
@@ -14,7 +16,9 @@ import ru.Water_Tours.ticket.service.TicketService;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -37,8 +41,15 @@ class TelegramUpdateHandlerTest {
     private final QrService qrService = new QrService();
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final RefundService refundService = mock(RefundService.class);
+    private final SupportService supportService = mock(SupportService.class);
+    // No owner recipient: these tests cover the pre-support behaviour, which must be unchanged
+    // when customer support is not configured.
+    private final SupportProperties supportProperties = new SupportProperties(true, "");
+    private final SupportChatStates supportChatStates =
+            new SupportChatStates(Clock.fixed(Instant.parse("2026-09-14T10:00:00Z"), ZoneOffset.UTC));
     private final TelegramUpdateHandler handler = new TelegramUpdateHandler(
-            linkService, ticketService, sender, staffAuthorization, qrService, orderRepository, refundService, "http://localhost:8080");
+            linkService, ticketService, sender, staffAuthorization, qrService, orderRepository, refundService,
+            supportService, supportProperties, supportChatStates, "http://localhost:8080");
 
     private byte[] qrPngBytes(String content) throws Exception {
         BufferedImage image = qrService.generateQRCodeImage(content, 300);

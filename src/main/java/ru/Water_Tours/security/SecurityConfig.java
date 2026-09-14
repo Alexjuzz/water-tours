@@ -41,7 +41,12 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .ignoringRequestMatchers(
                                 "/api/v1/orders/**",
-                                "/api/v1/payments/webhook"
+                                "/api/v1/payments/webhook",
+                                // Public question form, posted cross-origin from the WordPress
+                                // site exactly like the order API. It creates no session, reads
+                                // nothing about anyone and returns only the new reference, so a
+                                // forged post can at worst store one question the owner ignores.
+                                "/api/v1/support/**"
                         )
                 )
                 .authorizeHttpRequests(auth -> auth
