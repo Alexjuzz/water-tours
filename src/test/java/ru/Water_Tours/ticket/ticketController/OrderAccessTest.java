@@ -225,6 +225,36 @@ class OrderAccessTest {
         verify(orders).checkAccess(id, token);
     }
 
+    /**
+     * The browser download the storefront now performs: the token travels in the header, so the
+     * URL the browser fetches - and therefore the access log line, the history entry and the
+     * Referer of whatever the PDF viewer opens next - carries no credential.
+     */
+    @Test
+    void thePdfCanBeFetchedWithTheHeaderAloneAndNoQueryString() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
+        when(pdf.buildTicketsPdfByOrderId(id, "http://localhost:8080")).thenReturn(new byte[]{1, 2, 3});
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/orders/" + id + "/tickets/pdf")
+                        .header("X-Order-Token", token.toString()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Cache-Control", "no-store"));
+        verify(orders).checkAccess(id, token);
+    }
+
+    @Test
+    void thePdfWithNeitherHeaderNorParameterIsRefusedAndIsNeverBuilt() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/orders/" + id + "/tickets/pdf"))
+                .andExpect(status().is4xxClientError());
+        verifyNoInteractions(pdf);
+    }
+
     // ------------------------------------------------------------------ L-3: fail-closed default
 
     @Test

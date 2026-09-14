@@ -61,10 +61,23 @@ class OrderCreationServiceTest {
 
     /** A new service over an empty cache - the same orders table, as after the 10-minute TTL. */
     private OrderCreationService serviceWithFreshCache() {
+        return serviceOver(new InMemoryIdempotencyStore<>());
+    }
+
+    private OrderCreationService serviceOver(InMemoryIdempotencyStore<IdempotencyRecord> store) {
         IdempotencyService<IdempotencyRecord> idempotency = new IdempotencyService<>(
-                new InMemoryIdempotencyStore<>(), Duration.ofMinutes(10), Duration.ofSeconds(45),
+                store, Duration.ofMinutes(10), Duration.ofSeconds(45),
                 Duration.ofSeconds(3), Duration.ofMillis(20));
         return new OrderCreationService(orderService, orderRepository, idempotency);
+    }
+
+    /** An order row as it exists before the binding columns were filled in: both hashes null. */
+    private Order legacyOrderRow() {
+        Order order = new Order();
+        order.setId(UUID.randomUUID());
+        order.setIdempotencyCode(KEY);
+        stored.put(KEY, order);
+        return order;
     }
 
     private static OrderRequestDTO twoAdultTickets() {
@@ -188,5 +201,77 @@ class OrderCreationServiceTest {
         assertThat(results).hasSize(2);
         assertThat(results.get(0)).isEqualTo(results.get(1));
         assertThat(created).hasValue(1);
+    }
+
+    // ---------------------------------------------------------------- legacy records
+
+    /**
+     * The upgrade case that used to be broken. A cached value written by the old build is a bare
+     * order id, so the decoded record carries no request hash - and the request-hash comparison
+     * ran first and refused everything, which is the opposite of the documented behaviour. A
+     * customer retrying across the upgrade would have been told the order could not be created,
+     * and the honest reading of that message is "press it again".
+     */
+    @Test
+    void aBareOrderIdLeftInTheCacheByTheOldBuildIsReplayedRedactedRatherThanRefused() {
+        InMemoryIdempotencyStore<IdempotencyRecord> store = new InMemoryIdempotencyStore<>();
+        Order legacy = legacyOrderRow();
+        store.setValue(OrderCreationService.SCOPE, KEY,
+                IdempotencyRecord.decode(legacy.getId().toString()), Duration.ofMinutes(10));
+
+        OrderCreationService.Result retry =
+                serviceOver(store).createOrReuse(twoAdultTickets(), KEY, OWNER_SECRET);
+
+        assertThat(retry.orderId()).isEqualTo(legacy.getId());
+        assertThat(retry.reused()).isTrue();
+        assertThat(retry.callerAuthorized()).isFalse();
+        assertThat(created).hasValue(0);
+    }
+
+    /** The same record, reached through the orders table after the cache entry has gone. */
+    @Test
+    void aPreMigrationOrderRowIsReplayedRedactedRatherThanRefused() {
+        Order legacy = legacyOrderRow();
+
+        OrderCreationService.Result retry =
+                serviceWithFreshCache().createOrReuse(twoAdultTickets(), KEY, OWNER_SECRET);
+
+        assertThat(retry.orderId()).isEqualTo(legacy.getId());
+        assertThat(retry.reused()).isTrue();
+        assertThat(retry.callerAuthorized()).isFalse();
+        assertThat(created).hasValue(0);
+    }
+
+    /**
+     * A legacy record must not be claimable. Nothing about it can be verified, so no caller -
+     * however insistent, and whatever payload it brings - is ever authorised, and the record is
+     * never upgraded with a secret the caller supplied.
+     */
+    @Test
+    void noCallerCanClaimALegacyRecordAndNoSecondOrderIsCreated() {
+        Order legacy = legacyOrderRow();
+        OrderCreationService service = serviceWithFreshCache();
+
+        assertThat(service.createOrReuse(twoAdultTickets(), KEY, null).callerAuthorized()).isFalse();
+        assertThat(service.createOrReuse(twoAdultTickets(), KEY, OTHER_SECRET).callerAuthorized()).isFalse();
+        assertThat(service.createOrReuse(oneAdultTicketForSomebodyElse(), KEY, OTHER_SECRET)
+                .callerAuthorized()).isFalse();
+
+        assertThat(stored.get(KEY).getIdempotencyCallerHash()).isNull();
+        assertThat(stored.get(KEY).getIdempotencyRequestHash()).isNull();
+        assertThat(stored.get(KEY).getId()).isEqualTo(legacy.getId());
+        assertThat(created).hasValue(0);
+    }
+
+    /** The codec half of the same story, pinned on its own. */
+    @Test
+    void decodingAnOldBareUuidValueYieldsARecordWithNoBindings() {
+        UUID orderId = UUID.randomUUID();
+
+        IdempotencyRecord decoded = IdempotencyRecord.decode(orderId.toString());
+
+        assertThat(decoded.orderId()).isEqualTo(orderId);
+        assertThat(decoded.requestHash()).isNull();
+        assertThat(decoded.callerHash()).isNull();
     }
 }

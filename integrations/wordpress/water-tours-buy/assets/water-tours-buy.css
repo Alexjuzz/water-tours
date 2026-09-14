@@ -146,6 +146,12 @@
     color: #2e7d32;
 }
 
+/* Plain-text tone for a message that is neither a failure nor a success: the order exists, but
+   this browser cannot open it. 8.0:1 on the white modal. */
+.wt-result.wt-status-warn:not(.wt-status) {
+    color: #8a3a00;
+}
+
 /* Status screens: one panel shape for paid, processing, unpaid, cancelled, refunded and errors. */
 .wt-result.wt-status {
     text-align: left;

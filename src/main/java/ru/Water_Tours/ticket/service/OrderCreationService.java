@@ -25,6 +25,11 @@ import java.util.function.Supplier;
  *
  * <p>The rules, in the order they are applied to a replay:
  * <ol>
+ *   <li><b>No binding at all on the stored record.</b> Honoured as a reuse with a redacted body.
+ *       This is the legacy case - a bare order id left in Redis by an older build, or an order
+ *       row written before the binding columns existed. Neither the payload nor the caller can be
+ *       checked, so nothing is disclosed; refusing instead would turn every in-flight retry at
+ *       upgrade time into an apparent failure, which is how duplicate payments happen.</li>
  *   <li><b>Different payload, same key.</b> Refused. The key stands for one order; answering with
  *       a stored order that does not match what was just asked for is how a stranger's key turned
  *       into a stranger's order.</li>
@@ -84,6 +89,15 @@ public class OrderCreationService {
             return new Result(record.orderId(), false, true);
         }
 
+        if (record.requestHash() == null) {
+            // A record that predates request binding: a bare-UUID value left in Redis by an older
+            // build, or an order row created before the binding columns existed. Nothing here can
+            // verify either the payload or the caller, and the caller's own secret must NOT be
+            // adopted - writing it now would let whoever replays the key claim the order. So the
+            // retry is honoured to the extent that is safe: the order is confirmed, no second
+            // order is created, and the reply carries no credential.
+            return new Result(record.orderId(), true, false);
+        }
         if (!Fingerprints.matches(record.requestHash(), requestHash)) {
             throw new IdempotencyConflictException(
                     "This Idempotency-Key already stands for a different order request.");

@@ -457,6 +457,29 @@
       return button;
     }
 
+    /** Everything this browser needs to fetch the PDF without the token appearing in a URL. */
+    function canDownloadByHeader() {
+      return typeof fetch === 'function'
+        && typeof Blob !== 'undefined'
+        && typeof URL !== 'undefined'
+        && typeof URL.createObjectURL === 'function'
+        && 'download' in document.createElement('a');
+    }
+
+    /**
+     * The download button.
+     *
+     * The href is still the query-string URL and stays that way on purpose: it is the fallback for
+     * a browser that cannot do the blob dance, and it is the same shape as the links already sent
+     * out by e-mail and into Telegram, which the server must keep honouring either way.
+     *
+     * What changed is the click. Where the browser can do it, the file is fetched with the token
+     * in the `X-Order-Token` header and handed over as a blob, so this browser's own navigation -
+     * and therefore the access log, the Referer of whatever the PDF viewer opens next, and the
+     * history entry - never carries the token. A failure falls back to following the plain link
+     * rather than leaving the customer without a ticket: the exposure it restores is exactly the
+     * exposure the already-issued links have anyway.
+     */
     function pdfLink(order, snapshot) {
       var link = document.createElement('a');
       link.className = 'wt-status-button wt-status-button-primary';
@@ -466,6 +489,45 @@
       link.textContent = options.labels.download;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
+      if (!canDownloadByHeader()) return link;
+
+      var cleanUrl = backendUrl('/api/v1/orders/' + encodeURIComponent(order.id) + '/tickets/pdf');
+      var fileName = 'tickets-' + order.id + '.pdf';
+      link.addEventListener('click', function (event) {
+        if (link.getAttribute('aria-busy') === 'true') return;
+        event.preventDefault();
+        link.setAttribute('aria-busy', 'true');
+        var previous = link.textContent;
+        link.textContent = options.labels.downloading;
+        fetchWithTimeout(cleanUrl, {
+          method: 'GET',
+          headers: tokenHeaders(order),
+          credentials: 'omit'
+        }, STATUS_TIMEOUT_MS)
+          .then(function (response) {
+            if (!response.ok) throw new Error('pdf');
+            return response.blob();
+          })
+          .then(function (blob) {
+            var objectUrl = URL.createObjectURL(blob);
+            var saver = document.createElement('a');
+            saver.href = objectUrl;
+            saver.download = fileName;
+            saver.rel = 'noopener';
+            document.body.appendChild(saver);
+            saver.click();
+            document.body.removeChild(saver);
+            // Give the browser the tick it needs to start reading the blob before it is dropped.
+            setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 20000);
+          })
+          .catch(function () {
+            window.open(link.href, '_blank', 'noopener,noreferrer');
+          })
+          .finally(function () {
+            link.removeAttribute('aria-busy');
+            link.textContent = previous;
+          });
+      });
       return link;
     }
 
@@ -872,6 +934,12 @@
         credentials: 'omit'
       }, CREATE_TIMEOUT_MS)
         .then(function (response) {
+          if (response.status === 409) {
+            // The retry key already stands for an order this browser cannot claim. Saying so
+            // plainly matters: the generic "try again" invites a second attempt, and the honest
+            // recovery is a new order or a word with support - never a silent duplicate.
+            throw new Error(options.labels.createConflict);
+          }
           if (!response.ok) {
             return readErrorMessage(response, options.labels.createFailed).then(function (text) {
               throw new Error(text);
@@ -880,7 +948,15 @@
           return response.json();
         })
         .then(function (order) {
-          if (!order || !order.id || !order.accessToken) throw new Error(options.labels.createFailed);
+          if (!order || !order.id) throw new Error(options.labels.createFailed);
+          if (!order.accessToken) {
+            // The order exists and the server confirmed it, but the reply carries no credential:
+            // the stored record predates caller binding. Nothing can be opened from here, so give
+            // the customer the one thing support can act on - the order number - and stop. The
+            // retry key is deliberately left in place so pressing the button again resolves to
+            // this same order instead of creating a second one.
+            return message('warn', options.labels.createUnclaimable.replace('{id}', order.id));
+          }
           clearIdempotencyKey();
           saveOrder(order);
           clearManualCooldown();
@@ -996,6 +1072,7 @@
     idempotencySecretKey: 'wt_idempotency_secret',
     labels: {
       download: 'Скачать PDF билета',
+      downloading: 'Готовим PDF...',
       resend: 'Отправить на email ещё раз',
       resending: 'Отправляем...',
       resent: 'Письмо отправлено',
@@ -1045,6 +1122,8 @@
       payFailedText: 'Платёжная страница сейчас недоступна. Попробуйте ещё раз или напишите нам.',
       creating: 'Оформляем заказ...',
       createFailed: 'Не удалось создать заказ. Проверьте данные и попробуйте ещё раз.',
+      createConflict: 'Этот заказ уже оформлен в другом окне или на другом устройстве, и открыть его здесь не получится. Оформите новый заказ — второй платёж не спишется, — либо напишите нам, и мы найдём оплаченный заказ.',
+      createUnclaimable: 'Заказ №{id} уже создан, но подтвердить доступ к нему из этого браузера не удалось. Повторное нажатие не создаст второй заказ и не спишет деньги. Напишите нам и назовите этот номер — мы вышлем билет вручную.',
       checking: 'Проверяем статус заказа...',
       redirecting: 'Переходим к оплате...'
     },
@@ -1112,6 +1191,7 @@
     idempotencySecretKey: 'wt_boat_idempotency_secret',
     labels: {
       download: 'Скачать PDF билета',
+      downloading: 'Готовим PDF...',
       resend: 'Отправить на email ещё раз',
       resending: 'Отправляем...',
       resent: 'Письмо отправлено',
@@ -1161,6 +1241,8 @@
       payFailedText: 'Платёжная страница сейчас недоступна. Попробуйте ещё раз или напишите нам.',
       creating: 'Оформляем аренду...',
       createFailed: 'Не удалось оформить аренду. Проверьте данные и попробуйте ещё раз.',
+      createConflict: 'Эта заявка уже оформлена в другом окне или на другом устройстве, и открыть её здесь не получится. Оформите новую заявку — второй платёж не спишется, — либо напишите нам, и мы найдём оплаченную заявку.',
+      createUnclaimable: 'Заявка №{id} уже создана, но подтвердить доступ к ней из этого браузера не удалось. Повторное нажатие не создаст вторую заявку и не спишет деньги. Напишите нам и назовите этот номер — мы подтвердим аренду вручную.',
       checking: 'Проверяем статус аренды...',
       redirecting: 'Переходим к оплате...'
     },
