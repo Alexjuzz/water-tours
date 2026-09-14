@@ -55,6 +55,11 @@ staff:
   password: ${STAFF_PASSWORD}
   remember-me-key: ${STAFF_REMEMBER_ME_KEY}
   telegram-chat-ids: ${STAFF_TELEGRAM_CHAT_IDS:}
+  # Staff correction of a mistyped ticket delivery address (/staff/order-support). Both limits are
+  # per order: the cooldown separates two corrections, the cap bounds how many an order may get.
+  email-correction:
+    cooldown: ${STAFF_EMAIL_CORRECTION_COOLDOWN:60s}
+    max-per-order: ${STAFF_EMAIL_CORRECTION_MAX_PER_ORDER:3}
 management:
   endpoints:
     web:

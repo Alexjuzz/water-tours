@@ -10,6 +10,7 @@ import ru.Water_Tours.enums.OrderStatus;
 import ru.Water_Tours.ticket.model.order.Order;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,4 +50,20 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findAllByEmailIgnoreCaseOrderByCreatedAtDesc(String email);
 
     List<Order> findAllByTestPaidIsTrueOrderByCreatedAtDesc();
+
+    /**
+     * Exact lookup by phone for the staff support console. Stored numbers keep the shape the
+     * customer typed, so the comparison normalises the column to digits and matches it against
+     * the equivalent spellings of the searched number (see {@code PhoneNormalizer}). Equality
+     * only - there is no prefix or partial match, so this cannot be used to enumerate customers.
+     *
+     * Orders with no phone reduce to an empty digit string, which would make an empty search term
+     * match all of them at once. They are excluded here rather than only at the caller, so the
+     * guarantee holds for whoever calls this next.
+     */
+    @Query(value = "select * from orders o "
+            + "where regexp_replace(coalesce(o.phone, ''), '[^0-9]', '', 'g') <> '' "
+            + "and regexp_replace(coalesce(o.phone, ''), '[^0-9]', '', 'g') in (:digits) "
+            + "order by o.created_at desc", nativeQuery = true)
+    List<Order> findAllByNormalizedPhone(@Param("digits") Collection<String> digits);
 }

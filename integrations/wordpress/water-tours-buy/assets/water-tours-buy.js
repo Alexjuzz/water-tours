@@ -73,12 +73,29 @@
     });
   }
 
+  /** Animation is optional; the information it carries is not. */
+  function prefersReducedMotion() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (e) {
+      return false;
+    }
+  }
+
   var STATUS_TIMEOUT_MS = 10000;
   var PAY_TIMEOUT_MS = 15000;
   var CREATE_TIMEOUT_MS = 20000;
   var POLL_INTERVAL_MS = 4000;
   // ~100s of re-checks after a provider return, which is what a slow confirmation needs.
   var RETURN_ATTEMPTS = 25;
+  // How long the manual check stays unavailable after one settles. Long enough that pressing it
+  // again cannot turn into a habit, short enough that a customer who really is waiting is not
+  // stuck: the automatic checks keep running underneath either way.
+  var MANUAL_RECHECK_COOLDOWN_MS = 15000;
+  // The ticket is already downloadable at this point; this only waits for the mail server to
+  // accept the letter. Low frequency, strictly bounded - ~2 minutes, then manual controls only.
+  var EMAIL_POLL_INTERVAL_MS = 15000;
+  var EMAIL_POLL_ATTEMPTS = 8;
   // Set only while the browser is away at the payment provider. It is what lets the modal open
   // by itself exactly once on the way back, without an ordinary refresh reopening it forever.
   var RETURN_KEY = 'wt_return_pending';
@@ -99,6 +116,15 @@
     var currentScreenKey = null;
     var resumeEl = null;
     var resumeKey = null;
+    // One cooldown deadline for the whole checkout, not one per rendered screen. Every status
+    // reply repaints the panel, so a deadline living in a button would be handed back the moment
+    // the screen changed - which is exactly the spam this prevents.
+    var manualRecheckUntil = 0;
+    var cooldownTimer = null;
+    var requestInFlight = false;
+    var manualCheckPending = false;
+    // Bounded budget of automatic "has the letter gone out yet" checks for this order.
+    var emailWaitsLeft = EMAIL_POLL_ATTEMPTS;
 
     // ---------------------------------------------------------------- modal
 
@@ -143,7 +169,12 @@
       if (!modal) return;
       stopPolling();
       // Drop any reply still in flight: closing is the customer saying they are done for now.
+      // The dropped reply will never clear these, and a check that can never settle would leave
+      // the manual button disabled for good. The cooldown deadline itself is deliberately kept:
+      // closing and reopening must not be a way to press the button again immediately.
       statusGeneration++;
+      requestInFlight = false;
+      manualCheckPending = false;
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.removeEventListener('keydown', trapFocus);
@@ -223,6 +254,7 @@
       if (!resultEl) return null;
       if (key && key === currentScreenKey) {
         clearBusy();
+        syncRecheckButtons();
         return null;
       }
       clearResult();
@@ -254,8 +286,9 @@
       // The panel renders below a long form, so on a phone the outcome would otherwise land
       // off-screen and read as "nothing happened".
       if (typeof panel.scrollIntoView === 'function') {
-        panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        panel.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
       }
+      syncRecheckButtons();
       return panel;
     }
 
@@ -290,10 +323,93 @@
       return button;
     }
 
-    function recheckButton(order, attempts, variant) {
-      return actionButton(options.labels.recheck, variant || 'ghost', function () {
+    // ------------------------------------------------- manual check cooldown
+
+    /** A check is already under way: a request is out, or the next poll is scheduled. */
+    function recheckBusy() {
+      return requestInFlight || pollTimer !== null;
+    }
+
+    /**
+     * Paints every manual check button on screen from the one controller-level state. Buttons are
+     * recreated whenever the panel changes, so their label and disabled flag are derived here
+     * rather than remembered by the button itself.
+     */
+    function syncRecheckButtons() {
+      if (!resultEl) return;
+      var buttons = resultEl.querySelectorAll('[data-wt-recheck]');
+      var remaining = Math.ceil((manualRecheckUntil - Date.now()) / 1000);
+      for (var i = 0; i < buttons.length; i++) {
+        var button = buttons[i];
+        var idle = button.getAttribute('data-wt-recheck');
+        if (recheckBusy()) {
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+          button.textContent = button.getAttribute('data-wt-busy') || options.labels.rechecking;
+        } else if (remaining > 0) {
+          button.disabled = true;
+          button.removeAttribute('aria-busy');
+          // The remaining seconds are in the label itself: a button that is simply dead tells the
+          // customer nothing, and they press it again.
+          button.textContent = idle + ' (' + remaining + ' с)';
+        } else {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          button.textContent = idle;
+        }
+      }
+    }
+
+    function startCooldownTicker() {
+      if (cooldownTimer) return;
+      cooldownTimer = setInterval(function () {
+        if (Date.now() >= manualRecheckUntil) stopCooldownTicker();
+        syncRecheckButtons();
+      }, 1000);
+    }
+
+    function stopCooldownTicker() {
+      if (!cooldownTimer) return;
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+
+    function beginManualCooldown() {
+      manualRecheckUntil = Date.now() + MANUAL_RECHECK_COOLDOWN_MS;
+      startCooldownTicker();
+    }
+
+    /** Settled means the whole chain the press started is done - not just the first reply. */
+    function settleManualCheck() {
+      if (manualCheckPending && !recheckBusy()) {
+        manualCheckPending = false;
+        beginManualCooldown();
+      }
+      syncRecheckButtons();
+    }
+
+    function clearManualCooldown() {
+      manualRecheckUntil = 0;
+      manualCheckPending = false;
+      stopCooldownTicker();
+    }
+
+    function recheckButton(order, attempts, variant, label, busyLabel) {
+      var idle = label || options.labels.recheck;
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'wt-status-button' + (variant ? ' wt-status-button-' + variant : '');
+      button.textContent = idle;
+      button.setAttribute('data-wt-recheck', idle);
+      button.setAttribute('data-wt-busy', busyLabel || options.labels.rechecking);
+      button.addEventListener('click', function () {
+        // The deadline is checked here as well as on the button: a stale button from a screen
+        // rendered before the cooldown started must not be a way around it.
+        if (button.disabled || recheckBusy() || Date.now() < manualRecheckUntil) return;
+        manualCheckPending = true;
         refreshStatus(order, attempts);
-      }, options.labels.rechecking);
+      });
+      return button;
     }
 
     function pdfLink(order, snapshot) {
@@ -411,21 +527,32 @@
     function refreshStatus(order, attemptsLeft) {
       stopPolling();
       var generation = ++statusGeneration;
+      // Set before the request leaves, so the button reads as working in the same tick the
+      // customer pressed it rather than after the network answers.
+      requestInFlight = true;
+      syncRecheckButtons();
       fetchStatus(order)
         .then(function (snapshot) {
+          // A superseded reply must not clear the flag either: the check that replaced it owns it.
           if (generation !== statusGeneration) return;
+          requestInFlight = false;
           applyStatus(order, snapshot, attemptsLeft);
+          settleManualCheck();
         })
         .catch(function (error) {
           if (generation !== statusGeneration) return;
+          requestInFlight = false;
           clearBusy();
           if (error && error.message === 'gone') {
             forgetOrder();
             clearIdempotencyKey();
-            return showCancelled(null, options.labels.orderGone);
+            showCancelled(null, options.labels.orderGone);
+          } else if (error && error.message === 'timeout') {
+            showTimeout(order);
+          } else {
+            showConnectionError(order);
           }
-          if (error && error.message === 'timeout') return showTimeout(order);
-          showConnectionError(order);
+          settleManualCheck();
         });
     }
 
@@ -438,7 +565,20 @@
       if (status === 'REFUNDED') return showRefunded();
       if (status === 'CANCELLED' || status === 'EXPIRED') return showCancelled(order, null);
 
-      if (status === 'PAID' && snapshot.ticketsIssued) return showPaid(order, snapshot);
+      if (status === 'PAID' && snapshot.ticketsIssued) {
+        showPaid(order, snapshot);
+        // The ticket itself is ready and downloadable; what is still open is only whether the
+        // mail server has taken the letter. Bounded and slow on purpose - it is not a payment
+        // check, and it must not keep a finished order polling forever.
+        if (!snapshot.ticketsEmailedAt && emailWaitsLeft > 0) {
+          emailWaitsLeft -= 1;
+          pollTimer = setTimeout(function () {
+            pollTimer = null;
+            refreshStatus(order, 0);
+          }, EMAIL_POLL_INTERVAL_MS);
+        }
+        return;
+      }
       // DRAFT means payment was never started, so there is nothing to wait for.
       if (status === 'DRAFT') return showUnpaid(order);
 
@@ -457,21 +597,36 @@
       return showAwaitingConfirmation(order);
     }
 
+    /**
+     * Three distinct states once the money is in and the ticket exists, and each one says only
+     * what is actually known: the mail server accepted the letter, the letter is still on its way
+     * out, or the send could not be confirmed. The PDF comes first in all three - a ready ticket
+     * is never hidden behind the e-mail.
+     */
     function showPaid(order, snapshot) {
       setFormVisible(false);
       var emailed = !!(snapshot && snapshot.ticketsEmailedAt);
+      var stillSending = !emailed && emailWaitsLeft > 0;
+      var state = emailed ? 'emailed' : (stillSending ? 'sending' : 'unconfirmed');
+
       var actions = [pdfLink(order, snapshot)];
+      if (!emailed) {
+        actions.push(recheckButton(order, 0, 'ghost', options.labels.emailCheck, options.labels.emailChecking));
+      }
       if (snapshot && snapshot.emailResendAvailable) {
         actions.push(actionButton(options.labels.resend, 'ghost', function (button) {
           resendEmail(order, button);
         }));
       }
-      var panel = screen('paid:' + (emailed ? '1' : '0'), 'success',
+
+      var panel = screen('paid:' + state, 'success',
         options.labels.paidTitle, options.labels.paidText, actions);
-      if (panel && emailed) {
+      if (panel) {
         var note = document.createElement('p');
         note.className = 'wt-status-note';
-        note.textContent = options.labels.emailedNote;
+        note.textContent = state === 'emailed'
+          ? options.labels.emailedNote
+          : (state === 'sending' ? options.labels.emailSendingNote : options.labels.emailUnconfirmedNote);
         panel.appendChild(note);
       }
     }
@@ -548,6 +703,9 @@
     function startOver() {
       stopPolling();
       statusGeneration++;
+      requestInFlight = false;
+      clearManualCooldown();
+      emailWaitsLeft = EMAIL_POLL_ATTEMPTS;
       forgetOrder();
       clearIdempotencyKey();
       clearResult();
@@ -568,6 +726,11 @@
         .then(function (response) {
           if (response.ok) {
             button.textContent = options.labels.resent;
+            // The server only answers OK once the mail server has taken the message, so the
+            // order now carries a delivery stamp; let the screen show that rather than keep
+            // claiming the letter is still on its way.
+            emailWaitsLeft = Math.max(emailWaitsLeft, 1);
+            refreshStatus(order, 0);
             return null;
           }
           return readErrorMessage(response, options.labels.resendFailed).then(function (text) {
@@ -662,6 +825,8 @@
           if (!order || !order.id || !order.accessToken) throw new Error(options.labels.createFailed);
           clearIdempotencyKey();
           saveOrder(order);
+          clearManualCooldown();
+          emailWaitsLeft = EMAIL_POLL_ATTEMPTS;
           if (config.localTestMode) return showUnpaid(order);
           startPayment(order);
         })
@@ -778,7 +943,11 @@
       resendFailed: 'Письмо отправить не удалось. Билет доступен по ссылке выше.',
       paidTitle: 'Оплата прошла. Билеты готовы.',
       paidText: 'Скачайте PDF с QR-кодом и покажите его сотруднику при посадке. Билет действует 72 часа с момента подтверждения оплаты.',
-      emailedNote: 'Письмо с билетами уже отправлено на указанный email.',
+      emailedNote: 'Письмо отправлено на указанную почту: почтовый сервер принял его. Если письма нет во «Входящих», проверьте «Спам» — билет всегда можно скачать по кнопке выше.',
+      emailSendingNote: 'Билет готов, письмо ещё отправляется. Мы проверяем это автоматически несколько минут — ждать письма не нужно, билет уже можно скачать.',
+      emailUnconfirmedNote: 'Билет готов, но отправку письма подтвердить пока не удалось. Оплата в порядке и билет действителен: скачайте PDF по кнопке выше, проверьте ещё раз или отправьте письмо повторно. Если ничего не помогло — напишите нам, мы отправим билет вручную.',
+      emailCheck: 'Проверить письмо',
+      emailChecking: 'Проверяем письмо...',
       processingTitle: 'Оплата обрабатывается',
       processingText: 'Проверяем платёж. Это занимает до минуты — не закрывайте страницу.',
       processingPaidText: 'Оплата подтверждена, готовим билеты. Обычно это занимает меньше минуты.',
@@ -889,7 +1058,11 @@
       resendFailed: 'Письмо отправить не удалось. Билет доступен по ссылке выше.',
       paidTitle: 'Аренда оплачена. Билет готов.',
       paidText: 'Скачайте PDF с QR-кодом — он один на всю компанию. Билет действует 72 часа с момента подтверждения оплаты, время выхода согласуется отдельно.',
-      emailedNote: 'Письмо с билетом уже отправлено на указанный email.',
+      emailedNote: 'Письмо отправлено на указанную почту: почтовый сервер принял его. Если письма нет во «Входящих», проверьте «Спам» — билет всегда можно скачать по кнопке выше.',
+      emailSendingNote: 'Билет готов, письмо ещё отправляется. Мы проверяем это автоматически несколько минут — ждать письма не нужно, билет уже можно скачать.',
+      emailUnconfirmedNote: 'Билет готов, но отправку письма подтвердить пока не удалось. Оплата в порядке и билет действителен: скачайте PDF по кнопке выше, проверьте ещё раз или отправьте письмо повторно. Если ничего не помогло — напишите нам, мы отправим билет вручную.',
+      emailCheck: 'Проверить письмо',
+      emailChecking: 'Проверяем письмо...',
       processingTitle: 'Оплата обрабатывается',
       processingText: 'Проверяем платёж. Это занимает до минуты — не закрывайте страницу.',
       processingPaidText: 'Оплата подтверждена, готовим билет. Обычно это занимает меньше минуты.',

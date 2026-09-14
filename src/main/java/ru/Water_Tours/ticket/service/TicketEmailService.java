@@ -33,7 +33,7 @@ public class TicketEmailService {
 
     // Upper bound on how long one send may hold the claim. Only reached when a process dies
     // mid-send; a normal attempt releases the claim as soon as the mail server answers.
-    private static final Duration CLAIM_LEASE = Duration.ofMinutes(10);
+    public static final Duration CLAIM_LEASE = Duration.ofMinutes(10);
 
     private final JavaMailSender mailSender;
     private final OrderRepository orderRepository;
@@ -66,6 +66,30 @@ public class TicketEmailService {
         tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
+    /**
+     * True while some run is actually handing this order to the mail server. Anything that sends
+     * the same order's tickets must consult it, or two runs deliver the same PDF twice.
+     */
+    public static boolean claimHeld(Order order, Instant now) {
+        Instant claimedAt = order.getTicketsEmailClaimedAt();
+        return claimedAt != null && now.isBefore(claimedAt.plus(CLAIM_LEASE));
+    }
+
+    /**
+     * Hands the order's EXISTING ticket PDF to the mail server and nothing else: no claim, no
+     * attempt counter, no status write. The caller owns that bookkeeping. This is what a staff
+     * address correction re-sends - a correction must deliver the ticket that was already issued,
+     * never mint a new one.
+     */
+    public void sendIssuedTicketsPdf(UUID orderId, String recipient) {
+        try {
+            byte[] pdfBytes = pdfTicketService.buildTicketsPdfByOrderId(orderId, baseUrl);
+            sendEmailWithPdf(recipient, orderId, pdfBytes);
+        } catch (Exception e) {
+            throw new TicketEmailException("Ticket email could not be sent for order " + orderId, e);
+        }
+    }
+
     /** First delivery. Does nothing once the order has already been emailed. */
     public void sendTicketsPdf(UUID orderId) {
         deliver(orderId, false);
@@ -86,12 +110,12 @@ public class TicketEmailService {
 
         boolean delivered = false;
         try {
-            byte[] pdfBytes = pdfTicketService.buildTicketsPdfByOrderId(orderId, baseUrl);
-            sendEmailWithPdf(recipient, orderId, pdfBytes);
+            sendIssuedTicketsPdf(orderId, recipient);
             delivered = true;
-        } catch (Exception e) {
-            log.warn("Ticket email attempt failed for orderId={}, errorType={}", orderId, e.getClass().getSimpleName());
-            throw new TicketEmailException("Ticket email could not be sent for order " + orderId, e);
+        } catch (RuntimeException e) {
+            log.warn("Ticket email attempt failed for orderId={}, errorType={}", orderId,
+                    e.getCause() != null ? e.getCause().getClass().getSimpleName() : e.getClass().getSimpleName());
+            throw e;
         } finally {
             releaseClaim(orderId, delivered);
         }
@@ -127,8 +151,7 @@ public class TicketEmailService {
         }
 
         Instant now = Instant.now(clock);
-        Instant claimedAt = order.getTicketsEmailClaimedAt();
-        boolean claimHeld = claimedAt != null && now.isBefore(claimedAt.plus(CLAIM_LEASE));
+        boolean claimHeld = claimHeld(order, now);
         if (!resend) {
             if (order.getTicketsEmailedAt() != null) return null;
             // Another delivery run is already handing this order to the mail server.
