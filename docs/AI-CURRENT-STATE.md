@@ -456,28 +456,32 @@ beforehand (220/220, no local edits, nothing extra), so nothing of anyone's was 
 
 ### Open items the owner has to decide
 
-1. **Telegram egress is intermittent. Half of it was code, and that half is fixed but NOT deployed.**
-   Measured on the server 2026-09-15 21:07 UTC: **38 polling failures in 6 hours**,
-   `errorType=ResourceAccessException` - intermittent, not constant. Of the three addresses
-   `api.telegram.org` resolves to, one is reachable from the container and two are blocked; what
-   turned that into a two-in-three failure rate is that `HttpURLConnection` connects to the first
-   resolved address and never tries the rest. `TelegramHttpConfig` now walks the whole address list
-   (`telegram.connection-failover`, default on, reversible via `TELEGRAM_CONNECTION_FAILOVER` with
-   no rebuild). Nothing pinned: no IP literal, DNS in charge, no proxy. **Deploying it needs a new
-   image and a container recreate, which the permission classifier denies** - so the *after*
-   measurement does not exist yet. Support questions are stored before any notification and retried
-   6x (1/3/10/30/120 min) and `/staff/support-inquiries` lists them, so nothing is lost either way.
+1. **Telegram is DOWN from the container, and it is infrastructure. The code fix is deployed and
+   does not help.** Measured 2026-09-15 ~22:05 UTC from the application's own Docker network: twelve
+   consecutive lookups of `api.telegram.org` all return the single address `149.154.166.110`, no
+   rotation; twelve connection attempts by name all fail; `149.154.167.220` is reachable from that
+   same network and is never offered; the container has **no** IPv6 while the host does, which is
+   why the host reaches Telegram (11/12) and the app cannot (0/12). The address-failover client is
+   deployed (`TELEGRAM_CONNECTION_FAILOVER=true`) and measured at 9.3 polling failures/min - and the
+   old client, switched back on through the kill switch, fails identically, so the change is neither
+   the cause nor the cure. **This corrects the earlier claim that DNS rotates three addresses**; in
+   this environment there is one, so failover has nothing to fail over to. The fix is a working IPv6
+   route for Docker, or a resolver that returns the full A-record set - an owner decision, and
+   nothing was pinned or invented. Inquiries are still stored before any notification, retried 6x
+   (1/3/10/30/120 min) and listed at `/staff/support-inquiries`.
 
 2. **Boat 30-minute price is still 35 010 ₽ live** (price version 6, published by `staff` on
    2026-09-12; v1 had 3 500 ₽). Preserved deliberately. One rollback at `/staff/prices` fixes it.
-3. **Order rate limiter is still OFF, and the only thing left is the switch.** Its keying is
-   proven: two runtime tests start the real application with the real `RemoteIpValve` and the
-   limiter on, and show independent buckets per forwarded address with a trusted peer and no fresh
-   bucket for a rotating spoofed header with an untrusted peer - without creating an order.
-   Confirmed live that an invalid `POST /api/v1/orders` answers 400 and creates nothing. Enabling it
-   needs `ORDER_RATE_LIMIT_ENABLED=true` in `/opt/water-tours/.env` plus
-   `docker compose up -d --no-build app`; **both were denied by the permission classifier**, so
-   `.env` was not modified and the app was not restarted.
+3. **Order rate limiter is ON in production.** `ORDER_RATE_LIMIT_ENABLED=true` in
+   `/opt/water-tours/.env` (one added line; copy of the previous file kept on the server), app
+   recreated without a rebuild, `MAX=20 WINDOW=10m`. The trust chain was confirmed live first - nginx
+   replaces `X-Forwarded-For` with `$remote_addr`, the valve is demonstrably applying (`Secure`
+   cookie and HSTS appear only when it trusts the peer), and the docker gateway `172.28.0.1` is in
+   `TRUSTED_PROXIES`. Normal use verified from two different client addresses: eight invalid order
+   attempts all answered 400, a read on the order surface answered 404 rather than 429, orders
+   50 -> 50. The 429 boundary was deliberately **not** triggered in production: that needs 21
+   requests from one address and, if the keying were wrong, would refuse real orders for ten
+   minutes - the attempt to narrow the window first was refused by the permission classifier.
 
 4. **`ddl-auto` stays `update`** - but the drill in `ops/security/DDL-VALIDATE-DRILL.md` has now
    been run: the application started with `ddl-auto=validate` against a restored copy of the real
@@ -571,9 +575,18 @@ PowerShell 5.1. Existing manifests were left as they are and are read with
 `tr -d '
 ' < SHA256SUMS.txt | sha256sum -c -`.
 
-### Still blocked
+### Deployed tonight, and what it measured
 
-The order limiter and the Telegram fix both need a **production container recreate**, which the
-permission classifier denies (read-only `docker compose ps` and disposable `docker run` are
-allowed). `.env` was not modified and no production container was restarted. Both are one command
-each once that is permitted - see the result file.
+Both remaining backend changes went out after the owner re-authorised them.
+
+- **Rate limiter: ON.** Verified live as above. Rollback is one line out of `.env` plus a restart.
+- **Telegram failover client: deployed, and the measurement is negative.** 9.3 polling failures per
+  minute, and the old client fails the same way when switched back on - so the client was never the
+  problem here. Kept as the committed default because it costs nothing and helps if more than one
+  address is ever returned, but it does not fix this outage and is not claimed to. Rollback without
+  a rebuild: `TELEGRAM_CONNECTION_FAILOVER=false`; full revert from
+  `/root/deploy-20260915b/backend-before/`.
+- **Nothing was sent.** Zero `sendMessage` lines; the one support inquiry was already `NOTIFIED`
+  (delivered 15:28 UTC today, one attempt), so no delivery was pending when the app restarted.
+- Data unchanged across the whole session: orders 50, payments 36, tickets 32, inquiries 1, held
+  mail 13, price version 6 with 35 010 intact.
