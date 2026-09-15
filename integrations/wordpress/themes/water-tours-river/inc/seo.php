@@ -116,16 +116,26 @@ add_filter('pre_get_document_title', function ($title) {
  *
  * The rule below is the actual reason: if WordPress chose `index.php` and this is not the front
  * page, the response is a copy, so it is `noindex`. It needs no list to maintain and it switches
- * itself off view by view - the day someone adds `page.php` or `archive.php`, those views stop
- * resolving to `index.php` and stop being noindexed, with no edit here. The old list is kept as a
- * floor, because search and 404 should stay out of the index whatever template renders them.
+ * itself off view by view - which is exactly what happened when `singular.php` arrived: pages and
+ * posts stopped resolving to `index.php` and stopped being noindexed, with no edit here. What is
+ * still covered is the views that have no template of their own - category, tag and custom post
+ * type archives, and the posts page. The old list is kept as a floor, because search, 404 and
+ * attachments should stay out of the index whatever template renders them.
  *
  * **It printed a second robots tag.** Core hooks `wp_robots()` to `wp_head` at priority 1 and
  * registers `wp_robots_max_image_preview_large` by default, so every page already carries a
  * `<meta name="robots">`. Echoing another one at the same priority put two of them on exactly the
- * views that mattered. Going through the `wp_robots` filter (WP 5.7+) merges the directives into
- * the one tag core emits - rule 1 of this file applied to this file. `follow` comes from core's
- * `wp_robots_no_robots()`, which also downgrades it to `nofollow` on a site marked non-public.
+ * views that mattered.
+ *
+ * To be accurate about what that was and was not: two robots tags are **not invalid**, and the
+ * pages were not being mis-crawled because of it. Google reads the directives from every robots
+ * meta tag on the page and combines them, applying the most restrictive of any that conflict, so
+ * `max-image-preview:large` plus `noindex,follow` was already understood as intended. The reason
+ * to merge them is that one tag is the only form whose meaning cannot change when something else
+ * later adds a directive - and that this file's first rule is not to print a tag core already
+ * prints. Going through the `wp_robots` filter (WP 5.7+) merges the directives into the tag core
+ * emits. `follow` comes from core's `wp_robots_no_robots()`, which also downgrades it to
+ * `nofollow` on a site marked non-public.
  */
 
 /**
@@ -155,9 +165,17 @@ function wt_river_seo_renders_front_page_copy() {
     return $template !== '' && basename($template) === 'index.php';
 }
 
-/** Every view this theme keeps out of the index, whatever emits the tag. */
+/**
+ * Every view this theme keeps out of the index, whatever emits the tag.
+ *
+ * `is_attachment()` is on the list because `singular.php` sits under attachment pages in the
+ * hierarchy too, and an attachment page is a URL whose whole content is one uploaded file - not a
+ * page of this site in any sense a searcher would want. On WordPress 7.1 it never fires: core
+ * redirects attachment URLs, checked on the stand (`/sinteticheskoe-vlozhenie/` answers 301). It
+ * is here for the installs where a plugin turns that redirect off, and it costs one function call.
+ */
 function wt_river_seo_should_noindex() {
-    if (is_search() || is_404() || is_date() || is_author() || is_tag() || is_paged()) { return true; }
+    if (is_search() || is_404() || is_date() || is_author() || is_tag() || is_attachment() || is_paged()) { return true; }
     return wt_river_seo_renders_front_page_copy();
 }
 
@@ -246,8 +264,15 @@ add_action('wp_head', function () {
  *   the owner-input section of the launch report instead.
  *
  * The prices come from `water_tours_buy_ticket_prices()` / `water_tours_boat_prices()`, which read
- * the backend catalogue. If the backend is unreachable the block is emitted without offers rather
- * than with a stale number.
+ * the backend catalogue.
+ *
+ * This comment used to say the block is emitted without offers if the backend is unreachable.
+ * That was not true: the plugin answers with its seed values in that case and the offers were
+ * built from them regardless. What is true now is narrower and is enforced in
+ * `wt_river_seo_ticket_offers()` - offers are published only when the numbers came from the
+ * catalogue, on this request or the last time the backend answered here. A `Service` with no
+ * usable price is emitted without an `offers` key rather than with a guessed one, and the visible
+ * page is unaffected either way: the order form gets its numbers from the plugin, not from here.
  */
 add_action('wp_head', function () {
     if (wt_river_seo_handled_elsewhere()) { return; }
@@ -272,36 +297,34 @@ add_action('wp_head', function () {
         ),
     );
 
+    $ticket_service = array(
+        '@type'       => 'Service',
+        '@id'         => $home . '#service-ticket',
+        'name'        => 'Билет на речную прогулку',
+        'serviceType' => 'Речная прогулка',
+        'provider'    => array('@id' => $home . '#organization'),
+        'areaServed'  => array('@type' => 'City', 'name' => 'Санкт-Петербург'),
+        'description' => 'Электронный билет с QR-кодом на речную прогулку. Действует 72 часа '
+            . 'с момента подтверждённой оплаты, даёт право на один проход. Рейс и место не '
+            . 'закрепляются.',
+    );
     $ticket_offers = wt_river_seo_ticket_offers();
-    if (!empty($ticket_offers)) {
-        $graph[] = array(
-            '@type'       => 'Service',
-            '@id'         => $home . '#service-ticket',
-            'name'        => 'Билет на речную прогулку',
-            'serviceType' => 'Речная прогулка',
-            'provider'    => array('@id' => $home . '#organization'),
-            'areaServed'  => array('@type' => 'City', 'name' => 'Санкт-Петербург'),
-            'description' => 'Электронный билет с QR-кодом на речную прогулку. Действует 72 часа '
-                . 'с момента подтверждённой оплаты, даёт право на один проход. Рейс и место не '
-                . 'закрепляются.',
-            'offers'      => $ticket_offers,
-        );
-    }
+    if (!empty($ticket_offers)) { $ticket_service['offers'] = $ticket_offers; }
+    $graph[] = $ticket_service;
 
+    $boat_service = array(
+        '@type'       => 'Service',
+        '@id'         => $home . '#service-boat',
+        'name'        => 'Аренда катера',
+        'serviceType' => 'Аренда катера с командой',
+        'provider'    => array('@id' => $home . '#organization'),
+        'areaServed'  => array('@type' => 'City', 'name' => 'Санкт-Петербург'),
+        'description' => 'Катер целиком для вашей компании, до 6 гостей. Продолжительность '
+            . 'выбирается при оформлении; маршрут и время выхода согласуются отдельно.',
+    );
     $boat_offers = wt_river_seo_boat_offers();
-    if (!empty($boat_offers)) {
-        $graph[] = array(
-            '@type'       => 'Service',
-            '@id'         => $home . '#service-boat',
-            'name'        => 'Аренда катера',
-            'serviceType' => 'Аренда катера с командой',
-            'provider'    => array('@id' => $home . '#organization'),
-            'areaServed'  => array('@type' => 'City', 'name' => 'Санкт-Петербург'),
-            'description' => 'Катер целиком для вашей компании, до 6 гостей. Продолжительность '
-                . 'выбирается при оформлении; маршрут и время выхода согласуются отдельно.',
-            'offers'      => $boat_offers,
-        );
-    }
+    if (!empty($boat_offers)) { $boat_service['offers'] = $boat_offers; }
+    $graph[] = $boat_service;
 
     $payload = array('@context' => 'https://schema.org', '@graph' => $graph);
     echo '<script type="application/ld+json">'
@@ -309,11 +332,47 @@ add_action('wp_head', function () {
         . '</script>' . "\n";
 }, 4);
 
-/** Ticket prices as schema.org Offers, straight from the published catalogue. */
+/**
+ * True when the price list behind the markup is the published catalogue rather than the
+ * plugin's seed values.
+ *
+ * `water_tours_buy_prices_are_published()` is the plugin's own answer and is authoritative. The
+ * `function_exists` guard is for the theme running without the plugin, and the answer there is
+ * "no" - no plugin, no published prices, no offers.
+ */
+function wt_river_seo_prices_are_published() {
+    return function_exists('water_tours_buy_prices_are_published')
+        && water_tours_buy_prices_are_published();
+}
+
+/**
+ * One amount as schema.org wants it: a plain number, in the currency named beside it, with the
+ * kopecks the catalogue actually has and no others.
+ *
+ * `(string) (float) 1500.5` would emit `1500.5`, which is valid, but `1500.50` is what the
+ * catalogue holds and what the customer is charged, so that is what is published.
+ */
+function wt_river_seo_price_string($amount) {
+    $amount = round((float) $amount, 2);
+    $decimals = (abs($amount - round($amount)) < 0.005) ? 0 : 2;
+    return number_format($amount, $decimals, '.', '');
+}
+
+/**
+ * Ticket prices as schema.org Offers, straight from the published catalogue - or no offers at all.
+ *
+ * The gate matters more than the loop. When the backend has never answered on this install, the
+ * plugin still hands the page a price list so the order form has something in it, but those are
+ * its seed values, not this site's prices: on 2026-09-15 the live catalogue had BENEFIT at 1054
+ * and the 30-minute rental at 35010, while the seed says 1020 and 3500. Publishing the seed as an
+ * `Offer` tells a search engine the site charges an amount it does not charge. An absent offer is
+ * merely less informative; a wrong one is false.
+ */
 function wt_river_seo_ticket_offers() {
     if (!function_exists('water_tours_buy_ticket_prices') || !function_exists('water_tours_buy_ticket_types')) {
         return array();
     }
+    if (!wt_river_seo_prices_are_published()) { return array(); }
     $prices = water_tours_buy_ticket_prices();
     $labels = water_tours_buy_ticket_types();
     $offers = array();
@@ -324,7 +383,7 @@ function wt_river_seo_ticket_offers() {
         $offers[] = array(
             '@type'         => 'Offer',
             'name'          => $label . ' билет',
-            'price'         => (string) (float) $prices[$type],
+            'price'         => wt_river_seo_price_string($prices[$type]),
             'priceCurrency' => 'RUB',
             'availability'  => 'https://schema.org/InStock',
             'url'           => home_url('/#tickets'),
@@ -333,9 +392,10 @@ function wt_river_seo_ticket_offers() {
     return $offers;
 }
 
-/** Boat prices as Offers, one per confirmed duration. */
+/** Boat prices as Offers, one per confirmed duration. Same gate, same reason. */
 function wt_river_seo_boat_offers() {
     if (!function_exists('water_tours_boat_prices')) { return array(); }
+    if (!wt_river_seo_prices_are_published()) { return array(); }
     $prices = water_tours_boat_prices();
     $offers = array();
     foreach ($prices as $minutes => $price) {
@@ -343,7 +403,7 @@ function wt_river_seo_boat_offers() {
         $offers[] = array(
             '@type'         => 'Offer',
             'name'          => sprintf('Аренда катера, %d минут', (int) $minutes),
-            'price'         => (string) (float) $price,
+            'price'         => wt_river_seo_price_string($price),
             'priceCurrency' => 'RUB',
             'availability'  => 'https://schema.org/InStock',
             'url'           => home_url('/#boat'),
@@ -384,10 +444,12 @@ add_filter('robots_txt', function ($output, $public) {
  *   front page and are noindex by the rule above. The check is on the template, not hardcoded, so
  *   adding `archive.php` or `category.php` puts them back in the sitemap by itself.
  *
- * The `posts` provider is deliberately left alone even though ordinary pages have the same problem
- * today: core adds the home URL to the sitemap through that provider, and removing it would take
- * the front page - the only page that matters - out of the sitemap with it. Giving pages a real
- * template is the fix, it is an owner decision, and it is recorded as a next ticket.
+ * The `posts` provider stays. It is the provider core uses to put the **home URL** in the sitemap,
+ * so removing it would take the front page - the only page that matters - out with it. Pages and
+ * posts belong in it too, now that `singular.php` gives them a template of their own and they are
+ * no longer copies of the front page.
+ *
+ * One entry is still removed from it, below: the page assigned as the posts page.
  *
  * Nothing else needs excluding: orders, tickets and PDFs are not WordPress content, so core has
  * no way to list them in the first place.
@@ -396,6 +458,32 @@ add_filter('wp_sitemaps_add_provider', function ($provider, $name) {
     if ($name === 'users') { return false; }
     if ($name === 'taxonomies' && !wt_river_seo_has_archive_template()) { return false; }
     return $provider;
+}, 10, 2);
+
+/**
+ * Keep the posts page out of the sitemap while it has no template of its own.
+ *
+ * A static front page plus a posts page is the one case `singular.php` does not reach. WordPress
+ * renders the posts page through `home.php`, and with no `home.php` that falls to `index.php` -
+ * the landing page again, so the rule above marks it `noindex`. Core meanwhile lists it in the
+ * page sitemap like any other page, which is the exact contradiction this block exists to remove.
+ *
+ * Verified against WordPress 7.1 on an isolated stand with `page_on_front` and `page_for_posts`
+ * both set: core replaces the front page's own URL with the home URL by itself, and leaves the
+ * posts page in. So this excludes the posts page and nothing else.
+ *
+ * Like the taxonomy rule, it is written as a question about templates, not as a hardcoded id: add
+ * `home.php` and the posts page becomes a real page and returns to the sitemap with no edit here.
+ */
+add_filter('wp_sitemaps_posts_query_args', function ($args, $post_type) {
+    if ($post_type !== 'page') { return $args; }
+    if (locate_template(array('home.php')) !== '') { return $args; }
+    $posts_page = (int) get_option('page_for_posts');
+    if ($posts_page <= 0) { return $args; }
+    $excluded = isset($args['post__not_in']) && is_array($args['post__not_in']) ? $args['post__not_in'] : array();
+    $excluded[] = $posts_page;
+    $args['post__not_in'] = $excluded;
+    return $args;
 }, 10, 2);
 
 /** Whether the theme (or a child theme) ships any template an archive view could resolve to. */

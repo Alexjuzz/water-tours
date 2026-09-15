@@ -50,10 +50,24 @@ function water_tours_buy_internal_backend_url() {
  * the owner at /staff/prices. Cached briefly so a page view does not wait on the backend, with
  * the last successful answer kept in an option: if the backend is down we show the last real
  * prices rather than a number baked into this file that silently drifts out of date.
+ *
+ * Every answer carries where it came from, in `source`:
+ *
+ * - `backend`   - read from /api/v1/prices on this request.
+ * - `last_good` - the last answer the backend actually gave on this install. Real published
+ *                 prices, possibly a few minutes old.
+ * - `defaults`  - the values at the bottom of this file, used only before the backend has ever
+ *                 answered here. **These are not published prices.** They match
+ *                 `PricingService.SEED_VALUES`, which is where a *fresh* install starts, not what
+ *                 this site charges: on 2026-09-15 the live catalogue was version 6 with BENEFIT
+ *                 1054 and the 30-minute rental 35010, while the seed says 1020 and 3500. The buy
+ *                 form still shows them, because a form with no number in it cannot be used at
+ *                 all; anything that publishes a price as a claim to a machine has to check the
+ *                 source first and say nothing instead - see `water_tours_buy_prices_are_published()`.
  */
 function water_tours_buy_prices() {
     $cached = get_transient('water_tours_prices');
-    if (is_array($cached)) {
+    if (is_array($cached) && isset($cached['tickets'])) {
         return $cached;
     }
 
@@ -70,7 +84,9 @@ function water_tours_buy_prices() {
 
     if ($prices === null) {
         $prices = get_option('water_tours_prices_last_good');
-        if (!is_array($prices)) {
+        if (is_array($prices) && isset($prices['tickets']) && isset($prices['boat'])) {
+            $prices['source'] = 'last_good';
+        } else {
             $prices = water_tours_buy_price_defaults();
         }
         // Short retry window so a brief backend restart does not pin stale prices for long.
@@ -84,37 +100,86 @@ function water_tours_buy_prices() {
 }
 
 /**
+ * True when the numbers on this page came from the backend catalogue - now, or the last time it
+ * answered here - and false when they are this file's seed values.
+ *
+ * The difference only matters where a number is published as a claim rather than shown as a hint:
+ * structured data, a feed, anything a machine quotes back later. There a guess is worse than a gap.
+ */
+function water_tours_buy_prices_are_published() {
+    $prices = water_tours_buy_prices();
+    $source = isset($prices['source']) ? $prices['source'] : 'defaults';
+    return $source === 'backend' || $source === 'last_good';
+}
+
+/**
  * Last-resort values, used only before the backend has ever answered on this install.
  */
 function water_tours_buy_price_defaults() {
     return array(
         'version' => 0,
-        'tickets' => array('ADULT' => 1500, 'CHILD' => 800, 'BENEFIT' => 1020),
-        'boat' => array(30 => 3500, 60 => 6000, 90 => 9000, 120 => 11000),
+        'source'  => 'defaults',
+        'tickets' => array('ADULT' => 1500.0, 'CHILD' => 800.0, 'BENEFIT' => 1020.0),
+        'boat' => array(30 => 3500.0, 60 => 6000.0, 90 => 9000.0, 120 => 11000.0),
     );
 }
 
+/**
+ * One published amount, or null when the value is not a price.
+ *
+ * Kept as a float rounded to two decimals, because two decimals is exactly what the backend
+ * publishes: the columns are `precision = 12, scale = 2` and `PricingService.validate()` rejects
+ * anything with a larger scale. The previous version did `(int) round(...)`, so a catalogue entry
+ * of 1500.50 was displayed, marked up and totalled as 1501 while the backend charged 1500.50.
+ * Rounding a price is not a formatting choice - it makes the site quote a number nobody is charged.
+ *
+ * `true`, `null`, `''` and `'1500'` are all things a bare cast would quietly accept or mangle, so
+ * the check is explicit.
+ */
+function water_tours_buy_amount($value) {
+    if (is_bool($value) || $value === null || $value === '' || is_array($value)) { return null; }
+    if (!is_numeric($value)) { return null; }
+    $amount = round((float) $value, 2);
+    if (!is_finite($amount) || $amount < 0) { return null; }
+    return $amount;
+}
+
+/**
+ * Turn one backend answer into the shape the rest of this plugin uses, or null.
+ *
+ * Null means "the backend did not give us a price list" and the caller falls back. A payload
+ * missing even one field is null rather than a list with that gap filled in from this file: the
+ * half-invented list used to be stored as `water_tours_prices_last_good` and then served for as
+ * long as the backend stayed unreachable, which turns one malformed response into a lasting wrong
+ * price. The backend publishes all seven fields in one `Map.of`, so a partial payload is a broken
+ * answer, not a smaller one.
+ */
 function water_tours_buy_normalize_prices($payload) {
     if (!is_array($payload) || !isset($payload['tickets']) || !is_array($payload['tickets'])) {
         return null;
     }
 
     $defaults = water_tours_buy_price_defaults();
-    $normalized = array('version' => isset($payload['version']) ? (int) $payload['version'] : 0);
+    $normalized = array(
+        'version' => isset($payload['version']) ? (int) $payload['version'] : 0,
+        'source'  => 'backend',
+        'tickets' => array(),
+        'boat'    => array(),
+    );
 
-    foreach ($defaults['tickets'] as $type => $fallback) {
-        $normalized['tickets'][$type] = isset($payload['tickets'][$type])
-            ? max(0, (int) round((float) $payload['tickets'][$type]))
-            : $fallback;
+    foreach ($defaults['tickets'] as $type => $ignored) {
+        $amount = isset($payload['tickets'][$type]) ? water_tours_buy_amount($payload['tickets'][$type]) : null;
+        if ($amount === null) { return null; }
+        $normalized['tickets'][$type] = $amount;
     }
 
     $boat = isset($payload['boatRentalByDurationMinutes']) && is_array($payload['boatRentalByDurationMinutes'])
         ? $payload['boatRentalByDurationMinutes']
         : array();
-    foreach ($defaults['boat'] as $minutes => $fallback) {
-        $normalized['boat'][$minutes] = isset($boat[$minutes])
-            ? max(0, (int) round((float) $boat[$minutes]))
-            : $fallback;
+    foreach ($defaults['boat'] as $minutes => $ignored) {
+        $amount = isset($boat[$minutes]) ? water_tours_buy_amount($boat[$minutes]) : null;
+        if ($amount === null) { return null; }
+        $normalized['boat'][$minutes] = $amount;
     }
 
     return $normalized;
@@ -124,12 +189,14 @@ function water_tours_buy_ticket_prices() {
     $prices = water_tours_buy_prices();
     $sanitized = array();
     foreach ($prices['tickets'] as $type => $price) {
-        $sanitized[$type] = max(0, (int) $price);
+        $amount = water_tours_buy_amount($price);
+        $sanitized[$type] = $amount === null ? 0.0 : $amount;
     }
 
     $filtered = apply_filters('water_tours_ticket_prices', $sanitized);
     foreach ($sanitized as $type => $fallback) {
-        $sanitized[$type] = isset($filtered[$type]) ? max(0, (int) $filtered[$type]) : $fallback;
+        $amount = isset($filtered[$type]) ? water_tours_buy_amount($filtered[$type]) : null;
+        $sanitized[$type] = $amount === null ? $fallback : $amount;
     }
 
     return $sanitized;
@@ -143,19 +210,32 @@ function water_tours_boat_prices() {
     $prices = water_tours_buy_prices();
     $sanitized = array();
     foreach ($prices['boat'] as $minutes => $price) {
-        $sanitized[(int) $minutes] = max(0, (int) $price);
+        $amount = water_tours_buy_amount($price);
+        $sanitized[(int) $minutes] = $amount === null ? 0.0 : $amount;
     }
     ksort($sanitized);
 
-    return apply_filters('water_tours_boat_prices', $sanitized);
+    $filtered = apply_filters('water_tours_boat_prices', $sanitized);
+    foreach ($sanitized as $minutes => $fallback) {
+        $amount = isset($filtered[$minutes]) ? water_tours_buy_amount($filtered[$minutes]) : null;
+        $sanitized[$minutes] = $amount === null ? $fallback : $amount;
+    }
+
+    return $sanitized;
 }
 
 /**
  * Same grouping the purchase script uses, so the price does not visibly reflow once the
  * script takes over the element.
+ *
+ * Kopecks appear only when the catalogue actually has them. A whole-ruble price renders exactly
+ * as it always did - `1 500`, not `1 500,00` - so an ordinary page is byte-for-byte unchanged,
+ * while 1500.50 renders `1 500,50` instead of the `1 501` it used to claim.
  */
 function water_tours_buy_format_price($amount) {
-    return number_format((float) $amount, 0, ',', ' ');
+    $amount = round((float) $amount, 2);
+    $decimals = (abs($amount - round($amount)) < 0.005) ? 0 : 2;
+    return number_format($amount, $decimals, ',', ' ');
 }
 
 function water_tours_buy_enqueue_assets() {

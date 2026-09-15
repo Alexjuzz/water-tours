@@ -48,8 +48,25 @@
     return !!email && typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   }
 
+  /**
+   * A rouble amount, grouped by thousands, with kopecks only when there are any.
+   *
+   * The catalogue is allowed two decimal places (the backend column is scale 2), and three
+   * tickets at 1020.33 add up to 3060.9900000000002 in binary floating point. The previous
+   * version put that whole string through the grouping expression, which also grouped the
+   * digits after the point. Rounding to kopecks first and formatting the two halves separately
+   * keeps a whole-rouble price rendering exactly as it did before - `1 500`, not `1 500,00`.
+   */
   function formatMoney(value) {
-    return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    var amount = Math.round((Number(value) || 0) * 100) / 100;
+    var sign = amount < 0 ? '-' : '';
+    amount = Math.abs(amount);
+    var whole = Math.floor(amount);
+    var kopecks = Math.round((amount - whole) * 100);
+    if (kopecks === 100) { whole += 1; kopecks = 0; }
+    var grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    if (kopecks === 0) { return sign + grouped; }
+    return sign + grouped + ',' + (kopecks < 10 ? '0' + kopecks : String(kopecks));
   }
 
   function readSession(key) {
