@@ -90,6 +90,11 @@ telegram:
   bot-token: ${TELEGRAM_BOT_TOKEN:}
   bot-username: ${TELEGRAM_BOT_USERNAME:}
   poll-interval: 500
+  # Try every address api.telegram.org resolves to instead of only the first. See
+  # TelegramHttpConfig: on the production network two of the three addresses are blocked,
+  # so the single-address JDK client failed about two attempts in three. false restores
+  # that client exactly, with no rebuild.
+  connection-failover: ${TELEGRAM_CONNECTION_FAILOVER:true}
 
 idempotency:
   value-ttl: 10m

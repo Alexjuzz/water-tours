@@ -98,6 +98,17 @@
 			<artifactId>spring-boot-starter-data-redis</artifactId>
 		</dependency>
 <!--		Работа с почтой-->
+		<!--
+			Telegram only. The JDK's HttpURLConnection connects to the FIRST address DNS returns
+			for a host and never tries the others, so on a network where some of api.telegram.org's
+			addresses are unreachable every attempt is a coin toss. Apache HttpClient walks the
+			whole address list and keeps the original hostname for SNI and certificate checks, so
+			nothing is pinned. See TelegramHttpConfig.
+		-->
+		<dependency>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>

@@ -64,6 +64,10 @@ services:
       STAFF_REMEMBER_ME_KEY: ${STAFF_REMEMBER_ME_KEY}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      # Reversible switch for the Telegram address-failover client. `false` goes back to
+      # the JDK client that connected to one resolved address and gave up, which is what
+      # made polling fail about two attempts in three on this network.
+      TELEGRAM_CONNECTION_FAILOVER: ${TELEGRAM_CONNECTION_FAILOVER:-true}
       STAFF_TELEGRAM_CHAT_IDS: ${STAFF_TELEGRAM_CHAT_IDS}
       SUPPORT_OWNER_TELEGRAM_CHAT_ID: ${SUPPORT_OWNER_TELEGRAM_CHAT_ID:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
