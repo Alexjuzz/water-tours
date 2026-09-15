@@ -74,6 +74,34 @@ services:
       # Docker Desktop's host-to-container port forwarding arrives from this fixed bridge
       # gateway address rather than loopback; only relevant when local-checkout is active.
       LOCAL_CHECKOUT_TRUSTED_REMOTE_ADDRESSES: 172.28.0.1
+      # --- Transport / trust boundary ---------------------------------------------------
+      # compose.yml enumerates the container environment, so a name that is not listed here can
+      # NOT be set from .env - it never reaches the app. Everything below is wired for exactly
+      # that reason, and every default repeats the application.yml default, so adding these
+      # lines changes no running behaviour on its own.
+      #
+      # Kill switch for the RemoteIpValve. `none` reverts to the pre-remediation behaviour
+      # (no client address, no Secure cookies, no HSTS) without a rebuild.
+      FORWARD_HEADERS_STRATEGY: ${FORWARD_HEADERS_STRATEGY:-native}
+      # KEEP IN SYNC with server.tomcat.remoteip.internal-proxies in application.yml. An empty
+      # value here would trust NOTHING and silently disable the valve, so it has a real default
+      # rather than `:-`.
+      TRUSTED_PROXIES: '${TRUSTED_PROXIES:-127\.\d+\.\d+\.\d+|0:0:0:0:0:0:0:1|::1|172\.28\.0\.1|172\.17\.0\.1}'
+      HSTS_INCLUDE_SUBDOMAINS: ${HSTS_INCLUDE_SUBDOMAINS:-false}
+      # --- Schema ------------------------------------------------------------------------
+      # Stays `update`. Moving to `validate` needs the drill in ops/security/DDL-VALIDATE-DRILL.md
+      # run against the real schema first; wired so that move needs no rebuild.
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+      # --- Order creation rate limit -----------------------------------------------------
+      # OFF until a live check confirms the backend sees the real client address. Enabling it
+      # while every request collapses to one key would throttle the whole storefront.
+      ORDER_RATE_LIMIT_ENABLED: ${ORDER_RATE_LIMIT_ENABLED:-false}
+      ORDER_RATE_LIMIT_MAX: ${ORDER_RATE_LIMIT_MAX:-20}
+      ORDER_RATE_LIMIT_WINDOW: ${ORDER_RATE_LIMIT_WINDOW:-10m}
+      # --- Customer support --------------------------------------------------------------
+      # Kill switch that KEEPS the chat id above; set to false to stop the channel without
+      # losing the destination.
+      SUPPORT_ENABLED: ${SUPPORT_ENABLED:-true}
     depends_on:
       postgres:
         condition: service_healthy
