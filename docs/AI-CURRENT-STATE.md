@@ -278,3 +278,102 @@ restarted or migrated on the server. `./mvnw -B verify` 327/327 (was 300).
   deny) but its production status was never observed.
 - **Requires a production action to take effect:** the nginx `X-Forwarded-For`/log-redaction change
   and a restart. Exact steps are in `REMEDIATION-RESULT.md`. Nothing here is verified live.
+
+## Staged launch readiness — four stages completed locally, 2026-09-15 (NOT deployed)
+
+Assignment: `target/launch-readiness-opus.md`. Full report with per-check evidence:
+local `target/LAUNCH-READINESS-RESULT.md` (gitignored). Commits `dcd62fe..28be2c1` on
+`work/tasks-6-7-9-11`, **local only — nothing pushed, nothing deployed, no server contacted.**
+`./mvnw -B verify` **346/346** (was 330); Stages 3 and 4 changed no Java, so it was not re-run.
+
+### Security remediation finished
+- **The idempotency transition was broken in the direction that costs money.** A record with no
+  bindings — a bare order id left in Redis by the old build, or a pre-migration order row — hit
+  the request-hash comparison first, and a null hash never matches, so every replay across an
+  upgrade was *refused* rather than replayed redacted as documented. Legacy records are now
+  recognised explicitly: same order back, no second order, no credential in the reply, and the
+  caller's secret is never adopted onto the record. Confirmed end to end against a real
+  pre-migration row, not just against stubs.
+- The storefront says something useful when that happens: a `200` with no token shows the order
+  number and asks the customer to contact support (retry key kept, so a second press resolves to
+  the same order); a `409` gets a Russian message offering the two honest recoveries.
+- PDF downloads moved to a header-authenticated blob fetch. The query parameter still works, so
+  every link already in a customer's hands keeps opening.
+- `ops/disaster-recovery/nginx.conf`: `$http_referer` was logged unredacted, the **real**
+  test-pay endpoint (`/api/v1/orders/{uuid}/test-pay`) was never denied, and `/staff` was routed
+  to WordPress. All three fixed and probed against a running nginx.
+- Two runtime tests replace inference about the trust boundary: real Tomcat on a real port, a
+  real HTTP client. A trusted peer gets `Secure` cookies, HSTS and per-address throttling; an
+  untrusted one gets none of it and cannot buy fresh throttle buckets by rotating
+  `X-Forwarded-For`. MockMvc never runs the valve, so it could not have shown any of this.
+- The staff console, `/t/{code}` and the login page were rendered in Chrome under the real CSP:
+  **0 violations**, inline handlers confirmed to still run, and the e-mail-correction form
+  submitted with `confirm` forced false — `order_email_corrections` stayed empty.
+- `ddl-auto=validate` drilled against a **synthetic old schema**: the previous build created it,
+  the migration was applied, the current build booted clean and issued **0** DDL. The production
+  drill is written up in the new `ops/security/DDL-VALIDATE-DRILL.md` — which `application.yml`
+  already referenced and which did not exist.
+- `php -l` clean on all 14 plugin/theme PHP files under PHP 7.4 (isolated container).
+
+### Purchase and support acceptance — 54 checks, two real defects fixed
+Driven through a harness that stubs the WordPress functions and loads the **real** theme, plugin
+and assets, against the real backend with mocked SMTP (MailHog), mocked Telegram and the
+`local-checkout` test payment.
+
+- **A mail-server outage silently spent the customer's resend budget.** The cap counted attempts,
+  not letters, so five refused sends during an SMTP outage permanently disabled the resend button
+  on an order whose letter had never gone anywhere. The cap now counts what the mail server
+  accepted; the cooldown still counts attempts.
+- **The gate was told the wrong reason.** A ticket whose order was mid-refund was reported to
+  staff as "истёк или ещё не начал действовать", and a refunded order's ticket as "уже был
+  использован". Two dedicated exception types now carry the reason; both are subclasses of what
+  was thrown before, so no existing caller changed.
+- `telegram.api-base` became a property (production default unchanged). It was hardcoded, which
+  made the bot path impossible to exercise without sending real messages.
+- Verified: server-side pricing (a tampered client price changes nothing), a lost first response
+  recovering the same order, all four payment outcomes, no modal reopening on reload, the manual
+  re-check cooldown, one create request for two clicks, 72-hour validity, one-time redemption,
+  refund-pending blocking entry, the STAFF/OWNER split with a real STAFF-only account, the
+  e-mail correction with its audit row and cooldown, and the whole support flow including
+  owner-only replies and survival of a Telegram outage.
+
+### Backup recovery — drilled, and eight script defects fixed
+- **`restore.sh` could report success on a failed restore** (`psql` without `ON_ERROR_STOP` exits
+  0 after printing errors), and **the recovery stack did not contain the active theme** — it
+  mounted `water-tours-prototype` only, while the restored database names `water-tours-river`.
+- Also fixed: no integrity check anywhere (`SHA256SUMS` now written last and verified before
+  anything starts), a password containing `=` truncated by `cut -d= -f2`, `docker cp` from Git
+  Bash failing on Windows (the documented fallback machine), an unguarded retention `rm -rf`, a
+  `pg_dump` too owner-specific to survive `ON_ERROR_STOP`, and a working recovery reporting
+  itself unhealthy because SMTP is deliberately not in a backup.
+- Drill on synthetic data, production never contacted: **5.5 min cold / 26 s warm**, 41 orders and
+  34 tickets restored intact, 32 tickets still valid, catalogue served, site and `/login` 200.
+  All three refusal guards tested by making them fire.
+- `healthcheck.sh` now also asks whether a backup exists, how old it is and whether it passes its
+  own checksums — a backup job that silently stopped looks exactly like a healthy system.
+  Notifications stay **off**: the destination is an owner decision.
+- **There is still no automatic backup running on the server.** `backup.sh` has never been
+  installed and its three WordPress values are still placeholders.
+
+### SEO and analytics
+- `inc/seo.php` in the River theme: description (front page only — it used to be a literal tag in
+  the template, so archives and 404s claimed to be the ticket page), canonical only where core
+  emits none, `noindex,follow` on search/404/date/author/tag/paged, Open Graph, and JSON-LD with
+  Organization, WebSite and the two services carrying the **real** backend prices. No
+  LocalBusiness (no confirmed address), no rating, no FAQPage. Everything stands down if an SEO
+  plugin is ever installed.
+- Responsive derivatives of both photos (originals untouched): a phone now takes 66 KB instead of
+  207 KB for the LCP image. Nav and footer tap targets brought above 24 px.
+- **Analytics is implemented and ships disabled.** No counter id and no fallback for one anywhere
+  in the JavaScript; with nothing configured the file is not even enqueued. Nothing is sent before
+  consent and the vendor script is not loaded either; a refusal is permanent. A payload carries
+  only the event, the product, an order id for de-duplication and an amount — the path is sent,
+  never the URL, because the status and PDF URLs carry the access token. Verified 9/9 against a
+  local mock sink with no counter in existence.
+- `ops/seo/`: `SEARCH-CONSOLE-CHECKLIST.md`, `ANALYTICS.md`, `MEASUREMENT-PLAN.md`.
+
+### Still not established
+No live check of anything. No real payment, e-mail, Telegram message or backup restore. The order
+rate limiter is off, `ddl-auto` is still `update`, analytics collects nothing, and the site is not
+verified in Search Console or Yandex Webmaster. Customer support remains **disabled in
+production** until the owner supplies their own private Telegram chat id.
