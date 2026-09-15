@@ -519,8 +519,14 @@ robots tag. The other five prices are whole roubles and are byte-identical.
   both purchase dialogs and the support dialog open and close, none opens by itself, totals read
   `1 500,02` for one adult and `4 500,06` for three, boat 30 min `35 010` and 120 min `11 000,02`,
   no JS errors, no overflow, 404 uses the inner template.
-- `wp-sitemap.xml` lists exactly one URL - the home page - and it is indexable. **`singular.php` is
-  deployed but has nothing to render yet**: page 5 *is* the front page and the only other entry is
+- **Found during verification, pre-existing and NOT from this deploy: `wp-sitemap.xml` serves
+  correct XML under HTTP 404**, so every crawler discards the sitemap that `robots.txt` advertises.
+  The nginx log dates it precisely - 200 until 07/Sep 09:07, then 404 on every request for eight
+  days, including the pre-deploy probe at 21:08:40. Cause: the site now publishes only pages
+  (`wp_posts` has zero published posts since the last one was deleted on 07/Sep), so the sitemap's
+  main query finds nothing, `handle_404()` marks the response, and core writes the XML under it.
+  Five-line fix drafted in the result file; not applied, because it is a new change outside this
+  scope. **`singular.php` is deployed but has nothing to render yet**: page 5 *is* the front page and the only other entry is
   a draft, so the duplicate-content problem it fixes applies to the next page the owner creates.
 - Prices preserved: 35 010 untouched, `price_versions` still 6 rows.
 - Rollback: `/root/backups/pre-deploy/three-stages-20260915-210907`, 7 artifacts, SHA256SUMS 7/7.
@@ -562,7 +568,8 @@ All six manifested sets under `D:/project-backups/WATER_BACKUP/daily` verify, 18
 `SHA256SUMS.txt` was written with CRLF, so `sha256sum -c` reported `FAILED open or read` for every
 file in every set; the archives were never affected. Fixed at the writer and verified under Windows
 PowerShell 5.1. Existing manifests were left as they are and are read with
-`tr -d '' < SHA256SUMS.txt | sha256sum -c -`.
+`tr -d '
+' < SHA256SUMS.txt | sha256sum -c -`.
 
 ### Still blocked
 
