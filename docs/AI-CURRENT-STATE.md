@@ -456,20 +456,28 @@ beforehand (220/220, no local edits, nothing extra), so nothing of anyone's was 
 
 ### Open items the owner has to decide
 
-1. **Telegram egress is intermittent, and it is infrastructure, not code.** DNS gives the container
-   an IPv6 address it cannot use and an IPv4 address (`149.154.166.110`) the network blocks, while
-   `149.154.167.220` is reachable. Read-only `getMe` from inside the container: timeout, timeout,
-   `ok:true`. It reproduces from the **host** and from a **second container**, so the deployment did
-   not cause it, and it matches the 2026-09-14 note about `setMyCommands` failing at startup.
-   Support questions are stored before any notification and retried 6× (1/3/10/30/120 min), and
-   `/staff/support-inquiries` lists them, so nothing is lost or invisible — but delivery is not
-   prompt until this is fixed. **Nothing was pinned or invented.**
+1. **Telegram egress is intermittent. Half of it was code, and that half is fixed (not deployed).**
+   The network facts stand: of the three addresses `api.telegram.org` resolves to,
+   `149.154.167.220:443` is open from the container and `149.154.166.110` / `149.154.175.50` are
+   blocked, while ordinary IPv4 egress works. What turned that into a two-in-three failure rate was
+   the client: `SimpleClientHttpRequestFactory` is `HttpURLConnection`, which connects to the
+   **first** address resolution returns and never tries the rest. `TelegramHttpConfig` now uses a
+   client that walks the whole address list (`telegram.connection-failover`, default on, reversible
+   via `TELEGRAM_CONNECTION_FAILOVER` with no rebuild). Nothing is pinned: no IP literal, DNS stays
+   in charge, no proxy. Proven on an isolated stand, **not** against the real Telegram path — the
+   blocked addresses remain an infrastructure question for the owner. Support questions are stored
+   before any notification and retried 6× (1/3/10/30/120 min) and `/staff/support-inquiries` lists
+   them, so nothing is lost or invisible either way.
 2. **Boat 30-minute price is still 35 010 ₽ live** (price version 6, published by `staff` on
    2026-09-12; v1 had 3 500 ₽). Preserved deliberately. One rollback at `/staff/prices` fixes it.
-3. **Order rate limiter stays OFF.** The valve and the nginx header are proven, but the *value* the
-   app derives per request is not directly observable without either flooding `/login` (forbidden,
-   and risky if the keying were wrong) or writing client addresses to disk (contradicts the
-   redaction just deployed). Now settable without a rebuild.
+3. **Order rate limiter is still OFF on the server, but the reason it was off no longer holds.**
+   The open question was the *value* the app derives per request, which nothing live exposes. It is
+   now settled where it can be settled honestly: `OrderLimiterTrustedProxyRuntimeTest` and
+   `OrderLimiterUntrustedProxyRuntimeTest` start the real application with the real `RemoteIpValve`
+   and the limiter on, and show that with a trusted peer two forwarded addresses get independent
+   buckets, and with an untrusted peer a rotating `X-Forwarded-For` buys none — without creating a
+   single order. What remains is the deployment step: set `ORDER_RATE_LIMIT_ENABLED=true` in
+   `/opt/water-tours/.env` and `docker compose up -d app`. No rebuild needed.
 4. **`ddl-auto` stays `update`.** No blind switch; procedure in `ops/security/DDL-VALIDATE-DRILL.md`.
 5. **Analytics ships disabled** — no counter id exists, so the script is not even enqueued.
 6. **Disk**: 3.5 G free of 15 G, with 2.68 GB reclaimable Docker images and 2.38 GB build cache.
@@ -481,3 +489,37 @@ beforehand (220/220, no local edits, nothing extra), so nothing of anyone's was 
 backend tree `/opt/water-tours-prev-20260915-090507`, nginx original
 `/root/deploy-20260915/water-tours.ru.ORIGINAL`, `.env` copy
 `/root/deploy-20260915/env-before-support`.
+
+---
+
+## Three authorized stages — 2026-09-15, **implemented locally, NOT deployed**
+
+`ssh root@5.23.49.99` was refused by the Claude Code permission classifier for the whole of this
+session, so every server-side step below is **blocked, not skipped**: no deployment, no live check,
+no change to the backup job, no restore rehearsal. Full evidence: local
+`target/PRODUCTION-THREE-STAGES-RESULT.md` (gitignored).
+
+- **SEO commits `c18fa42` and `60bb369` reviewed, and hold up.** All 18 WordPress PHP files lint
+  clean under real **PHP 7.4** (the live version). 34 targeted checks of the price bridge on PHP 7.4
+  confirm what the commits claim: kopecks survive (`1 500,50`, not `1 501`), a partial backend
+  payload is a failure rather than a half-invented list cached as `last_good`, and an `Offer` is
+  published only when the number came from the catalogue. Two review notes, neither blocking, are in
+  the result file. **Not deployed** — the exact file list, source hashes and rollback plan are there,
+  ready for one SSH session.
+- **The order rate limiter's keying is now proven** (see open item 3 above). Four new runtime tests,
+  no orders created, no customer address anywhere — the addresses used are the RFC 5737
+  documentation ranges.
+- **Telegram: the client-side half of the intermittency is fixed** (see open item 1 above).
+  `httpclient5` is added for this one bean; `telegram.connection-failover=false` restores the
+  previous client exactly. Four isolated tests, no contact with Telegram, no message sent.
+- **Full suite 354/354 green** after these changes (was 346 before the 8 new tests).
+- **The Windows backup sync is healthy, and one real defect in it is fixed.** All six manifested
+  sets under `D:/project-backups/WATER_BACKUP/daily` verify by SHA-256, the newest archive is a
+  valid gzip/tar of 858 entries and both dumps carry their completion markers. The defect:
+  `SHA256SUMS.txt` was written with CRLF, so `sha256sum -c` — the tool a restore would use —
+  answered `FAILED open or read` for all three files. The data was never affected. Fixed at the
+  writer; sets written before the fix are checked with `tr -d '\r' < SHA256SUMS.txt | sha256sum -c -`.
+- **The two server-side backup defects recorded on 2026-09-15 are UNCHANGED**: the silent zero-byte
+  `appdb.sql` of `20260909-041501`, and the job writing no checksums at all. Both need
+  `/root/backup-water-tours.sh`, which could not be read this session. **No blind rewrite was
+  authored** — improving a script whose current contents are unknown would be inventing it.
