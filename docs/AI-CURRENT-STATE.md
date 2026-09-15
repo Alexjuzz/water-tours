@@ -588,13 +588,114 @@ PowerShell 5.1. Existing manifests were left as they are and are read with
 Both remaining backend changes went out after the owner re-authorised them.
 
 - **Rate limiter: ON.** Verified live as above. Rollback is one line out of `.env` plus a restart.
-- **Telegram failover client: deployed, and the measurement is negative.** 9.3 polling failures per
-  minute, and the old client fails the same way when switched back on - so the client was never the
-  problem here. Kept as the committed default because it costs nothing and helps if more than one
-  address is ever returned, but it does not fix this outage and is not claimed to. Rollback without
-  a rebuild: `TELEGRAM_CONNECTION_FAILOVER=false`; full revert from
-  `/root/deploy-20260915b/backend-before/`.
+- **Telegram failover client: deployed.** Measured immediately after deploy: 9.3 polling failures
+  per minute, no better than the old client switched back on via the kill switch - at that moment
+  the deployed change did not fix the outage, and this doc said so. **The owner subsequently
+  confirmed Telegram is delivering messages.** That confirmation was not independently re-measured
+  in this session - Telegram/DNS/IPv6/network work was explicitly excluded and paused here, no
+  diagnostic changes or backend restarts were made - so what is stated is the owner's report, not a
+  fresh measurement. No further Telegram action was taken this session. Rollback without a rebuild:
+  `TELEGRAM_CONNECTION_FAILOVER=false`; full revert from `/root/deploy-20260915b/backend-before/`.
 - **Nothing was sent.** Zero `sendMessage` lines; the one support inquiry was already `NOTIFIED`
   (delivered 15:28 UTC today, one attempt), so no delivery was pending when the app restarted.
 - Data unchanged across the whole session: orders 50, payments 36, tickets 32, inquiries 1, held
   mail 13, price version 6 with 35 010 intact.
+
+---
+
+## Sitemap 404 fixed and deployed — 2026-09-15 22:31 UTC (`42f18d8`)
+
+Superseding what an earlier session in this same file called a drafted, unapplied five-line fix:
+it has now been written properly, tested, and deployed. `/wp-sitemap.xml` and every child sitemap
+were rendering correct XML under an HTTP 404 status line - a crawler discards the body on a 404
+and never reads it, so the sitemap `robots.txt` advertises was, in effect, not there. Cause: the
+site has zero published posts, `sitemap=index`/`sitemap=posts` are query vars `WP_Query` has never
+heard of, and core's own `handle_404()` sets 404 before `render_sitemaps()` writes valid XML on top
+of it. Fixed with one filter on `pre_handle_404` - the same extension point core's own deprecated
+`redirect_sitemapxml()` used for this - so `handle_404()` stands down before ever setting the 404,
+checked against core's own public accessors so the two genuine 404s (sitemaps disabled, an unknown
+sitemap type) still work.
+
+Verified on a stand rebuilt to the live condition (WordPress 7.1, zero published posts) before
+deploy, and live after: index and child sitemap both 200 with correct XML; stylesheets, home page
+and a real 404 unaffected; unknown sitemap type, out-of-range page and discourage-indexing all
+still 404. No container restart - a plain PHP file WordPress reads every request. Full evidence:
+`target/SITEMAP-STATUS-FIX-RESULT.md`. Rollback:
+`/root/backups/pre-deploy/sitemap-fix-20260915-223037/seo.php.before`.
+
+## Full release backup, isolated restore and isolated limiter proof — 2026-09-15/16
+
+No server-side application code changed in this pass beyond what is recorded above; this closes
+the remaining backup/verification scope from `target/final-release-completion.md`, with its
+Telegram/DNS/IPv6/network stage excluded per the owner's instruction (Telegram is reported working
+and stays untouched).
+
+### A reusable full-release backup tool, not a one-off
+
+`ops/disaster-recovery/full-release-backup.sh`, installed at `/root/full-release-backup.sh`, run
+manually at release time (not on any cron - the nightly three-file job is unchanged and untouched).
+It captures everything the nightly job does not: the **whole** `/var/www/water-tours` (core +
+wp-content + `wp-config.php`, not only `wp-content`), `.env`, `wp_db_credentials`, `compose.yml`,
+both nginx configs, the certbot `letsencrypt` directory (cert, key, renewal config), the installed
+nightly script itself, and recreation instructions for the PostgreSQL role and the MariaDB grants
+(referencing the credential files, never embedding a password). Redis is deliberately **not**
+snapshotted - `appendonly no`, `DBSIZE=0` at capture time, holds only short-TTL idempotency/limiter
+state - and the backup carries a note saying so instead of a meaningless RDB file. Same
+atomic-publish discipline as the nightly script: staged in a dot-prefixed directory, checksummed,
+verified, only then renamed to its final name.
+
+Run once for real: `/root/backups/full/full-20260915-225915/`, 48 MB, **15/15 files
+SHA256-verified**, manifest records the exact release (theme/plugin `42f18d8`, backend `8d5bdfa`,
+WordPress core 7.1, PHP 7.4.3, MariaDB 10.3.39, the `tickets_app` image id).
+
+### Secure local copy
+
+Transferred over SSH, extracted, **re-verified 15/15 against the same SHA256SUMS** at
+`D:/project-backups/WATER_BACKUP/full/full-20260915-225915/`. NTFS ACL reset to exactly three
+principals - SYSTEM, Administrators, the owner's own account - inheritance from the parent
+directory broken first, confirmed by SID rather than by locale-dependent display name.
+
+A separate **local source snapshot** (distinct from the server release set, which only has what is
+*deployed*) sits beside it: `source-snapshot-20260915-230418/` - a `git bundle --all` of the full
+local history (23 refs, verified) and a tar of the working tree excluding `.git`, `target/`,
+`node_modules` and compiled `.class` files. `ops/seo/WT-BUSINESS-DISCUSSION-2027.md` - an
+unapproved business-interview draft, deliberately left **untracked** and not committed - is
+preserved inside this tar as a plain file copy, not as a git commit, so it survives even if this
+worktree is later removed. Same restrictive ACL applied.
+
+### Isolated restore, from the full set - not the old three-file drill
+
+Everything on a Docker network created `--internal` (no route out at all) with no container
+publishing a port, torn down completely afterward:
+
+| Step | Measured |
+|---|---|
+| set integrity, checked first | 15/15 `sha256sum -c` OK |
+| PostgreSQL restore | 159 ms |
+| MariaDB restore | 189 ms |
+| **whole WordPress tree extracted** (not just `wp-content`) | 1.9 s, 4 620 entries, `wp-config.php` and full core present |
+| deployed sitemap fix verified **from inside the backup** | `inc/seo.php` hash matches the live file exactly |
+| PostgreSQL: rows | **10/10 counts match production** (orders 50, held mail 13, …) |
+| PostgreSQL: schema | **7 tables / 97 columns / 134 constraints / 15 indexes, all match** |
+| MariaDB: tables | **6/6 spot-checked counts match production** |
+| application start, `ddl-auto=validate` | **UP in 32 s, 0 DDL, 0 schema errors** |
+| application reads the restored catalogue | byte-identical to production's live `/api/v1/prices` |
+| ERROR / WARN in startup | 0 / 0 |
+
+### Order limiter's 429 boundary - proven in isolation, not on production
+
+Using the **real deployed image** against the restored databases on the same isolated network,
+with `ORDER_RATE_LIMIT_MAX=3` (this instance only - production stayed at its real `20/10m`
+throughout): three probes from one forwarded address answered `400` (ordinary validation, not
+throttled), the fourth answered **`429`**, and a probe from a *different* forwarded address
+immediately after answered `400` - not `429` - proving the bucket is keyed per customer, not per
+proxy. Orders before and after: **50 = 50**. No live production experiment was run; production's
+limiter was never touched and stayed at `MAX=20`.
+
+### Nothing further deployed
+
+No backend or WordPress code changed in this pass. The only new thing installed on the server is
+the backup tool itself (`/root/full-release-backup.sh`), which is infrastructure, not the
+application.
+
+Full evidence: `target/FINAL-RELEASE-RESULT.md`.
