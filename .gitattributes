@@ -1,2 +1,9 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+
+# core.autocrlf is on for this repository, so a fresh checkout on Windows would hand the
+# recovery scripts CRLF endings. The shebang then ends in a carriage return and the server
+# answers "bad interpreter" - on the one day those scripts get used. The owner's Windows
+# machine is the documented fallback location for running a recovery drill, so this is not
+# hypothetical.
+*.sh text eol=lf
