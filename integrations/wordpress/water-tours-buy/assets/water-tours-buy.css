@@ -439,3 +439,86 @@
         width: 100%;
     }
 }
+
+/* Consent bar. Only ever rendered when an analytics counter is configured AND the visitor has
+   not yet answered; a site with no counter never sees these rules used. Sits at the bottom so
+   it cannot cover the buy button, and does not trap focus - it is a question, not a gate. */
+.wt-consent {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 900;
+    max-width: 720px;
+    margin-inline: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border: 1px solid #d9e1e7;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 40px rgba(9, 35, 51, 0.18);
+    color: #17212b;
+}
+
+.wt-consent-text {
+    margin: 0;
+    flex: 1 1 320px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.wt-consent-actions {
+    display: flex;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.wt-consent-accept,
+.wt-consent-decline {
+    min-height: 44px;
+    padding: 11px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.wt-consent-accept {
+    border: 0;
+    background: #17212b;
+    color: #fff;
+}
+
+.wt-consent-decline {
+    border: 1px solid #b9c7cc;
+    background: #fff;
+    color: #17212b;
+}
+
+.wt-consent-accept:focus-visible,
+.wt-consent-decline:focus-visible {
+    outline: 3px solid #297daf;
+    outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+    .wt-consent {
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 12px 12px 0 0;
+        border-width: 1px 0 0;
+    }
+
+    .wt-consent-actions {
+        width: 100%;
+    }
+
+    .wt-consent-accept,
+    .wt-consent-decline {
+        flex: 1;
+    }
+}

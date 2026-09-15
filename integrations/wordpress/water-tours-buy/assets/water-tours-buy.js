@@ -93,6 +93,24 @@
     });
   }
 
+  /**
+   * Announces a checkout milestone. This file never talks to an analytics vendor: it says what
+   * happened and stops there. Whether anything is recorded is decided by water-tours-analytics.js,
+   * which is off unless a counter is configured and silent until the visitor agrees.
+   *
+   * Only non-identifying values are ever passed: which product, the order id (used purely to
+   * de-duplicate) and an amount. No e-mail, phone, access token or ticket code.
+   */
+  function announce(event, detail) {
+    try {
+      document.dispatchEvent(new CustomEvent('wt:analytics', {
+        detail: Object.assign({ event: event }, detail || {})
+      }));
+    } catch (e) {
+      // An old browser without CustomEvent must still be able to buy a ticket.
+    }
+  }
+
   /** Animation is optional; the information it carries is not. */
   function prefersReducedMotion() {
     try {
@@ -178,6 +196,7 @@
 
     function openModal() {
       if (!modal || isOpen()) return;
+      announce('form_open', { product: options.kind });
       lastFocusedElement = document.activeElement;
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
@@ -497,6 +516,7 @@
         if (link.getAttribute('aria-busy') === 'true') return;
         event.preventDefault();
         link.setAttribute('aria-busy', 'true');
+        announce('pdf_download', { product: options.kind, orderId: order.id });
         var previous = link.textContent;
         link.textContent = options.labels.downloading;
         fetchWithTimeout(cleanUrl, {
@@ -711,6 +731,11 @@
      */
     function showPaid(order, snapshot) {
       setFormVisible(false);
+      // De-duplicated downstream: this screen is repainted on every status poll.
+      announce('payment_confirmed', {
+        product: options.kind, orderId: order.id,
+        amount: snapshot && Number(snapshot.totalAmount)
+      });
       var emailed = !!(snapshot && snapshot.ticketsEmailedAt);
       var stillSending = !emailed && emailWaitsLeft > 0;
       var state = emailed ? 'emailed' : (stillSending ? 'sending' : 'unconfirmed');
@@ -870,6 +895,7 @@
             // Leaving for the provider. This marker is the only thing that will let the modal
             // reopen on its own, and it is consumed by the first load after the return.
             writeSession(RETURN_KEY, options.kind);
+            announce('payment_redirect', { product: options.kind, orderId: order.id });
             window.location.href = payment.paymentUrl;
             return;
           }
@@ -877,6 +903,10 @@
         })
         .catch(function (error) {
           var timedOut = error && error.message === 'timeout';
+          announce('checkout_error', {
+            product: options.kind, orderId: order.id,
+            errorKind: timedOut ? 'pay_timeout' : 'pay_failed'
+          });
           screen(timedOut ? 'error:pay-timeout' : 'error:pay', 'error',
             options.labels.payFailedTitle,
             timedOut ? options.labels.payTimeoutText : options.labels.payFailedText, [
@@ -959,6 +989,7 @@
           }
           clearIdempotencyKey();
           saveOrder(order);
+          announce('order_created', { product: options.kind, orderId: order.id, amount: Number(order.totalAmount) });
           clearManualCooldown();
           emailWaitsLeft = EMAIL_POLL_ATTEMPTS;
           if (config.localTestMode) return showUnpaid(order);
@@ -967,6 +998,10 @@
         .catch(function (error) {
           // The idempotency key survives a failure, so pressing the button again resolves to the
           // same order server-side instead of creating a second one.
+          announce('checkout_error', {
+            product: options.kind,
+            errorKind: (error && error.message === 'timeout') ? 'create_timeout' : 'create_failed'
+          });
           if (error && error.message === 'timeout') return message('error', options.labels.createTimeout);
           message('error', (error && error.message) ? error.message : options.labels.createFailed);
         })

@@ -190,6 +190,48 @@ function water_tours_buy_enqueue_assets() {
     ));
 }
 add_action('wp_enqueue_scripts', 'water_tours_buy_enqueue_assets');
+/**
+ * Analytics: registered, and deliberately inert.
+ *
+ * WATER_TOURS_ANALYTICS_COUNTER_ID is empty here and has no fallback anywhere in the JavaScript.
+ * With it empty the module does nothing at all: no banner, no counter script, no requests. The
+ * owner turns it on by defining the constant (in wp-config.php) or filtering it - which is a
+ * decision about collecting visitors' data and is theirs to make, not something to be guessed
+ * into place. WATER_TOURS_ANALYTICS_SINK exists only so the whole flow can be verified against a
+ * local mock with no real counter in existence.
+ */
+function water_tours_analytics_config() {
+    $counter = defined('WATER_TOURS_ANALYTICS_COUNTER_ID') ? WATER_TOURS_ANALYTICS_COUNTER_ID : '';
+    $sink = defined('WATER_TOURS_ANALYTICS_SINK') ? WATER_TOURS_ANALYTICS_SINK : '';
+    return array(
+        'counterId'       => (string) apply_filters('water_tours_analytics_counter_id', $counter),
+        'provider'        => (string) apply_filters('water_tours_analytics_provider', 'metrica'),
+        'debugSink'       => (string) apply_filters('water_tours_analytics_sink', $sink),
+        'consentKey'      => 'wt_analytics_consent',
+        // Raise this if what is collected ever changes materially: an answer given to the old
+        // question stops counting as an answer to the new one.
+        'consentVersion'  => (string) apply_filters('water_tours_analytics_consent_version', '1'),
+    );
+}
+
+function water_tours_analytics_enqueue() {
+    $config = water_tours_analytics_config();
+    if ($config['counterId'] === '' && $config['debugSink'] === '') {
+        // Nothing configured - do not even ship the file.
+        return;
+    }
+    $version = (string) filemtime(plugin_dir_path(__FILE__) . 'assets/water-tours-analytics.js');
+    wp_enqueue_script(
+        'water-tours-analytics-js',
+        plugin_dir_url(__FILE__) . 'assets/water-tours-analytics.js',
+        array('water-tours-buy-js'),
+        $version,
+        true
+    );
+    wp_localize_script('water-tours-analytics-js', 'WaterToursAnalytics', $config);
+}
+add_action('wp_enqueue_scripts', 'water_tours_analytics_enqueue', 20);
+
 
 function water_tours_buy_ticket_types() {
     return array(
