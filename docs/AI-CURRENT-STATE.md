@@ -456,29 +456,33 @@ beforehand (220/220, no local edits, nothing extra), so nothing of anyone's was 
 
 ### Open items the owner has to decide
 
-1. **Telegram egress is intermittent. Half of it was code, and that half is fixed (not deployed).**
-   The network facts stand: of the three addresses `api.telegram.org` resolves to,
-   `149.154.167.220:443` is open from the container and `149.154.166.110` / `149.154.175.50` are
-   blocked, while ordinary IPv4 egress works. What turned that into a two-in-three failure rate was
-   the client: `SimpleClientHttpRequestFactory` is `HttpURLConnection`, which connects to the
-   **first** address resolution returns and never tries the rest. `TelegramHttpConfig` now uses a
-   client that walks the whole address list (`telegram.connection-failover`, default on, reversible
-   via `TELEGRAM_CONNECTION_FAILOVER` with no rebuild). Nothing is pinned: no IP literal, DNS stays
-   in charge, no proxy. Proven on an isolated stand, **not** against the real Telegram path — the
-   blocked addresses remain an infrastructure question for the owner. Support questions are stored
-   before any notification and retried 6× (1/3/10/30/120 min) and `/staff/support-inquiries` lists
-   them, so nothing is lost or invisible either way.
+1. **Telegram egress is intermittent. Half of it was code, and that half is fixed but NOT deployed.**
+   Measured on the server 2026-09-15 21:07 UTC: **38 polling failures in 6 hours**,
+   `errorType=ResourceAccessException` - intermittent, not constant. Of the three addresses
+   `api.telegram.org` resolves to, one is reachable from the container and two are blocked; what
+   turned that into a two-in-three failure rate is that `HttpURLConnection` connects to the first
+   resolved address and never tries the rest. `TelegramHttpConfig` now walks the whole address list
+   (`telegram.connection-failover`, default on, reversible via `TELEGRAM_CONNECTION_FAILOVER` with
+   no rebuild). Nothing pinned: no IP literal, DNS in charge, no proxy. **Deploying it needs a new
+   image and a container recreate, which the permission classifier denies** - so the *after*
+   measurement does not exist yet. Support questions are stored before any notification and retried
+   6x (1/3/10/30/120 min) and `/staff/support-inquiries` lists them, so nothing is lost either way.
+
 2. **Boat 30-minute price is still 35 010 ₽ live** (price version 6, published by `staff` on
    2026-09-12; v1 had 3 500 ₽). Preserved deliberately. One rollback at `/staff/prices` fixes it.
-3. **Order rate limiter is still OFF on the server, but the reason it was off no longer holds.**
-   The open question was the *value* the app derives per request, which nothing live exposes. It is
-   now settled where it can be settled honestly: `OrderLimiterTrustedProxyRuntimeTest` and
-   `OrderLimiterUntrustedProxyRuntimeTest` start the real application with the real `RemoteIpValve`
-   and the limiter on, and show that with a trusted peer two forwarded addresses get independent
-   buckets, and with an untrusted peer a rotating `X-Forwarded-For` buys none — without creating a
-   single order. What remains is the deployment step: set `ORDER_RATE_LIMIT_ENABLED=true` in
-   `/opt/water-tours/.env` and `docker compose up -d app`. No rebuild needed.
-4. **`ddl-auto` stays `update`.** No blind switch; procedure in `ops/security/DDL-VALIDATE-DRILL.md`.
+3. **Order rate limiter is still OFF, and the only thing left is the switch.** Its keying is
+   proven: two runtime tests start the real application with the real `RemoteIpValve` and the
+   limiter on, and show independent buckets per forwarded address with a trusted peer and no fresh
+   bucket for a rotating spoofed header with an untrusted peer - without creating an order.
+   Confirmed live that an invalid `POST /api/v1/orders` answers 400 and creates nothing. Enabling it
+   needs `ORDER_RATE_LIMIT_ENABLED=true` in `/opt/water-tours/.env` plus
+   `docker compose up -d --no-build app`; **both were denied by the permission classifier**, so
+   `.env` was not modified and the app was not restarted.
+
+4. **`ddl-auto` stays `update`** - but the drill in `ops/security/DDL-VALIDATE-DRILL.md` has now
+   been run: the application started with `ddl-auto=validate` against a restored copy of the real
+   schema and came up healthy with 0 DDL statements and 0 validation errors. Evidence toward the
+   switch, not the switch.
 5. **Analytics ships disabled** — no counter id exists, so the script is not even enqueued.
 6. **Disk**: 3.5 G free of 15 G, with 2.68 GB reclaimable Docker images and 2.38 GB build cache.
    Not pruned here (pruning images could drop the rollback image).
@@ -492,34 +496,77 @@ backend tree `/opt/water-tours-prev-20260915-090507`, nginx original
 
 ---
 
-## Three authorized stages — 2026-09-15, **implemented locally, NOT deployed**
+## Three authorized stages — 2026-09-15, deployed in part
 
-`ssh root@5.23.49.99` was refused by the Claude Code permission classifier for the whole of this
-session, so every server-side step below is **blocked, not skipped**: no deployment, no live check,
-no change to the backup job, no restore rehearsal. Full evidence: local
+Two sessions: the first had no SSH, the second was granted it. Full evidence in local
 `target/PRODUCTION-THREE-STAGES-RESULT.md` (gitignored).
 
-- **SEO commits `c18fa42` and `60bb369` reviewed, and hold up.** All 18 WordPress PHP files lint
-  clean under real **PHP 7.4** (the live version). 34 targeted checks of the price bridge on PHP 7.4
-  confirm what the commits claim: kopecks survive (`1 500,50`, not `1 501`), a partial backend
-  payload is a failure rather than a half-invented list cached as `last_good`, and an `Offer` is
-  published only when the number came from the catalogue. Two review notes, neither blocking, are in
-  the result file. **Not deployed** — the exact file list, source hashes and rollback plan are there,
-  ready for one SSH session.
-- **The order rate limiter's keying is now proven** (see open item 3 above). Four new runtime tests,
-  no orders created, no customer address anywhere — the addresses used are the RFC 5737
-  documentation ranges.
-- **Telegram: the client-side half of the intermittency is fixed** (see open item 1 above).
-  `httpclient5` is added for this one bean; `telegram.connection-failover=false` restores the
-  previous client exactly. Four isolated tests, no contact with Telegram, no message sent.
-- **Full suite 354/354 green** after these changes (was 346 before the 8 new tests).
-- **The Windows backup sync is healthy, and one real defect in it is fixed.** All six manifested
-  sets under `D:/project-backups/WATER_BACKUP/daily` verify by SHA-256, the newest archive is a
-  valid gzip/tar of 858 entries and both dumps carry their completion markers. The defect:
-  `SHA256SUMS.txt` was written with CRLF, so `sha256sum -c` — the tool a restore would use —
-  answered `FAILED open or read` for all three files. The data was never affected. Fixed at the
-  writer; sets written before the fix are checked with `tr -d '\r' < SHA256SUMS.txt | sha256sum -c -`.
-- **The two server-side backup defects recorded on 2026-09-15 are UNCHANGED**: the silent zero-byte
-  `appdb.sql` of `20260909-041501`, and the job writing no checksums at all. Both need
-  `/root/backup-water-tours.sh`, which could not be read this session. **No blind rewrite was
-  authored** — improving a script whose current contents are unknown would be inventing it.
+### SEO — DEPLOYED and verified live (21:12 UTC)
+
+The defect was real on the live site, not theoretical. The catalogue is price version 6 with
+kopecks (`ADULT 1500.02`, boat 120 min `11000.02`); the site was rendering `1 500 ₽` / `11 000 ₽`
+and publishing `"price":"1500"` / `"11000"` in JSON-LD. It now renders and publishes
+**`1 500,02` and `11 000,02`**, matching the catalogue exactly. The 404 went from a 41 737-byte
+copy of the landing page to its own 22 451-byte page carrying `noindex, follow` in core's single
+robots tag. The other five prices are whole roubles and are byte-identical.
+
+- Live tree was **byte-identical to `2d20207`** beforehand - no server-local edits, nothing extra.
+- Eight files, `www-data` 644, **8/8 hash-verified against the commit** after install; `php -l`
+  **6/6 clean on the live PHP 7.4.3** before anything was installed.
+- A first attempt shipped via `git archive`, which applied `core.autocrlf` and produced CRLF; all
+  eight hashes failed and **nothing was installed**. Rebuilt from raw blobs and re-verified.
+- **54/54 live browser checks** at 1440x1000 and 390x844 with every mutating request aborted:
+  both purchase dialogs and the support dialog open and close, none opens by itself, totals read
+  `1 500,02` for one adult and `4 500,06` for three, boat 30 min `35 010` and 120 min `11 000,02`,
+  no JS errors, no overflow, 404 uses the inner template.
+- `wp-sitemap.xml` lists exactly one URL - the home page - and it is indexable. **`singular.php` is
+  deployed but has nothing to render yet**: page 5 *is* the front page and the only other entry is
+  a draft, so the duplicate-content problem it fixes applies to the next page the owner creates.
+- Prices preserved: 35 010 untouched, `price_versions` still 6 rows.
+- Rollback: `/root/backups/pre-deploy/three-stages-20260915-210907`, 7 artifacts, SHA256SUMS 7/7.
+
+### Backup job — REPAIRED, proven, and a full restore rehearsed
+
+`/root/backup-water-tours.sh` rewritten in place (same path, same mode, **same single cron entry**)
+and committed as `ops/disaster-recovery/backup-water-tours.sh`. It now stages into
+`.incomplete-<stamp>` and publishes atomically, validates every artifact's end marker, writes and
+verifies `SHA256SUMS`, locks with `flock`, logs failures and exits non-zero, and runs a retention
+that **only deletes sets it has verified**, never the newest, never below three.
+
+Proven in a sandbox before installation: removed exactly 3 old verified sets and stopped at the
+floor; **preserved both broken sets and named them in the log**; a truncated dump gave exit 1 with
+nothing published; a second concurrent run stood down with exit 0.
+
+One real backup: **6 s**, 12 → 13 sets, every existing set preserved, manifest verifies 3/3. The
+silent 2026-09-09 failure (`appdb.sql` 0 bytes) is now **reported in the log every night** instead
+of sitting there looking like a backup.
+
+**Restore rehearsal, in containers on an `--internal` network with no published ports and no route
+to the internet:** PostgreSQL **126 ms**, WordPress MariaDB **213 ms**, wp-content **549 ms**, the
+application up in **32 s** - **≈33 s end to end**. All 10 row counts match production, all schema
+object counts match (7 tables / 97 columns / 134 constraints / 15 indexes), WordPress 12 tables and
+every table count matches, files 776 entries exactly as live, and the eight files deployed that
+evening verify against the commit **from inside the backup**. The application served the restored
+catalogue identical to production, with **0 ERROR and 0 WARN**. Everything was torn down; the
+production containers were never stopped or reconfigured.
+
+**The gap worth knowing:** the daily set restores the data, not the machine. `wp-config.php`,
+WordPress core (7.1), `/opt/water-tours/.env`, `compose.yml`, both nginx files and
+`/root/.wp_db_credentials` are **not in it**. Adding the secret-bearing ones would copy secrets to
+the Windows sync target, so that is the owner's decision; `compose.yml` and the nginx files could
+be added safely whenever wanted.
+
+### Windows sync — one real defect fixed
+
+All six manifested sets under `D:/project-backups/WATER_BACKUP/daily` verify, 18/18 files. Their
+`SHA256SUMS.txt` was written with CRLF, so `sha256sum -c` reported `FAILED open or read` for every
+file in every set; the archives were never affected. Fixed at the writer and verified under Windows
+PowerShell 5.1. Existing manifests were left as they are and are read with
+`tr -d '' < SHA256SUMS.txt | sha256sum -c -`.
+
+### Still blocked
+
+The order limiter and the Telegram fix both need a **production container recreate**, which the
+permission classifier denies (read-only `docker compose ps` and disposable `docker run` are
+allowed). `.env` was not modified and no production container was restarted. Both are one command
+each once that is permitted - see the result file.
