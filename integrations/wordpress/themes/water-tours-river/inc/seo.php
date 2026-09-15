@@ -490,3 +490,42 @@ add_filter('wp_sitemaps_posts_query_args', function ($args, $post_type) {
 function wt_river_seo_has_archive_template() {
     return locate_template(array('archive.php', 'category.php', 'tag.php', 'taxonomy.php')) !== '';
 }
+
+/**
+ * `wp-sitemap.xml` and every child sitemap were answering 200-worth of correct XML under a 404
+ * status line, on this exact site: it publishes pages but had zero published posts, and
+ * `sitemap=index` / `sitemap=posts` are query vars `WP_Query` has never heard of. With nothing to
+ * find, core's own `WP::handle_404()` falls back to "no posts, not the home page, not a search -
+ * so it must be a 404" and sets the status before `WP_Sitemaps::render_sitemaps()` ever runs on
+ * `template_redirect`. The renderer then writes valid sitemap XML on top of a status line that
+ * was already sent - a crawler discards the 404 and never sees the body, so the sitemap
+ * `robots.txt` advertises was, in effect, not there.
+ *
+ * `pre_handle_404` is the filter core's own (deprecated in 6.7.0) `redirect_sitemapxml()` used for
+ * exactly this kind of case: returning true from it tells `handle_404()` to stand down before it
+ * ever sets the 404, so nothing needs undoing afterwards. It fires before render_sitemaps(), so
+ * the two genuine 404s that filter has to keep working - sitemaps switched off, and a sitemap
+ * type nothing provides - are checked here with the same public accessors core uses
+ * (`wp_sitemaps_get_server()`, `->sitemaps_enabled()`, `->registry->get_provider()`), not
+ * reimplemented. What is deliberately NOT re-checked is an empty page of a real provider (page
+ * number past the end, an emptied taxonomy): `WP_Sitemaps::render_sitemaps()` still calls
+ * `status_header(404)` itself for that case, unconditionally, after this filter has already run -
+ * so it keeps 404ing exactly as before.
+ *
+ * A real missing page never reaches this filter with a truthy `sitemap`, so it is untouched.
+ */
+add_filter('pre_handle_404', function ($preempt, $query) {
+    if ($preempt) { return $preempt; } // something else already decided; do not contest it.
+    if (!$query->get('sitemap')) { return $preempt; } // not a sitemap route - not this filter's concern.
+    if (!function_exists('wp_sitemaps_get_server')) { return $preempt; } // WP < 5.5: no sitemaps exist at all.
+
+    $server = wp_sitemaps_get_server();
+    if (!$server->sitemaps_enabled()) { return $preempt; } // discourage-indexing: the real 404 stands.
+
+    $sitemap = sanitize_text_field($query->get('sitemap'));
+    if ($sitemap !== 'index' && !$server->registry->get_provider($sitemap)) {
+        return $preempt; // an unknown sitemap type - genuinely invalid, the real 404 stands.
+    }
+
+    return true; // a real sitemap route with something to render - let it render at 200.
+}, 10, 2);
