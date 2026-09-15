@@ -146,6 +146,10 @@ notified in ONE private Telegram chat. No AI answers, no CRM, no website chat.
   full phone; an unparseable contact is refused rather than stored), checks a honeypot field, and
   rate limits per contact (3/h), per client address (10/h) and globally (40/h). The global cap is
   the one that actually bounds a flood, because nginx does not forward the client address today.
+  **CORRECTED 2026-09-15:** that last clause was wrong. The live nginx has always sent
+  `X-Forwarded-For` (it used `$proxy_add_x_forwarded_for`); what was missing was the *backend*
+  half of the boundary. Since the 2026-09-15 deploy the valve is live and nginx now *replaces*
+  the header with `$remote_addr`, so the per-address limiters are keyed on the real client.
   Limiter storage is bounded twice: expired windows pruned on write, and new keys refused past
   5 000 live keys.
 - A repeat of the same text to the same contact within 30 minutes returns the SAME reference
@@ -352,8 +356,27 @@ and assets, against the real backend with mocked SMTP (MailHog), mocked Telegram
 - `healthcheck.sh` now also asks whether a backup exists, how old it is and whether it passes its
   own checksums — a backup job that silently stopped looks exactly like a healthy system.
   Notifications stay **off**: the destination is an owner decision.
-- **There is still no automatic backup running on the server.** `backup.sh` has never been
-  installed and its three WordPress values are still placeholders.
+- ~~**There is still no automatic backup running on the server.**~~ **CORRECTED 2026-09-15 by
+  direct observation on the server — this claim was wrong.** It was written without server access.
+  A different, older script has been running all along: `crontab -l` shows
+  `15 4 * * * /root/backup-water-tours.sh` (mode `700 root:root`), and `/root/backups/daily/` holds
+  **13 dated sets**, newest `20260915-041501` from that morning, each with `appdb.sql`,
+  `wordpress-db.sql` and `wp-content.tar.gz`. `backup.log` records unbroken daily runs 09-10 → 09-15.
+  What *is* true is the narrower statement: **the repository's own `ops/disaster-recovery/backup.sh`
+  has never been installed** and its three WordPress values are still placeholders. It is not the
+  script in production, and it must not be installed alongside the running one.
+- **Two real weaknesses in the job that IS running** (observed, deliberately not changed —
+  never install a duplicate backup job or overwrite this one blindly):
+  1. `20260909-041501` is a **failed run**: `appdb.sql` is 0 bytes, no other file, no `backup.log`
+     line. `set -e` aborted after `pg_dump` failed and nothing reported it, so a silent failure
+     leaves a zero-byte dump that looks like a backup in a directory listing. 11 of 12 sets are
+     complete; that one is not.
+  2. It writes **no checksums at all**, so nothing detects a truncated set later. (The
+     `SHA256SUMS`-written-last discipline exists only in the repository's uninstalled script.)
+- Health of the running job, verified 2026-09-15 without restoring anything on production: today's
+  `appdb.sql` and `wordpress-db.sql` both carry their dump terminators, `wp-content.tar.gz` is a
+  valid archive of 858 entries, and it **does contain the active theme** `water-tours-river`
+  (14 entries). Retention is `-mtime +7`; the tree is 269 MB.
 
 ### SEO and analytics
 - `inc/seo.php` in the River theme: description (front page only — it used to be a literal tag in
@@ -377,3 +400,84 @@ No live check of anything. No real payment, e-mail, Telegram message or backup r
 rate limiter is off, `ddl-auto` is still `update`, analytics collects nothing, and the site is not
 verified in Search Console or Yandex Webmaster. Customer support remains **disabled in
 production** until the owner supplies their own private Telegram chat id.
+
+## Production readiness deployed — 2026-09-15 (verified by Opus)
+
+Everything reviewed in the four launch-readiness stages is now **live on water-tours.ru**, plus the
+owner's support channel. Full per-check evidence: local `target/PRODUCTION-READINESS-RESULT.md`
+(gitignored); screenshots and raw results in `target/production-readiness-20260915/`.
+
+Deployed from **`c8211ca`** on `work/tasks-6-7-9-11`. Server tree was byte-identical to `c5fd1a2`
+beforehand (220/220, no local edits, nothing extra), so nothing of anyone's was overwritten.
+
+- **The configuration gap was real and is closed (`c8211ca`).** `compose.yml` enumerates the app
+  container's environment, so `TRUSTED_PROXIES`, `FORWARD_HEADERS_STRATEGY`, `ORDER_RATE_LIMIT_*`,
+  `SPRING_JPA_HIBERNATE_DDL_AUTO`, `HSTS_INCLUDE_SUBDOMAINS` and `SUPPORT_ENABLED` were settable in
+  `application.yml` but **unreachable from `.env`** — editing `.env` alone would have done nothing.
+  All are now wired with defaults that repeat the `application.yml` defaults, so the commit changes
+  no behaviour by itself. Verified with `docker compose config` and then with `printenv` inside the
+  running container. `CORS_ALLOWED_ORIGINS` also reached the server for the first time.
+- **Migration `20260914_add_order_idempotency_bindings.sql` applied BEFORE the new app started**,
+  `ON_ERROR_STOP` + `--single-transaction`: two nullable `varchar(64)` columns, 49 orders unchanged,
+  **0 rows rewritten**. Hibernate then issued **0 DDL** at startup, so the migration matches the
+  entity. Rollback `ALTER TABLE orders DROP COLUMN IF EXISTS …` is valid only before the new build runs.
+- **Backend**: 247/247 files byte-match the commit; `.env` untouched (same sha before and after);
+  **only `tickets_app`** rebuilt/recreated, postgres and redis up 5 days throughout; healthy in 20 s.
+- **WordPress**: River theme 16/16 and `water-tours-buy` 4/4 byte-match, `www-data` 644/755, `php -l`
+  clean on all 15 files under the **live PHP 7.4.3** before install and on the 6 installed after.
+  HTTP-served bytes equal the committed blobs. Theme and plugins still active. No file deleted.
+- **nginx** (native, hand-transcribed — the Docker recovery config was *not* copied): `/staff` now
+  reaches the console (**404 → 302**, while `/staffroom` stays 404); the **real** test-pay endpoint
+  `/api/v1/orders/{uuid}/test-pay` is denied (**404 → 403**); query string and `Referer` are redacted
+  in the access log via a new `conf.d/water-tours-log-redaction.conf`; `X-Forwarded-For` now
+  **replaces** rather than appends. `nginx -t` passed before reload. Redaction proven with a
+  synthetic token that appears **0 times** in the log.
+- **Trust boundary confirmed live**: `JSESSIONID` comes back `Secure; HttpOnly; SameSite=Lax` and
+  HSTS `max-age=31536000` (no `includeSubDomains`) — both appear only when the RemoteIpValve
+  trusted the peer. CSP, `Referrer-Policy`, `X-Frame-Options`, `X-Content-Type-Options` all present.
+- **Customer support is ON.** `/opt/water-tours/.env` gained exactly one line,
+  `SUPPORT_OWNER_TELEGRAM_CHAT_ID=439562529` (diff shows one added line; the other 17 byte-identical;
+  no credential read or changed). `/api/v1/support/status` now returns **`{"enabled":true}`** and the
+  «Задать вопрос» entry is visible on the live site at 1440 and 390. The id was added **only** as
+  `support.owner-telegram-chat-id`; `STAFF_TELEGRAM_CHAT_IDS` is untouched — no staff/redemption
+  authorisation was granted. `.env` mode tightened `644 → 600` (not a credential change).
+  **The owner does not need to `/start` the bot**: a read-only `getChat` returns `ok:true`,
+  `type:"private"`. No message was sent to anyone.
+- **Acceptance in a real browser against the live site, 36/38 + 2 explained**, desktop 1440 and
+  mobile 390, with every mutating request aborted at the network layer: both purchase dialogs start
+  closed, open, show live prices, close on Escape and reopen; the support dialog opens and closes;
+  no JS errors, no failed requests, no horizontal overflow. The two non-passes were my probe
+  truncating its text sample before the boat prices — re-probed, the boat `select` carries all four
+  durations and the total.
+- **Nothing was created or sent**: orders 49 → 49, payments 35, tickets 31, `support_inquiries` 0,
+  `order_email_corrections` 0, **held backlog still 13**, and `tickets_emailed_at` was stamped on
+  09-12/09-13/09-14 only — **zero on 09-15**. No payment, refund, redemption, e-mail or Telegram
+  message, and no customer record was opened.
+
+### Open items the owner has to decide
+
+1. **Telegram egress is intermittent, and it is infrastructure, not code.** DNS gives the container
+   an IPv6 address it cannot use and an IPv4 address (`149.154.166.110`) the network blocks, while
+   `149.154.167.220` is reachable. Read-only `getMe` from inside the container: timeout, timeout,
+   `ok:true`. It reproduces from the **host** and from a **second container**, so the deployment did
+   not cause it, and it matches the 2026-09-14 note about `setMyCommands` failing at startup.
+   Support questions are stored before any notification and retried 6× (1/3/10/30/120 min), and
+   `/staff/support-inquiries` lists them, so nothing is lost or invisible — but delivery is not
+   prompt until this is fixed. **Nothing was pinned or invented.**
+2. **Boat 30-minute price is still 35 010 ₽ live** (price version 6, published by `staff` on
+   2026-09-12; v1 had 3 500 ₽). Preserved deliberately. One rollback at `/staff/prices` fixes it.
+3. **Order rate limiter stays OFF.** The valve and the nginx header are proven, but the *value* the
+   app derives per request is not directly observable without either flooding `/login` (forbidden,
+   and risky if the keying were wrong) or writing client addresses to disk (contradicts the
+   redaction just deployed). Now settable without a rebuild.
+4. **`ddl-auto` stays `update`.** No blind switch; procedure in `ops/security/DDL-VALIDATE-DRILL.md`.
+5. **Analytics ships disabled** — no counter id exists, so the script is not even enqueued.
+6. **Disk**: 3.5 G free of 15 G, with 2.68 GB reclaimable Docker images and 2.38 GB build cache.
+   Not pruned here (pruning images could drop the rollback image).
+7. Monitoring recipient and off-site backup storage remain undecided; nothing was configured.
+
+### Rollback, all on the server
+`/root/backups/pre-deploy/readiness-20260915-090507` (8 artifacts + `SHA256SUMS`, verified 8/8),
+backend tree `/opt/water-tours-prev-20260915-090507`, nginx original
+`/root/deploy-20260915/water-tours.ru.ORIGINAL`, `.env` copy
+`/root/deploy-20260915/env-before-support`.
