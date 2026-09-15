@@ -174,6 +174,33 @@ class TelegramUpdateHandlerTest {
         verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("уже был использован"));
     }
 
+    /**
+     * The gate message has to be true. Every refusal that was not "already used" used to come back
+     * as "expired or not yet valid", so a staff member facing a customer whose refund was being
+     * processed was told the ticket had run out - and told the customer so.
+     */
+    @Test
+    void staffRedeemDuringARefundSaysARefundIsUnderWayRatherThanExpired() {
+        when(ticketService.redeemByCode("abc-123"))
+                .thenThrow(new ru.Water_Tours.ticket.service.RefundInProgressException("on hold"));
+
+        handler.handle(STAFF_CHAT_ID, "abc-123", true);
+
+        verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("выполняется возврат"));
+        verify(sender, never()).sendMessage(eq(STAFF_CHAT_ID), contains("истёк"));
+    }
+
+    @Test
+    void staffRedeemOfARefundedOrderSaysRefundedRatherThanAlreadyUsed() {
+        when(ticketService.redeemByCode("abc-123"))
+                .thenThrow(new ru.Water_Tours.ticket.service.OrderRefundedException("refunded"));
+
+        handler.handle(STAFF_CHAT_ID, "abc-123", true);
+
+        verify(sender).sendMessage(eq(STAFF_CHAT_ID), contains("выполнен возврат"));
+        verify(sender, never()).sendMessage(eq(STAFF_CHAT_ID), contains("уже был использован"));
+    }
+
     @Test
     void staffChatOnUnknownCodeRepliesNotFound() {
         when(ticketService.redeemByCode("abc-123")).thenThrow(new NoSuchElementException("missing"));

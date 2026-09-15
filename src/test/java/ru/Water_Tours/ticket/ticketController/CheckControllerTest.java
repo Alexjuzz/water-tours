@@ -84,4 +84,28 @@ class CheckControllerTest {
 
         verify(ticketService, times(2)).redeemByCode(CODE);
     }
+
+    /**
+     * The refund cases used to be told apart by sniffing the exception message, and the refunded
+     * case was not told apart at all - it rendered as "already used". Both are now their own type,
+     * and this pins the page a staff member actually sees.
+     */
+    @Test
+    void aRefundHoldAndARefundedOrderEachGetTheirOwnMessage() throws Exception {
+        when(ticketService.renderCheckPage(eq(CODE), any(), any()))
+                .thenReturn("<html><body>{{errorMessage}}</body></html>");
+        when(ticketService.redeemByCode(CODE))
+                .thenThrow(new ru.Water_Tours.ticket.service.RefundInProgressException("hold"))
+                .thenThrow(new ru.Water_Tours.ticket.service.OrderRefundedException("refunded"));
+
+        mvc.perform(post("/t/{code}/redeem", CODE).with(user("staff").roles("STAFF")).with(csrf()))
+                .andExpect(redirectedUrl("/t/" + CODE + "?error=REFUND_HOLD"));
+        mvc.perform(post("/t/{code}/redeem", CODE).with(user("staff").roles("STAFF")).with(csrf()))
+                .andExpect(redirectedUrl("/t/" + CODE + "?error=REFUNDED"));
+
+        mvc.perform(get("/t/{code}", CODE).param("error", "REFUND_HOLD").with(user("staff").roles("STAFF")))
+                .andExpect(content().string(containsString("выполняется возврат")));
+        mvc.perform(get("/t/{code}", CODE).param("error", "REFUNDED").with(user("staff").roles("STAFF")))
+                .andExpect(content().string(containsString("выполнен возврат")));
+    }
 }

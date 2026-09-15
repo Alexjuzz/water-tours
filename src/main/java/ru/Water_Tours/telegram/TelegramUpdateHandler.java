@@ -359,8 +359,11 @@ public class TelegramUpdateHandler {
     }
 
     /**
-     * Mirrors CheckController.redeemForCheckPage's exception mapping so a Telegram staff redeem
-     * carries the same one-time-use guarantee (same TicketService.redeemByCode pessimistic lock).
+     * Mirrors CheckController.redeemForCheckPage's refusal mapping, case for case, so a Telegram
+     * staff redeem carries the same one-time-use guarantee (same TicketService.redeemByCode
+     * pessimistic lock) AND tells the staff member the same reason. It stopped mirroring it when
+     * the refund hold was added: every refusal that was not "already used" came back here as
+     * "expired or not yet valid", which is a false statement about a live order.
      */
     private void handleStaffRedeem(long chatId, String text) {
         String code = extractTicketCode(text);
@@ -373,6 +376,12 @@ public class TelegramUpdateHandler {
             sender.sendMessage(chatId, "Билет действителен. Погашён.");
         } catch (NoSuchElementException e) {
             sender.sendMessage(chatId, "Билет не найден.");
+        } catch (ru.Water_Tours.ticket.service.RefundInProgressException e) {
+            // Not "expired". A refund is deciding right now, and the person at the gate needs to
+            // say that rather than send the customer away believing their ticket ran out.
+            sender.sendMessage(chatId, "По этому заказу выполняется возврат. Посадка по билету недоступна.");
+        } catch (ru.Water_Tours.ticket.service.OrderRefundedException e) {
+            sender.sendMessage(chatId, "По этому заказу выполнен возврат. Билет недействителен.");
         } catch (IllegalArgumentException e) {
             sender.sendMessage(chatId, "Этот билет уже был использован.");
         } catch (IllegalStateException e) {

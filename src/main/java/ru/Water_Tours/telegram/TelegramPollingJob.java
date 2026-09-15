@@ -23,13 +23,16 @@ public class TelegramPollingJob {
     private final RestClient client;
     private final TelegramUpdateHandler handler;
     private final String botToken;
+    private final String apiBase;
     private final AtomicLong offset = new AtomicLong(0);
 
     public TelegramPollingJob(@Qualifier("telegramRestClient") RestClient client, TelegramUpdateHandler handler,
-                               @Value("${telegram.bot-token:}") String botToken) {
+                               @Value("${telegram.bot-token:}") String botToken,
+                               @Value("${telegram.api-base:https://api.telegram.org}") String apiBase) {
         this.client = client;
         this.handler = handler;
         this.botToken = botToken;
+        this.apiBase = ru.Water_Tours.component.TelegramHttpConfig.trimTrailingSlash(apiBase);
     }
 
     @Scheduled(fixedDelayString = "${telegram.poll-interval:500}", initialDelayString = "${telegram.poll-interval:500}")
@@ -81,7 +84,7 @@ public class TelegramPollingJob {
             throw new IllegalStateException("Telegram getFile failed for fileId=" + fileId);
         }
         String filePath = fileInfo.path("result").path("file_path").asText();
-        String fileUrl = "https://api.telegram.org/file/bot" + botToken + "/" + filePath;
+        String fileUrl = apiBase + "/file/bot" + botToken + "/" + filePath;
         return client.get().uri(fileUrl).retrieve().body(byte[].class);
     }
 }

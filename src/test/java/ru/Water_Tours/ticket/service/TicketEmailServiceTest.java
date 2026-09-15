@@ -113,8 +113,14 @@ class TicketEmailServiceTest {
         verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
+    /**
+     * A refused send must cost the customer the cooldown, but not one of their retries. The cap
+     * counts letters the mail server accepted; spending it on the server's own failures meant a
+     * short outage could permanently disable the resend button on an order whose letter had never
+     * gone anywhere.
+     */
     @Test
-    void aFailedResendIsReportedAsRetryableAndDoesNotClaimDelivery() {
+    void aFailedResendIsRetryableAndDoesNotSpendOneOfTheCustomersRetries() {
         Instant emailedBefore = order.getTicketsEmailedAt();
         doThrow(new MailSendException("smtp unavailable")).when(mailSender).send(any(MimeMessage.class));
 
@@ -122,8 +128,32 @@ class TicketEmailServiceTest {
                 .isInstanceOf(TicketEmailException.class);
 
         assertThat(order.getTicketsEmailedAt()).isEqualTo(emailedBefore);
-        assertThat(order.getTicketsEmailAttempts()).isEqualTo(1);
+        assertThat(order.getTicketsEmailAttempts()).isNull();
+        // The cooldown still applies, so this is not a way to hammer a failing mail server.
         assertThat(order.getTicketsEmailAttemptAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void anOutageLongerThanTheCapDoesNotUseUpTheResendBudget() {
+        doThrow(new MailSendException("smtp unavailable")).when(mailSender).send(any(MimeMessage.class));
+        Instant at = NOW;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            Instant when = at;
+            assertThatThrownBy(() -> serviceAt(when).resendTicketsPdf(order.getId()))
+                    .isInstanceOf(TicketEmailException.class);
+            at = at.plus(COOLDOWN).plusSeconds(1);
+        }
+        assertThat(order.getTicketsEmailAttempts()).isNull();
+
+        // The mail server comes back, and the customer still has their retries.
+        reset(mailSender);
+        when(mailSender.createMimeMessage())
+                .thenAnswer(i -> new MimeMessage(jakarta.mail.Session.getInstance(new Properties())));
+        serviceAt(at).resendTicketsPdf(order.getId());
+
+        verify(mailSender).send(any(MimeMessage.class));
+        assertThat(order.getTicketsEmailAttempts()).isEqualTo(1);
+        assertThat(order.getTicketsEmailedAt()).isEqualTo(at);
     }
 
     @Test

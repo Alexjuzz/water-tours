@@ -96,9 +96,13 @@ public class TicketEmailService {
     }
 
     /**
-     * Customer-triggered resend of an already delivered ticket email. Rate limited by a cooldown
-     * and capped in total, so a reload loop or a stuck mail server cannot turn one order into an
-     * unbounded stream of messages.
+     * Customer-triggered resend of an already issued ticket e-mail.
+     *
+     * <p>Two different limits, deliberately measuring two different things. The <b>cooldown</b>
+     * is on attempts, so a reload loop or an impatient customer cannot hammer the mail server.
+     * The <b>cap</b> is on letters the mail server actually accepted, so one order cannot become
+     * an unbounded stream of messages - and a failing mail server cannot silently consume the
+     * customer's remaining retries on their behalf.
      */
     public void resendTicketsPdf(UUID orderId) {
         deliver(orderId, true);
@@ -117,16 +121,27 @@ public class TicketEmailService {
                     e.getCause() != null ? e.getCause().getClass().getSimpleName() : e.getClass().getSimpleName());
             throw e;
         } finally {
-            releaseClaim(orderId, delivered);
+            releaseClaim(orderId, delivered, resend);
         }
     }
 
-    private void releaseClaim(UUID orderId, boolean delivered) {
+    private void releaseClaim(UUID orderId, boolean delivered, boolean resend) {
         try {
             tx.executeWithoutResult(status -> {
                 Order order = orderRepository.findByIdForUpdate(orderId).orElseThrow();
                 order.setTicketsEmailClaimedAt(null);
-                if (delivered) order.setTicketsEmailedAt(Instant.now(clock));
+                if (delivered) {
+                    order.setTicketsEmailedAt(Instant.now(clock));
+                    // The cap counts letters that were actually accepted, not attempts. Counting
+                    // attempts meant a mail server outage spent the customer's retries for them:
+                    // five refused sends and the button was dead for good, on an order whose
+                    // letter had never gone anywhere. The cooldown below is what stops hammering;
+                    // this is what stops a stream of real messages.
+                    if (resend) {
+                        int used = order.getTicketsEmailAttempts() == null ? 0 : order.getTicketsEmailAttempts();
+                        order.setTicketsEmailAttempts(used + 1);
+                    }
+                }
                 orderRepository.save(order);
             });
         } catch (Exception e) {
@@ -166,10 +181,12 @@ public class TicketEmailService {
             }
             Instant lastAttempt = order.getTicketsEmailAttemptAt();
             if (lastAttempt != null && now.isBefore(lastAttempt.plus(resendCooldown))) {
-                throw new IllegalStateException("Письмо уже отправляется. Повторная отправка будет доступна через "
+                // Deliberately does NOT say "письмо уже отправляется": the previous attempt may
+                // well have failed, and repeating that claim is how a customer ends up waiting
+                // for a letter that was never accepted.
+                throw new IllegalStateException("Повторная отправка будет доступна через "
                         + Math.max(1, Duration.between(now, lastAttempt.plus(resendCooldown)).toMinutes()) + " мин.");
             }
-            order.setTicketsEmailAttempts(used + 1);
         }
         order.setTicketsEmailClaimedAt(now);
         order.setTicketsEmailAttemptAt(now);

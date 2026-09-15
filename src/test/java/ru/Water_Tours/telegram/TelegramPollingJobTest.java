@@ -25,7 +25,7 @@ class TelegramPollingJobTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient client = builder.build();
         TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
-        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token");
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token", "https://api.telegram.org");
 
         server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
                 .andExpect(queryParam("offset", "0"))
@@ -54,7 +54,7 @@ class TelegramPollingJobTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient client = builder.build();
         TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
-        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token");
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token", "https://api.telegram.org");
 
         server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
                 .andRespond(withSuccess("""
@@ -91,7 +91,7 @@ class TelegramPollingJobTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient client = builder.build();
         TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
-        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token");
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token", "https://api.telegram.org");
 
         server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
                 .andRespond(withSuccess("""
@@ -110,7 +110,7 @@ class TelegramPollingJobTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient client = builder.build();
         TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
-        TelegramPollingJob job = new TelegramPollingJob(client, handler, "");
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "", "https://api.telegram.org");
 
         job.poll();
 
@@ -123,7 +123,7 @@ class TelegramPollingJobTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient client = builder.build();
         TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
-        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token");
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token", "https://api.telegram.org");
 
         server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
                 .andRespond(withServerError());
@@ -149,7 +149,7 @@ class TelegramPollingJobTest {
         RestClient client = builder.build();
         TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
         doThrow(new RuntimeException("boom")).when(handler).handle(1L, "bad", true);
-        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token");
+        TelegramPollingJob job = new TelegramPollingJob(client, handler, "test-token", "https://api.telegram.org");
 
         server.expect(requestTo("https://api.telegram.org/bottest-token/getUpdates?timeout=25&offset=0"))
                 .andRespond(withSuccess("""

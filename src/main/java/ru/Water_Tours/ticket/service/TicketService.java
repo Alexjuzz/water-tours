@@ -116,10 +116,10 @@ public class TicketService {
         Order order = orderRepository.findById(t.getOrder().getId())
                 .orElseThrow(() -> new NoSuchElementException("Order for ticket " + code + " not found"));
         if (order.getStatus() == OrderStatus.REFUNDED) {
-            throw new IllegalArgumentException("Ticket with id " + code + " belongs to a refunded order");
+            throw new OrderRefundedException("Ticket with id " + code + " belongs to a refunded order");
         }
         if (order.getRefundPendingAt() != null) {
-            throw new IllegalStateException("Ticket with id " + code + " is on hold while a refund is being processed");
+            throw new RefundInProgressException("Ticket with id " + code + " is on hold while a refund is being processed");
         }
 
         Instant now = Instant.now(clock);

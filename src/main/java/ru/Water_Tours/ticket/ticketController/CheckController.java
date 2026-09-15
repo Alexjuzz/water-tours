@@ -40,6 +40,7 @@ public class CheckController {
                 case "USED" -> checkPage = checkPage.replace("{{errorMessage}}", "Этот билет уже был использован.");
                 case "NOT_VALID" -> checkPage = checkPage.replace("{{errorMessage}}", "Этот билет недействителен.");
                 case "REFUND_HOLD" -> checkPage = checkPage.replace("{{errorMessage}}", "По этому заказу выполняется возврат. Посадка по билету недоступна.");
+                case "REFUNDED" -> checkPage = checkPage.replace("{{errorMessage}}", "По этому заказу выполнен возврат. Билет недействителен.");
                 case "NOT_FOUND" -> checkPage = checkPage.replace("{{errorMessage}}", "Билет не найден.");
                 default -> checkPage = checkPage.replace("{{errorMessage}}", "Произошла неизвестная ошибка.");
             }
@@ -59,11 +60,14 @@ public class CheckController {
         try {
             ticketService.redeemByCode(code);
             return "redirect:/t/" + code;
+        } catch (ru.Water_Tours.ticket.service.RefundInProgressException e) {
+            return "redirect:/t/" + code + "?error=REFUND_HOLD";
+        } catch (ru.Water_Tours.ticket.service.OrderRefundedException e) {
+            return "redirect:/t/" + code + "?error=REFUNDED";
         } catch (IllegalArgumentException e) {
             return "redirect:/t/" + code + "?error=USED";
         } catch (IllegalStateException e) {
-            boolean refundHold = e.getMessage() != null && e.getMessage().contains("refund is being processed");
-            return "redirect:/t/" + code + (refundHold ? "?error=REFUND_HOLD" : "?error=NOT_VALID");
+            return "redirect:/t/" + code + "?error=NOT_VALID";
         } catch (NoSuchElementException e) {
             return "redirect:/t/" + code + "?error=NOT_FOUND";
         } catch (Exception e) {
