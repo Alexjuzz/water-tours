@@ -117,6 +117,59 @@ abstract class ForwardedHeaderRuntimeTestSupport {
         return page.http().send(post.build(), HttpResponse.BodyHandlers.ofString()).statusCode();
     }
 
+    /**
+     * One anonymous order-creation attempt from {@code clientAddress}, with a body the controller
+     * is guaranteed to refuse.
+     *
+     * <p>The empty JSON object fails {@code @Valid} on {@code OrderRequestDTO}, so the request is
+     * answered 400 and <b>no order, order item, payment or mail-queue row is written</b>. That is
+     * the point: {@link ru.Water_Tours.ticket.ratelimit.OrderCreationRateLimitFilter} is a servlet
+     * filter and has already counted the request against its bucket by the time validation runs,
+     * so the limiter's keying can be observed end to end without creating a single real order.
+     */
+    HttpResponse<String> orderAttemptResponseFrom(int port, String clientAddress)
+            throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/orders"))
+                .header("X-Forwarded-For", clientAddress)
+                .header("X-Forwarded-Proto", "https")
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", "rate-limit-probe-" + java.util.UUID.randomUUID())
+                .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                .build();
+        return client().send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    /** @return 400 while the limiter is letting requests through, 429 once the bucket is spent. */
+    int orderAttemptFrom(int port, String clientAddress) throws IOException, InterruptedException {
+        return orderAttemptResponseFrom(port, clientAddress).statusCode();
+    }
+
+    /** The same probe with nothing forwarded at all. */
+    int orderAttemptWithNoForwardedHeader(int port) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/orders"))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", "rate-limit-probe-" + java.util.UUID.randomUUID())
+                .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                .build();
+        return client().send(request, HttpResponse.BodyHandlers.ofString()).statusCode();
+    }
+
+    /**
+     * A read on the customer order surface, from the same address, with a token that belongs to
+     * nobody. Whatever the application answers, it must not be the limiter's 429: a customer
+     * waiting for a payment to settle polls this while their order creation bucket may well be
+     * spent.
+     */
+    int orderStatusAttemptFrom(int port, String clientAddress) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(
+                        "http://localhost:" + port + "/api/v1/orders/" + java.util.UUID.randomUUID()
+                                + "?accessToken=not-a-real-token"))
+                .header("X-Forwarded-For", clientAddress)
+                .header("X-Forwarded-Proto", "https")
+                .GET().build();
+        return client().send(request, HttpResponse.BodyHandlers.ofString()).statusCode();
+    }
+
     static String csrfToken(String html) {
         Matcher matcher = CSRF.matcher(html);
         if (!matcher.find()) {
