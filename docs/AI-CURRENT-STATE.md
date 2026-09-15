@@ -523,14 +523,22 @@ robots tag. The other five prices are whole roubles and are byte-identical.
   both purchase dialogs and the support dialog open and close, none opens by itself, totals read
   `1 500,02` for one adult and `4 500,06` for three, boat 30 min `35 010` and 120 min `11 000,02`,
   no JS errors, no overflow, 404 uses the inner template.
-- **Found during verification, pre-existing and NOT from this deploy: `wp-sitemap.xml` serves
-  correct XML under HTTP 404**, so every crawler discards the sitemap that `robots.txt` advertises.
-  The nginx log dates it precisely - 200 until 07/Sep 09:07, then 404 on every request for eight
-  days, including the pre-deploy probe at 21:08:40. Cause: the site now publishes only pages
-  (`wp_posts` has zero published posts since the last one was deleted on 07/Sep), so the sitemap's
-  main query finds nothing, `handle_404()` marks the response, and core writes the XML under it.
-  Five-line fix drafted in the result file; not applied, because it is a new change outside this
-  scope. **`singular.php` is deployed but has nothing to render yet**: page 5 *is* the front page and the only other entry is
+- **The sitemap 404 found during verification is FIXED and DEPLOYED (2026-09-15 22:31 UTC,
+  `42f18d8`).** `wp-sitemap.xml` and every child sitemap were rendering correct XML under an HTTP
+  404 status line, so a crawler discarded them and the sitemap `robots.txt` advertises was, in
+  effect, not there - dated precisely by the nginx log to 07/Sep 09:07 onward, when the last
+  published post was deleted. Cause: `sitemap=index`/`sitemap=posts` are query vars `WP_Query`
+  never recognises, so with zero published posts to find, core's own `handle_404()` marks the
+  response 404 before `render_sitemaps()` writes valid XML on top of it. Fixed on `pre_handle_404`
+  - the same filter core's own deprecated `redirect_sitemapxml()` used for this - so `handle_404()`
+  stands down before ever setting the 404; the two genuine 404s that filter must still allow
+  (sitemaps disabled, an unknown sitemap type) are checked with core's own public accessors, not
+  reimplemented. Verified on a stand rebuilt to the live condition (zero published posts) before
+  deploy: index and child sitemap both 200 with correct XML; stylesheets, front page and a real
+  404 unaffected; unknown sitemap type, out-of-range page and discourage-indexing all still 404.
+  Verified live after deploy the same way. No container restart - a plain PHP file WordPress reads
+  every request. Rollback: `/root/backups/pre-deploy/sitemap-fix-20260915-223037/seo.php.before`.
+  **`singular.php` is deployed but has nothing to render yet**: page 5 *is* the front page and the only other entry is
   a draft, so the duplicate-content problem it fixes applies to the next page the owner creates.
 - Prices preserved: 35 010 untouched, `price_versions` still 6 rows.
 - Rollback: `/root/backups/pre-deploy/three-stages-20260915-210907`, 7 artifacts, SHA256SUMS 7/7.
