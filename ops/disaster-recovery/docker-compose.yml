@@ -9,7 +9,9 @@ services:
     volumes:
       - dr_pgdata:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:5439:5432"
+      # Loopback only, and overridable: a recovery drill has to be able to run beside a
+      # development database that already holds 5439.
+      - "127.0.0.1:${DR_POSTGRES_PORT:-5439}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U water_admin -d appdb"]
       interval: 10s
@@ -35,7 +37,7 @@ services:
       dockerfile: Dockerfile
     container_name: dr_app
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${DR_APP_PORT:-8080}:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/appdb
       SPRING_DATASOURCE_USERNAME: water_admin
@@ -54,6 +56,11 @@ services:
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
       STAFF_TELEGRAM_CHAT_IDS: ${STAFF_TELEGRAM_CHAT_IDS:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost}
+      # A recovery instance has no SMTP by design - the mail credentials are deliberately not
+      # part of a backup. Leaving the mail health indicator on makes /actuator/health answer 503
+      # and the container sit at "unhealthy" for ever on a recovery that is working perfectly,
+      # which trains whoever is recovering the site to ignore the health signal.
+      MANAGEMENT_HEALTH_MAIL_ENABLED: "${DR_MAIL_HEALTH_ENABLED:-false}"
       # The default profile allows only the two production origins; a recovery instance is
       # reached at a different one.
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
@@ -91,6 +98,11 @@ services:
       WORDPRESS_DB_NAME: wordpress
     volumes:
       - dr_wp_core:/var/www/html
+      # water-tours-river is the ACTIVE production theme. Without it here, a recovery restores
+      # the database (which names river as the active theme) onto a stack that does not contain
+      # it, and WordPress falls back to whatever else it can find. water-tours-prototype stays
+      # as the documented rollback target.
+      - ../../integrations/wordpress/themes/water-tours-river:/var/www/html/wp-content/themes/water-tours-river
       - ../../integrations/wordpress/themes/water-tours-prototype:/var/www/html/wp-content/themes/water-tours-prototype
       - ../../integrations/wordpress/water-tours-buy:/var/www/html/wp-content/plugins/water-tours-buy
       - dr_wp_uploads:/var/www/html/wp-content/uploads
@@ -106,10 +118,11 @@ services:
       # Loopback only. This stack serves the whole site over plain HTTP with no TLS in front, so
       # it is reached through an SSH port forward, never published. Publishing it would need TLS
       # and a real review first.
-      - "127.0.0.1:80:80"
+      - "127.0.0.1:${DR_HTTP_PORT:-80}:80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - dr_wp_core:/var/www/html:ro
+      - ../../integrations/wordpress/themes/water-tours-river:/var/www/html/wp-content/themes/water-tours-river:ro
       - ../../integrations/wordpress/themes/water-tours-prototype:/var/www/html/wp-content/themes/water-tours-prototype:ro
       - ../../integrations/wordpress/water-tours-buy:/var/www/html/wp-content/plugins/water-tours-buy:ro
       - dr_wp_uploads:/var/www/html/wp-content/uploads:ro
