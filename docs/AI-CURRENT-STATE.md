@@ -387,19 +387,35 @@ and assets, against the real backend with mocked SMTP (MailHog), mocked Telegram
   plugin is ever installed.
 - Responsive derivatives of both photos (originals untouched): a phone now takes 66 KB instead of
   207 KB for the LCP image. Nav and footer tap targets brought above 24 px.
-- **Analytics is implemented and ships disabled.** No counter id and no fallback for one anywhere
-  in the JavaScript; with nothing configured the file is not even enqueued. Nothing is sent before
-  consent and the vendor script is not loaded either; a refusal is permanent. A payload carries
-  only the event, the product, an order id for de-duplication and an amount — the path is sent,
-  never the URL, because the status and PDF URLs carry the access token. Verified 9/9 against a
-  local mock sink with no counter in existence.
+- **Analytics: connected live, 2026-09-16 (`92bd07f`).** Superseding the line this replaces -
+  the owner supplied the website counter (112721875, never the auto Maps/Business counter) and it
+  is live: `WATER_TOURS_ANALYTICS_COUNTER_ID` is now defined in `wp-config.php` on the server (not
+  in git). Still nothing before consent, still a permanent refusal, still no e-mail/phone/access
+  token in a payload - and two concrete vendor-level leaks found and closed before anything went
+  live: `trackLinks` was `true`, which would have handed Yandex the destination of every clicked
+  link including the PDF download button's token-bearing `href`; is now `false`. The tag's own
+  automatic first hit (built from the real `location.href`/`document.referrer`, never sanitized by
+  this file's own payload logic) is now replaced by `defer:true` + a manual `hit()` built from an
+  allowlist (path + UTM only; same-origin referrers reduced to origin+path). `payment_confirmed`
+  now also requires the payment to be within 24h of `paidAt`, to stop an old order reopened weeks
+  later from counting as a fresh conversion. Two new events (`contact_cta_click`,
+  `support_inquiry_sent`) dispatched from `river.js`. **Revenue/ecommerce stays off** - purchase
+  provenance, test-order exclusion and cross-device dedup are not demonstrated, and enabling it
+  anyway was explicitly declined rather than silently done. 43 checks across three isolated Node
+  harnesses (real shipped file, stubbed DOM, no network) plus 38 live browser checks against the
+  real deployed site - the "accept" click was never exercised there, to avoid polluting the real
+  counter's traffic with a test visit; that path is proven only via a stubbed `window.ym`, offline.
+  Full evidence: `target/METRICA-RESULT.md`.
 - `ops/seo/`: `SEARCH-CONSOLE-CHECKLIST.md`, `ANALYTICS.md`, `MEASUREMENT-PLAN.md`.
 
 ### Still not established
-No live check of anything. No real payment, e-mail, Telegram message or backup restore. The order
-rate limiter is off, `ddl-auto` is still `update`, analytics collects nothing, and the site is not
-verified in Search Console or Yandex Webmaster. Customer support remains **disabled in
-production** until the owner supplies their own private Telegram chat id.
+No real payment, e-mail, Telegram message or backup restore. `ddl-auto` is still `update`, and the
+site is not verified in Search Console or Yandex Webmaster. Analytics now collects visits and
+micro-conversions (see above) but not revenue.
+(Two claims this paragraph used to make are stale and corrected here rather than left standing:
+customer support is **ON** - see "Customer support is ON" further down - and the order rate
+limiter is **ON** too, `MAX=20/10m`, verified against the real deployed image in an isolated drill
+- see the "Three authorized stages" and "Full release backup" sections.)
 
 ## Production readiness deployed — 2026-09-15 (verified by Opus)
 
