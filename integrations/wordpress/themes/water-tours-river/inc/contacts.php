@@ -101,7 +101,7 @@ add_shortcode('water_tours_contacts', function () {
     <p class="wt-contacts-boarding">Посадка: <?php echo esc_html($boarding); ?>. Это причал отправления, а не офис компании — конкретный рейс и время подтверждаются в заказе.</p>
     <?php endif; ?>
     <?php if ($telegram !== '') : ?>
-    <p class="wt-contacts-telegram"><a class="btn btn-ask" href="<?php echo esc_url($telegram); ?>" target="_blank" rel="noopener noreferrer">Написать в Telegram <span aria-hidden="true">↗</span></a></p>
+    <p class="wt-contacts-telegram"><a class="btn btn-ask" href="<?php echo esc_url($telegram); ?>" target="_blank" rel="noopener noreferrer" data-wt-contact-cta="contacts_page">Написать в Telegram <span aria-hidden="true">↗</span></a></p>
     <?php endif; ?>
     <?php
     return ob_get_clean();

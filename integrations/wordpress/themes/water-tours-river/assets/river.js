@@ -1,3 +1,17 @@
+/**
+ * Tells water-tours-analytics.js something happened, the same way water-tours-buy.js's own
+ * announce() does - a bare event name and only the caller's non-identifying detail fields. This
+ * file has no dependency on that one; both simply dispatch the same DOM event, and the listener
+ * decides whether anything is recorded, or whether anything is configured to record at all.
+ */
+function wtRiverAnnounce(event, detail) {
+  try {
+    document.dispatchEvent(new CustomEvent('wt:analytics', {
+      detail: Object.assign({ event: event }, detail || {})
+    }));
+  } catch (e) { /* an old browser without CustomEvent must still let the page work */ }
+}
+
 (function () {
   'use strict';
   var toggle = document.querySelector('.menu-toggle');
@@ -152,6 +166,9 @@
       if (result.ok && result.body && result.body.accepted) {
         accepted = true;
         form.hidden = true;
+        // The backend confirmed it stored the inquiry - not that the message text, the contact
+        // given, or the reference number reaches analytics; none of them are in this payload.
+        wtRiverAnnounce('support_inquiry_sent');
         // Received and stored. Deliberately not "прочитали" - nothing here knows that.
         setStatus('Вопрос получен, номер обращения ' + result.body.reference
           + '. Мы передали его в поддержку и ответим на указанный контакт.', 'ok');
@@ -168,5 +185,21 @@
       sending = false;
       submit.disabled = accepted;
     });
+  });
+})();
+
+/**
+ * A click on any public "contact us" CTA - the footer's "Написать в Telegram" and the same link
+ * on the `/contacts/` page (`inc/contacts.php`'s `[water_tours_contacts]` shortcode). One
+ * delegated listener catches both instead of wiring each separately, and neither markup change
+ * needed anything more than a `data-wt-contact-cta` attribute naming where it was clicked -
+ * `contact_cta_click`'s only payload is that short tag, never the link's destination.
+ */
+(function () {
+  'use strict';
+  document.addEventListener('click', function (event) {
+    var trigger = event.target.closest('[data-wt-contact-cta]');
+    if (!trigger) return;
+    wtRiverAnnounce('contact_cta_click', { source: trigger.getAttribute('data-wt-contact-cta') });
   });
 })();

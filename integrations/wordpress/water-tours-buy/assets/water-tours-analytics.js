@@ -1,7 +1,7 @@
 /**
  * Consent-aware analytics for the purchase flow.
  *
- * Three properties this file is built around, in order of importance:
+ * Four properties this file is built around, in order of importance:
  *
  * 1. **It is off until somebody configures it.** `counterId` is empty by default and there is no
  *    fallback value anywhere in this file. With no counter configured the module registers no
@@ -10,14 +10,23 @@
  *    in memory, not sent and not written to storage. The provider's own script is not loaded
  *    either, because loading it *is* the tracking. Declining clears the buffer and the module
  *    goes quiet permanently for that browser.
- * 3. **It carries no way to identify the customer.** The payload is an event name, which of the
- *    two products it was, an order id used purely for de-duplication, and an amount. No e-mail,
- *    no phone, no access token, no ticket code, no QR, and never a URL with a query string -
- *    the order status and PDF URLs carry the access token, so the path is sent without it.
+ * 3. **Its own event payloads carry no way to identify the customer.** The payload is an event
+ *    name, which of the two products it was, an order id used purely for de-duplication, and an
+ *    amount. No e-mail, no phone, no access token, no ticket code, no QR, and never a URL with a
+ *    query string - the order status and PDF URLs carry the access token, so the path is sent
+ *    without it.
+ * 4. **Neither does the vendor's own automatic tracking.** Yandex Metrica's tag would, unmanaged,
+ *    report `location.href` and `document.referrer` verbatim on every load, and treat every
+ *    clicked link as worth reporting the destination of. `location.href` on this site has already
+ *    carried a real secret once - the PDF download link embeds the order's access token in its
+ *    `href` even in browsers that never navigate to it (`pdfLink()` in `water-tours-buy.js`) -
+ *    which is exactly why the vendor's automatic first hit is replaced with one built from an
+ *    allowlist (`sanitizedPageUrl()`, `sanitizedReferrer()`) and outbound-link tracking is off
+ *    (`trackLinks: false`) rather than trusted to run after this site's own click handler.
  *
- * The site's own code never calls a vendor API directly: `water-tours-buy.js` dispatches a
- * `wt:analytics` DOM event and this module decides whether anything happens. That is what makes
- * the whole flow testable against a mock sink with no counter in existence.
+ * The site's own code never calls a vendor API directly: `water-tours-buy.js` and `river.js`
+ * dispatch a `wt:analytics` DOM event and this module decides whether anything happens. That is
+ * what makes the whole flow testable against a mock sink with no counter in existence.
  */
 (function () {
   'use strict';
@@ -40,7 +49,13 @@
     payment_redirect: true,
     payment_confirmed: true,
     pdf_download: true,
-    checkout_error: true
+    checkout_error: true,
+    // Dispatched by river.js, not water-tours-buy.js: a click on the "Написать в Telegram" CTA
+    // (footer or the /contacts/ page), and a support question the backend confirmed it accepted.
+    // Neither carries the question text, the contact given, the reference number, or which page
+    // fired it beyond the short `source` tag payloadFor() already bounds and truncates.
+    contact_cta_click: true,
+    support_inquiry_sent: true
   };
 
   var pending = [];
@@ -73,9 +88,18 @@
   // ------------------------------------------------------------------ de-duplication
 
   /**
-   * One event per order per kind. The status endpoint is polled, so "payment confirmed" would
-   * otherwise be reported on every poll; a page reload would repeat it again. The key never
-   * leaves the browser - it is only how this module remembers what it already sent.
+   * One event per order per kind, **within this browser tab's session and no further**. The
+   * status endpoint is polled, so "payment confirmed" would otherwise be reported on every poll;
+   * a page reload would repeat it again. The key never leaves the browser - it is only how this
+   * module remembers what it already sent.
+   *
+   * What this is not: a claim of exactly-once delivery. A new tab, a different browser, a
+   * cleared session, or the same order revisited days later all start with an empty `seen` list
+   * and can report the same order again - `sessionStorage` cannot see any of those. The Metrica
+   * dashboard for this counter is therefore a rough signal, not an authoritative once-per-order
+   * count; see `water-tours-buy.js`'s freshness guard on `payment_confirmed` for the one place
+   * this actually matters (revenue/ecommerce is not wired at all - see `target/METRICA-RESULT.md`
+   * stage 2).
    */
   function alreadySent(key) {
     try {
@@ -112,10 +136,56 @@
     }
     // A short, fixed vocabulary - never a server message, which could contain anything.
     if (detail.errorKind) out.errorKind = String(detail.errorKind).slice(0, 40);
+    // Same idea for `source`: a caller-chosen UI-location tag ('footer', 'contacts_page'), never
+    // free text.
+    if (detail.source) out.source = String(detail.source).slice(0, 20);
     return out;
   }
 
   // ------------------------------------------------------------------ delivery
+
+  var UTM_ALLOWLIST = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+  var MAX_UTM_VALUE_LENGTH = 100;
+
+  /**
+   * The page URL Metrica is told about - never the real one. `location.href` can, on this site,
+   * carry values this file exists to keep away from a vendor (see property 4 at the top); keeping
+   * only the path plus a fixed allowlist of UTM parameters means any OTHER query parameter -
+   * whatever it is, today or in a future change - is dropped by construction, not by remembering
+   * to strip it. This is the "do not assume stripping only event.page is sufficient" boundary:
+   * the vendor's own page-view report is sanitized the same way the event payloads already are.
+   */
+  function sanitizedPageUrl() {
+    var kept = [];
+    try {
+      var params = new URLSearchParams(location.search);
+      for (var i = 0; i < UTM_ALLOWLIST.length; i++) {
+        var key = UTM_ALLOWLIST[i];
+        var value = params.get(key);
+        if (value) kept.push(key + '=' + encodeURIComponent(value.slice(0, MAX_UTM_VALUE_LENGTH)));
+      }
+    } catch (e) { /* a malformed query string reports the path alone, not a raw copy of itself */ }
+    return location.origin + location.pathname + (kept.length ? '?' + kept.join('&') : '');
+  }
+
+  /**
+   * `document.referrer` is safe and useful when it names an *external* site - that is the entire
+   * point of tracking it, for where a visitor came from. It stops being safe the moment it names
+   * a page on *this* site, because this site's own URLs have carried a query string that mattered
+   * (see `pdfLink()`'s token, and `sanitizedPageUrl()` above) and a same-origin referrer would
+   * repeat whichever one led here verbatim. Cross-origin referrers pass through unchanged;
+   * same-origin ones are reduced to the origin and path.
+   */
+  function sanitizedReferrer() {
+    var raw = document.referrer;
+    if (!raw) return '';
+    try {
+      var url = new URL(raw);
+      return (url.origin === location.origin) ? (url.origin + url.pathname) : raw;
+    } catch (e) {
+      return '';
+    }
+  }
 
   function loadProvider() {
     if (loaded) return;
@@ -133,11 +203,23 @@
       // No session recording, no form contents, no click map: this counter exists to count
       // purchases, and every one of those features collects more than that needs.
       clickmap: false,
-      trackLinks: true,
+      // The PDF download link's href carries the order's access token, in every browser, even the
+      // ones that never navigate to it - `pdfLink()` in water-tours-buy.js sets it unconditionally
+      // and only intercepts the click where the safer fetch-as-blob path is available. Metrica's
+      // own outbound-link listener is typically attached at the document level and there is no
+      // guarantee it runs after this site's click handler has already prevented the default
+      // navigation. Off, not "probably fine".
+      trackLinks: false,
       accurateTrackBounce: true,
       webvisor: false,
-      trackHash: false
+      trackHash: false,
+      // Un-set, the tag sends its own first hit automatically, built from the real location.href
+      // and document.referrer - precisely what this file exists to keep sanitized. `defer` turns
+      // that off (Yandex's own documented purpose for the flag); the hit below is the sanitized
+      // replacement, sent explicitly instead of trusted to the vendor's default.
+      defer: true
     });
+    window.ym(COUNTER_ID, 'hit', sanitizedPageUrl(), { referer: sanitizedReferrer() || undefined });
   }
 
   function deliver(payload) {
