@@ -9,3 +9,7 @@
 /* The inner header has no burger button - it has four items, two of them buttons. Below 900px the shared rule hides the whole nav, which on these pages would leave no way back to the booking sections, so here the two buttons stay and the two plain links step aside. */
 @media(max-width:900px){.river-inner .nav-shell{flex-wrap:wrap;gap:12px}.river-inner .site-header nav{display:flex;position:static;width:100%;padding:0;border:0;background:none;gap:8px}.river-inner .site-header nav>a:not(.btn){display:none}.river-inner .site-header nav .btn{flex:1}}
 @media(max-width:600px){.inner-main{padding-block:48px;min-height:calc(100vh - 380px)}.inner-actions .btn{width:100%}}
+/* Footer contacts: city, boarding pier, Telegram CTA. New selectors only - nothing above this line is altered, so every prior check of this page still applies byte for byte. */
+.footer-contacts{display:flex;align-items:center;gap:14px}
+.footer-boarding{margin:0;max-width:460px;color:var(--muted)}
+@media(max-width:600px){.footer-contacts{flex:1 1 100%;flex-direction:column;align-items:flex-start;gap:12px}.footer-telegram{width:100%;justify-content:center}}
