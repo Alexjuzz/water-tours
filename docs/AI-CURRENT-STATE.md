@@ -699,3 +699,37 @@ the backup tool itself (`/root/full-release-backup.sh`), which is infrastructure
 application.
 
 Full evidence: `target/FINAL-RELEASE-RESULT.md`.
+
+---
+
+## Contacts and boarding pier — added and deployed, 2026-09-16 (`ef6653e`)
+
+The owner's first proposal concatenated three phrases into one address
+("Кронверкская набережная", "Александровский парк, 8", "причал номер 1"). Checked against public
+pier directories before publishing anything: they name at least two different piers, and
+"Александровский парк, 8" matches no source found — the nearby park-address pier is registered
+at "Александровский парк, д. 1" (number 1, not 8), a **different** pier from "Причал №1" (which
+is registered at Кронверкская набережная, near the Ioannovsky bridge). Told this, **the owner
+resolved it directly: use причал №1** — the pier that public sources actually register. Published:
+"Санкт-Петербург. Посадка: Причал №1, Кронверкская набережная (у Иоанновского моста)." No
+LocalBusiness/office address was added anywhere — a pier is a boarding point, not this company's
+registered office, matching `inc/seo.php`'s own existing reasoning.
+
+Telegram contact: the bot's real public `@water_tours_bot` username was read from server config
+(never the token) and confirmed live on t.me without sending a message. The footer link uses
+`?start=question` — a real, already-handled deep-link payload (`TelegramUpdateHandler`,
+`QUESTION_START_PAYLOAD`) that opens the same support conversation the on-page "Задать вопрос"
+form already leads to.
+
+New `inc/contacts.php`, three small `apply_filters`-wrapped functions matching the theme's own
+established pattern (`wt_river_seo_title()` and neighbours); the Telegram username is additionally
+overridable by a `WATER_TOURS_TELEGRAM_BOT_USERNAME` constant. One line changed in the footer of
+`home-river.php`; everything above it byte-identical. Verified 24/24 on a stand rebuilt to
+production's exact tree, then 14/14 live (boarding text, Telegram href, ≥44px tap target, no
+horizontal overflow at 1440/390, checkout dialog still opens, price still `1 500,02`). No backend
+restart — pure theme files. Rollback: `/root/backups/pre-deploy/contacts-fix-20260916-170929/`.
+
+Still open, not this pass: a dedicated WordPress "О компании/Контакты" page (backlog item 5); the
+registered legal-entity address for Яндекс.Вебмастер / an organisation card (backlog item 7,
+explicitly distinct from the boarding pier); the night-boarding pier (backlog item 9, day pier now
+answered). Full evidence: `target/CONTACTS-RESULT.md`.
