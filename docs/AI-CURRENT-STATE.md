@@ -729,7 +729,43 @@ production's exact tree, then 14/14 live (boarding text, Telegram href, ≥44px 
 horizontal overflow at 1440/390, checkout dialog still opens, price still `1 500,02`). No backend
 restart — pure theme files. Rollback: `/root/backups/pre-deploy/contacts-fix-20260916-170929/`.
 
-Still open, not this pass: a dedicated WordPress "О компании/Контакты" page (backlog item 5); the
-registered legal-entity address for Яндекс.Вебмастер / an organisation card (backlog item 7,
-explicitly distinct from the boarding pier); the night-boarding pier (backlog item 9, day pier now
-answered). Full evidence: `target/CONTACTS-RESULT.md`.
+**Superseding the line above**: a dedicated `/contacts/` page was added the same day, once the
+owner clarified the actual need — a single URL to submit to Yandex's regional-affiliation form,
+which an in-page anchor cannot satisfy. See the next section.
+
+Still open: the registered legal-entity address for Яндекс.Вебмастер / an organisation card
+(backlog item 7, explicitly distinct from the boarding pier); the night-boarding pier (backlog
+item 9, day pier now answered).
+
+## `/contacts/` page — added for Yandex regional-affiliation submission, 2026-09-16 (`9c88b00`)
+
+**Live URL: `https://water-tours.ru/contacts/`** — the exact link to paste into Yandex. Nothing
+was submitted to Yandex in this pass; only the page was created and verified.
+
+A real WordPress page (`wp_insert_post`, `post_type=page`, ID 12, slug `contacts`), not a
+hardcoded route — created the same way any WordPress page is, so `singular.php` (already in place
+from the sitemap fix) renders it with its own title, and core supplies `rel=canonical` and the
+`wp_robots` tag exactly as it does for every other page. Nothing new was needed for indexability.
+
+Content is the same three verified facts already in the footer (`ef6653e`), pulled through a new
+`[water_tours_contacts]` shortcode reading the same `wt_river_contact_*()` functions — one source
+of truth, so a filter or the `WATER_TOURS_TELEGRAM_BOT_USERNAME` constant updates the footer and
+this page together: **Санкт-Петербург**, **Причал №1, Кронверкская набережная (у Иоанновского
+моста)** stated as a boarding point, and a **"Написать в Telegram"** link to
+`https://t.me/water_tours_bot?start=question`. The footer gained one link to it, next to the
+existing "Правила билета".
+
+Verified before deploy on a stand rebuilt from this tree, then live: **200**, canonical exactly
+`https://water-tours.ru/contacts/`, no `noindex`, listed in `wp-sitemap-posts-page-1.xml`, correct
+content at 1440 and 390, and the front page's ticket checkout still opens with the price
+unchanged (`1 500,02`). `orders` count unchanged (50) throughout — this was a WordPress content
+change only, no backend touched, no container restarted.
+
+Rollback: theme files at
+`/root/backups/pre-deploy/contacts-page-code-20260916-172210/*.before`; the database (containing
+the new page row) backed up whole beforehand at
+`/root/backups/pre-deploy/contacts-page-20260916-171907/wordpress-db.sql.before`. Deleting the
+page (`wp post delete 12`) is the simplest single-page rollback if ever needed; the DB backup
+covers a full revert.
+
+Full evidence: `target/CONTACTS-RESULT.md`.
