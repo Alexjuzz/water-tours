@@ -78,3 +78,31 @@ function wt_river_contact_telegram_url() {
         'https://t.me/' . $username . '?start=question'
     );
 }
+
+/**
+ * `[water_tours_contacts]` - the same three facts the footer already shows, rendered as a small
+ * block a page's own content can embed. One source (the three functions above) for both places,
+ * so editing a filter or the username constant updates the footer and every page using this
+ * shortcode together; nothing here duplicates the text as a second copy that could drift.
+ *
+ * Used by the `/contacts/` page created for the owner's Yandex regional-affiliation submission
+ * (see target/CONTACTS-RESULT.md) - not required by anything else, so it degrades harmlessly
+ * (renders only the city, or nothing, if boarding/Telegram values are ever filtered empty).
+ */
+add_shortcode('water_tours_contacts', function () {
+    $city = wt_river_contact_city();
+    $boarding = wt_river_contact_boarding();
+    $telegram = wt_river_contact_telegram_url();
+
+    ob_start();
+    ?>
+    <p class="wt-contacts-city"><strong><?php echo esc_html($city); ?></strong></p>
+    <?php if ($boarding !== '') : ?>
+    <p class="wt-contacts-boarding">Посадка: <?php echo esc_html($boarding); ?>. Это причал отправления, а не офис компании — конкретный рейс и время подтверждаются в заказе.</p>
+    <?php endif; ?>
+    <?php if ($telegram !== '') : ?>
+    <p class="wt-contacts-telegram"><a class="btn btn-ask" href="<?php echo esc_url($telegram); ?>" target="_blank" rel="noopener noreferrer">Написать в Telegram <span aria-hidden="true">↗</span></a></p>
+    <?php endif; ?>
+    <?php
+    return ob_get_clean();
+});
