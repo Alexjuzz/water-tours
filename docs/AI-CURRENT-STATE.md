@@ -387,25 +387,34 @@ and assets, against the real backend with mocked SMTP (MailHog), mocked Telegram
   plugin is ever installed.
 - Responsive derivatives of both photos (originals untouched): a phone now takes 66 KB instead of
   207 KB for the LCP image. Nav and footer tap targets brought above 24 px.
-- **Analytics: connected live, 2026-09-16 (`92bd07f`).** Superseding the line this replaces -
-  the owner supplied the website counter (112721875, never the auto Maps/Business counter) and it
-  is live: `WATER_TOURS_ANALYTICS_COUNTER_ID` is now defined in `wp-config.php` on the server (not
-  in git). Still nothing before consent, still a permanent refusal, still no e-mail/phone/access
-  token in a payload - and two concrete vendor-level leaks found and closed before anything went
-  live: `trackLinks` was `true`, which would have handed Yandex the destination of every clicked
-  link including the PDF download button's token-bearing `href`; is now `false`. The tag's own
-  automatic first hit (built from the real `location.href`/`document.referrer`, never sanitized by
-  this file's own payload logic) is now replaced by `defer:true` + a manual `hit()` built from an
-  allowlist (path + UTM only; same-origin referrers reduced to origin+path). `payment_confirmed`
-  now also requires the payment to be within 24h of `paidAt`, to stop an old order reopened weeks
-  later from counting as a fresh conversion. Two new events (`contact_cta_click`,
-  `support_inquiry_sent`) dispatched from `river.js`. **Revenue/ecommerce stays off** - purchase
-  provenance, test-order exclusion and cross-device dedup are not demonstrated, and enabling it
-  anyway was explicitly declined rather than silently done. 43 checks across three isolated Node
-  harnesses (real shipped file, stubbed DOM, no network) plus 38 live browser checks against the
-  real deployed site - the "accept" click was never exercised there, to avoid polluting the real
-  counter's traffic with a test visit; that path is proven only via a stubbed `window.ym`, offline.
-  Full evidence: `target/METRICA-RESULT.md`.
+- **Analytics: connected live 2026-09-16 (`92bd07f`), reviewed and corrected 2026-09-17
+  (`target/METRICA-REVIEW-RESULT.md`).** The owner supplied the website counter (112721875, never
+  the auto Maps/Business counter) and it is live: `WATER_TOURS_ANALYTICS_COUNTER_ID` is defined in
+  `wp-config.php` on the server (not in git). Still nothing before consent, still a permanent
+  refusal, still no e-mail/phone/access token in a payload.
+  **Corrections made on review**, superseding the two claims below they replace: `product` no
+  longer defaults to `'ticket'` on events that have none (`contact_cta_click`,
+  `support_inquiry_sent` now correctly carry no product); the de-dup key now includes `product`,
+  so an independent ticket `form_open` and boat `form_open` no longer silently suppress each other;
+  UTM values are now validated against a character pattern, not merely capped by length; referrer
+  sanitization now strips the query/fragment from every referrer, not only same-origin ones; the
+  manual `hit()` call no longer falls back to `undefined` on an empty referrer (which would have
+  let the vendor library substitute its own unsanitized default). **`payment_confirmed`'s old 24h
+  "was this paid recently" heuristic is removed** - it was never a real provenance check, and the
+  line below claiming it stopped stale reopens miscast "recent" as "real". It is replaced by two
+  load-bearing gates: `OrderStatusResponse` now exposes the existing `test_paid` DB column
+  (`testPaid`, no schema change - the column already existed for staff/local test-order tooling),
+  and the frontend only announces `payment_confirmed` when `testPaid === false` explicitly
+  (anything else, including a missing field from an old cached page, fails closed); a
+  `localStorage` ledger keyed by order id replaces the time window for cross-tab/cross-day dedup on
+  the same device. **Revenue/ecommerce is still off** - this is a JS goal via `reachGoal`, not
+  ecommerce/dataLayer, and no server-side outbox/exactly-once delivery exists; refunds are not
+  retroactively corrected and cross-device dedup is still not possible. One identifiable live QA
+  visit (real consent grant + `form_open` only, fixed non-secret QA UTM labels) confirmed the
+  actual outgoing `mc.yandex.ru`/`mc.yandex.com` wire requests carry only the sanitized payload -
+  see the full report for the exact timestamps needed for the owner/Codex's exclusion segment.
+  Full evidence: `target/METRICA-RESULT.md` (initial connection) and
+  `target/METRICA-REVIEW-RESULT.md` (this review).
 - `ops/seo/`: `SEARCH-CONSOLE-CHECKLIST.md`, `ANALYTICS.md`, `MEASUREMENT-PLAN.md`.
 
 ### Still not established
