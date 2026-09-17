@@ -121,7 +121,7 @@ class OrderAccessTest {
                 id, ru.Water_Tours.enums.OrderStatus.PAID, ru.Water_Tours.enums.OrderType.PRIVATE_BOAT,
                 new java.math.BigDecimal("9000.00"), java.time.Instant.parse("2026-09-11T10:00:00Z"),
                 true, 1, true, false, null, true,
-                "/api/v1/orders/" + id + "/tickets/pdf?accessToken=" + token));
+                "/api/v1/orders/" + id + "/tickets/pdf?accessToken=" + token, false));
 
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/orders/" + id + "/status")
                         .param("accessToken", token.toString()))
@@ -131,7 +131,9 @@ class OrderAccessTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
                         .jsonPath("$.status").value("PAID"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.pdfAvailable").value(true));
+                        .jsonPath("$.pdfAvailable").value(true))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.testPaid").value(false));
     }
 
     @Test

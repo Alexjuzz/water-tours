@@ -226,7 +226,8 @@ public class OrderService {
                 paid && issued && order.getEmail() != null && !order.getEmail().isBlank(),
                 paid && issued
                         ? "/api/v1/orders/" + orderId + "/tickets/pdf?accessToken=" + accessToken
-                        : null);
+                        : null,
+                Boolean.TRUE.equals(order.getTestPaid()));
     }
 
     public void checkAccess(UUID orderId, UUID accessToken) {

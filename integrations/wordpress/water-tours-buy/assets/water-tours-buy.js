@@ -156,15 +156,53 @@
   var RETURN_KEY = 'wt_return_pending';
   // announce('payment_confirmed', …) fires every time this screen renders, and it renders every
   // time a customer's browser sees PAID + ticketsIssued - including a genuinely old order,
-  // reopened weeks later to re-download the PDF. sessionStorage de-dup (see
-  // water-tours-analytics.js) only stops repeats within one browser tab; it does nothing for a
-  // revisit in a fresh tab or the next day. A payment freshness window is the cheap, honest fix
-  // available without a backend change: a real conversion is seen within minutes of paying, so
-  // gating on `paidAt` catches essentially every genuine one while dropping most stale revisits.
-  // What it does NOT do: distinguish a real payment from one a staff member created through the
-  // internal test-order tool - OrderStatusResponse carries no such flag today, and adding one is
-  // a backend decision, not made here (see target/METRICA-RESULT.md).
-  var PAYMENT_CONFIRMED_FRESHNESS_MS = 24 * 60 * 60 * 1000;
+  // reopened weeks later to re-download the PDF, or the same order polled again in a fresh tab.
+  // sessionStorage de-dup (see water-tours-analytics.js) only stops repeats within one browser
+  // tab; it does nothing for either of those. Two gates replace the old 24h "probably recent"
+  // guess below, both load-bearing rather than heuristic:
+  //  - provenance: `snapshot.testPaid` is now a real field from OrderStatusResponse, backed by
+  //    the same column StaffTestOrderService and LocalCheckoutService's test-pay path already set
+  //    to true. Only an explicit `false` counts as real; anything else (missing, true, or any
+  //    other value from a future backend) fails closed and is never announced - a stale frontend
+  //    talking to a backend that has not shipped this field yet must not fall back to trusting it.
+  //  - repetition: a localStorage ledger keyed by order id, not a time window, so a reopen next
+  //    week is caught exactly as reliably as one five minutes later, and a genuinely new order
+  //    paid five minutes after the last one is never suppressed by an unrelated order's timestamp.
+  var PAYMENT_CONFIRMED_LEDGER_KEY = 'wt_payment_confirmed_ledger';
+  var PAYMENT_CONFIRMED_LEDGER_MAX = 50;
+
+  function paymentConfirmedAlreadyAnnounced(orderId) {
+    try {
+      var list = JSON.parse(localStorage.getItem(PAYMENT_CONFIRMED_LEDGER_KEY) || '[]');
+      return Array.isArray(list) && list.indexOf(orderId) !== -1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * `testPaid` is a `boolean` field on the backend record, so Jackson always serializes it - it is
+   * never simply absent from a snapshot a current backend returns. Requiring the literal `false`
+   * (not just falsy) is what makes this fail closed: `true`, `null`, `undefined` (an old cached
+   * frontend talking to a backend that has not deployed this field yet) and any other value all
+   * count as "not known to be real" and are treated the same as a confirmed test order.
+   */
+  function isRealPaymentForAnalytics(snapshot) {
+    return !!snapshot && snapshot.testPaid === false;
+  }
+
+  function markPaymentConfirmedAnnounced(orderId) {
+    try {
+      var list = JSON.parse(localStorage.getItem(PAYMENT_CONFIRMED_LEDGER_KEY) || '[]');
+      if (!Array.isArray(list)) list = [];
+      if (list.indexOf(orderId) === -1) list.push(orderId);
+      while (list.length > PAYMENT_CONFIRMED_LEDGER_MAX) list.shift();
+      localStorage.setItem(PAYMENT_CONFIRMED_LEDGER_KEY, JSON.stringify(list));
+    } catch (e) {
+      // Private-mode/quota failure: the event is simply not de-duplicated across tabs/days this
+      // time. sessionStorage de-dup in water-tours-analytics.js still catches same-tab repeats.
+    }
+  }
 
   function createCheckout(options) {
     var modal = document.getElementById(options.modalId);
@@ -760,12 +798,10 @@
     function showPaid(order, snapshot) {
       setFormVisible(false);
       // De-duplicated downstream against repeat polls within this tab (see
-      // water-tours-analytics.js); gated here against a much older kind of repeat - a customer
-      // reopening an order that was paid days or weeks ago, which this same screen renders
-      // identically. Only a payment within PAYMENT_CONFIRMED_FRESHNESS_MS is announced.
-      var paidAtMs = snapshot && snapshot.paidAt ? Date.parse(snapshot.paidAt) : NaN;
-      var isFreshPayment = isFinite(paidAtMs) && (Date.now() - paidAtMs) < PAYMENT_CONFIRMED_FRESHNESS_MS;
-      if (isFreshPayment) {
+      // water-tours-analytics.js); gated here against the two things that matter for a sales
+      // signal: is this actually a real payment, and has this device already reported this order.
+      if (isRealPaymentForAnalytics(snapshot) && !paymentConfirmedAlreadyAnnounced(order.id)) {
+        markPaymentConfirmedAnnounced(order.id);
         announce('payment_confirmed', {
           product: options.kind, orderId: order.id,
           amount: snapshot && Number(snapshot.totalAmount)
