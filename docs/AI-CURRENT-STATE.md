@@ -379,12 +379,21 @@ and assets, against the real backend with mocked SMTP (MailHog), mocked Telegram
   (14 entries). Retention is `-mtime +7`; the tree is 269 MB.
 
 ### SEO and analytics
-- `inc/seo.php` in the River theme: description (front page only — it used to be a literal tag in
-  the template, so archives and 404s claimed to be the ticket page), canonical only where core
-  emits none, `noindex,follow` on search/404/date/author/tag/paged, Open Graph, and JSON-LD with
-  Organization, WebSite and the two services carrying the **real** backend prices. No
-  LocalBusiness (no confirmed address), no rating, no FAQPage. Everything stands down if an SEO
+- `inc/seo.php` in the River theme: description and Open Graph on every **indexable singular**
+  view, canonical only where core emits none, `noindex,follow` on search/404/date/author/tag/paged,
+  and JSON-LD with Organization, WebSite and the two services carrying the **real** backend prices.
+  No LocalBusiness (no confirmed address), no rating, no FAQPage. Everything stands down if an SEO
   plugin is ever installed.
+  - The description started as a literal tag in the template, so archives and 404s claimed to be
+    the ticket page; moving it here and restricting it to the front page fixed that, and was right
+    while the front page was the only page. Since `/contacts/` exists that restriction was itself
+    the bug — an indexable page in `wp-sitemap.xml` was going out with no description and no OG at
+    all. As of 2026-09-18 the front page keeps its written description and title (front-page output
+    verified byte-identical, on the stand and in a unit harness), and every other page/post
+    describes itself from its own excerpt — manual if the owner wrote one, WordPress's derived one
+    otherwise, and **no tag at all** when there is no usable text. `og:url` comes from
+    `get_permalink()` so it cannot disagree with core's canonical. Verified on real WordPress 7.1;
+    **not yet deployed** — see `target/SEO-BUSINESS-NEXT-STAGE-RESULT.md`.
 - Responsive derivatives of both photos (originals untouched): a phone now takes 66 KB instead of
   207 KB for the LCP image. Nav and footer tap targets brought above 24 px.
 - **Analytics: connected live 2026-09-16 (`92bd07f`), reviewed and corrected 2026-09-17

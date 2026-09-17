@@ -213,37 +213,122 @@ add_action('wp_head', function () {
 }, 2);
 
 /**
+ * The description of the page being rendered.
+ *
+ * The front page has one written description, above. Every other page and post describes itself:
+ * its manual excerpt if the owner wrote one, otherwise the excerpt WordPress derives from the
+ * content. Nothing here composes a sentence the page does not already say - that is the whole
+ * point. `wp_trim_excerpt()` strips shortcodes before it trims, so a page built out of a
+ * shortcode (`/contacts/` is) contributes its own prose and not the block that shortcode renders.
+ *
+ * Returns '' when there is nothing usable, and the caller then prints no description tag at all.
+ * A page with no description is merely less informative; a page with an invented one is false,
+ * and a page with an empty one is noise a search engine has to ignore.
+ */
+function wt_river_seo_singular_description() {
+    if (is_front_page()) { return wt_river_seo_description(); }
+    if (!is_singular()) { return ''; }
+
+    $post = get_post();
+    if (!$post) { return ''; }
+
+    $text = (string) get_the_excerpt($post);
+    // The excerpt arrives HTML-escaped and texturised (`&#8212;`, `&hellip;`). Decode once here so
+    // the tag carries the characters the page shows; `esc_attr()` at the print site re-escapes
+    // exactly what an attribute needs, and decoding twice is how a description ends up mangled.
+    $text = html_entity_decode(wp_strip_all_tags($text, true), ENT_QUOTES, 'UTF-8');
+    $text = trim(preg_replace('/\s+/u', ' ', $text));
+    // WordPress marks a trimmed excerpt with a trailing `[...]`. In a sentence a person reads in a
+    // search result an ellipsis says the same thing without the brackets.
+    $text = preg_replace('/\s*\[\x{2026}\]\s*$/u', "\xE2\x80\xA6", $text);
+
+    return (string) apply_filters('water_tours_seo_singular_description', $text, $post);
+}
+
+/**
+ * Trim a description to a length a search result can actually show, on a word boundary.
+ *
+ * 300 characters, not 160: a longer description is not an error and the engine picks its own
+ * snippet anyway, but an unbounded one is a whole page in a meta tag. Without mbstring, byte
+ * slicing would cut a Cyrillic letter in half, so the text is left whole instead - being long is
+ * a smaller fault than being corrupt.
+ */
+function wt_river_seo_trim_description($text, $limit = 300) {
+    if (!function_exists('mb_strlen') || mb_strlen($text, 'UTF-8') <= $limit) { return $text; }
+    $cut = mb_substr($text, 0, $limit, 'UTF-8');
+    $space = mb_strrpos($cut, ' ', 0, 'UTF-8');
+    if ($space !== false && $space > (int) ($limit / 2)) { $cut = mb_substr($cut, 0, $space, 'UTF-8'); }
+    return rtrim($cut, " \t\n\r\0\x0B,;:-") . "\xE2\x80\xA6";
+}
+
+/**
+ * The URL a page should be shared and indexed under.
+ *
+ * For a singular view this is `get_permalink()` - the same value core's own `rel_canonical`
+ * prints, so `og:url` and the canonical can never disagree about which URL the page is. The
+ * REQUEST_URI path is the fallback for the views that have no permalink, and it is also the one
+ * that doubles the path on a subdirectory install (backlog N7); routing singular views around it
+ * removes the case that matters from the failure.
+ */
+function wt_river_seo_canonical_url() {
+    if (is_front_page()) { return home_url('/'); }
+    if (is_singular()) {
+        $permalink = get_permalink();
+        if (is_string($permalink) && $permalink !== '') { return $permalink; }
+    }
+    return wt_river_seo_current_url();
+}
+
+/**
  * Description and link preview.
  *
  * The description used to be a literal `<meta>` in home-river.php, which meant every view the
- * theme rendered - archives, search, 404 - claimed to be the ticket page. It is emitted here so
- * it appears on the front page and nowhere else.
+ * theme rendered - archives, search, 404 - claimed to be the ticket page. Moving it here fixed
+ * that by restricting it to the front page, which was right at the time: the front page was the
+ * only page this site had.
+ *
+ * It is no longer. `/contacts/` is a real, indexable page, listed in `wp-sitemap.xml` and the URL
+ * submitted for Yandex's regional affiliation - and it was going out with no description and no
+ * Open Graph at all, so a search engine wrote its own snippet and a link to it pasted into a chat
+ * previewed as nothing. The condition is now "an indexable singular view", which covers the front
+ * page exactly as before and every page the owner adds next without another edit here.
+ *
+ * `wt_river_seo_should_noindex()` gates it: a view this theme asks not to index has no snippet to
+ * improve. Archives never get here at all - `is_singular()` is false for them, and the rest of
+ * this file already keeps them out of the index.
  *
  * Open Graph is here for one reason: a link to this site shared in a messenger or a chat should
  * show what it is. It is not a ranking mechanism and is not presented as one.
  */
 add_action('wp_head', function () {
     if (wt_river_seo_handled_elsewhere()) { return; }
-    if (!is_front_page()) { return; }
+    if (!is_singular()) { return; }
+    if (wt_river_seo_should_noindex()) { return; }
 
-    $description = wt_river_seo_description();
-    $url = wt_river_seo_current_url();
+    $description = wt_river_seo_trim_description(wt_river_seo_singular_description());
+    $url = wt_river_seo_canonical_url();
     $image = wt_river_seo_share_image();
-    $title = wt_river_seo_title();
+    $title = is_front_page() ? wt_river_seo_title() : wp_get_document_title();
 
-    printf('<meta name="description" content="%s">' . "\n", esc_attr($description));
-    printf('<meta property="og:type" content="website">' . "\n");
+    if ($description !== '') {
+        printf('<meta name="description" content="%s">' . "\n", esc_attr($description));
+    }
+    printf('<meta property="og:type" content="%s">' . "\n", is_singular('post') ? 'article' : 'website');
     printf('<meta property="og:site_name" content="%s">' . "\n", esc_attr(wt_river_seo_site_name()));
     printf('<meta property="og:locale" content="ru_RU">' . "\n");
     printf('<meta property="og:title" content="%s">' . "\n", esc_attr($title));
-    printf('<meta property="og:description" content="%s">' . "\n", esc_attr($description));
+    if ($description !== '') {
+        printf('<meta property="og:description" content="%s">' . "\n", esc_attr($description));
+    }
     printf('<meta property="og:url" content="%s">' . "\n", esc_url($url));
     printf('<meta property="og:image" content="%s">' . "\n", esc_url($image));
     printf('<meta property="og:image:alt" content="%s">' . "\n",
         esc_attr('Канал и вечерний Петербург с воды'));
     printf('<meta name="twitter:card" content="summary_large_image">' . "\n");
     printf('<meta name="twitter:title" content="%s">' . "\n", esc_attr($title));
-    printf('<meta name="twitter:description" content="%s">' . "\n", esc_attr($description));
+    if ($description !== '') {
+        printf('<meta name="twitter:description" content="%s">' . "\n", esc_attr($description));
+    }
     printf('<meta name="twitter:image" content="%s">' . "\n", esc_url($image));
 }, 3);
 
