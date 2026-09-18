@@ -392,8 +392,13 @@ and assets, against the real backend with mocked SMTP (MailHog), mocked Telegram
     verified byte-identical, on the stand and in a unit harness), and every other page/post
     describes itself from its own excerpt — manual if the owner wrote one, WordPress's derived one
     otherwise, and **no tag at all** when there is no usable text. `og:url` comes from
-    `get_permalink()` so it cannot disagree with core's canonical. Verified on real WordPress 7.1;
-    **not yet deployed** — see `target/SEO-BUSINESS-NEXT-STAGE-RESULT.md`.
+    `get_permalink()` so it cannot disagree with core's canonical. Verified on real WordPress 7.1
+    and **deployed 2026-09-18**: live `/contacts/` carries one `description` plus 8 OG and 4 twitter
+    tags, `og:url` equals the canonical, and the homepage response is byte-identical before and
+    after (48 489 B). Page 12 was given a manual `post_excerpt` in the same pass (only that field
+    and `post_modified` changed). Backup and exact rollback:
+    `/root/backups/pre-deploy/seo-description-20260918-175627/`; detail in
+    `target/SEO-BUSINESS-NEXT-STAGE-RESULT.md` §4.
 - Responsive derivatives of both photos (originals untouched): a phone now takes 66 KB instead of
   207 KB for the LCP image. Nav and footer tap targets brought above 24 px.
 - **Analytics: connected live 2026-09-16 (`92bd07f`), reviewed and corrected 2026-09-17
